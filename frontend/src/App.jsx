@@ -5,6 +5,31 @@ const emptyState = {
   charts: [],
 };
 
+const HERO_VARIANTS = [
+  {
+    key: "editorial",
+    label: "Editorial",
+    title: "Chart Vault",
+    slogan: "Your visual market memory, organized at a glance.",
+  },
+  {
+    key: "gradient",
+    label: "Gradient",
+    title: "Chart Vault",
+    slogan: "Capture every setup. Revisit every edge.",
+    description:
+      "A bold gradient treatment inspired by high-contrast SaaS hero sections.",
+  },
+  {
+    key: "minimal",
+    label: "Minimal",
+    title: "Chart Vault",
+    slogan: "The archive for your charting discipline.",
+    description:
+      "A restrained, utility-focused option inspired by productivity dashboards.",
+  },
+];
+
 const fetchJson = async (url, options) => {
   const response = await fetch(url, options);
   if (!response.ok) {
@@ -32,6 +57,7 @@ export default function App() {
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [isModalFullscreen, setIsModalFullscreen] = useState(false);
+  const [heroVariant, setHeroVariant] = useState(HERO_VARIANTS[0].key);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
@@ -160,6 +186,11 @@ export default function App() {
     }
     return tickers.filter((ticker) => ticker.includes(query));
   }, [tickerSearch, tickers]);
+
+  const activeHero = useMemo(
+    () => HERO_VARIANTS.find((variant) => variant.key === heroVariant) || HERO_VARIANTS[0],
+    [heroVariant]
+  );
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -290,13 +321,25 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div>
-          <p className="eyebrow">Chart Vault</p>
-          <h1>Store and review your trading chart snapshots.</h1>
-          <p className="subtitle">
-            Upload PNG charts by ticker and date. Instantly browse your visual
-            history with a responsive, card-based gallery.
-          </p>
+        <div className={`hero hero-${activeHero.key}`}>
+          <p className="eyebrow">Trading chart library</p>
+          <h1>{activeHero.title}</h1>
+          <p className="hero-slogan">{activeHero.slogan}</p>
+          {activeHero.description ? <p className="subtitle">{activeHero.description}</p> : null}
+          <div className="hero-variants" role="tablist" aria-label="Hero title styles">
+            {HERO_VARIANTS.map((variant) => (
+              <button
+                key={variant.key}
+                type="button"
+                role="tab"
+                aria-selected={heroVariant === variant.key}
+                className={`variant-button ${heroVariant === variant.key ? "active" : ""}`}
+                onClick={() => setHeroVariant(variant.key)}
+              >
+                {variant.label}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
