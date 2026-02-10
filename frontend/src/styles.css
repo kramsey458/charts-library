@@ -89,7 +89,7 @@ img {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .selector,
@@ -100,6 +100,10 @@ img {
   padding: 24px;
   display: grid;
   gap: 16px;
+}
+
+.selector {
+  grid-template-rows: auto auto 1fr;
 }
 
 .selector label,
@@ -124,8 +128,103 @@ input:focus {
   border-color: transparent;
 }
 
+
+input[type="date"] {
+  color-scheme: dark;
+  padding-right: 52px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.date-input-wrap {
+  position: relative;
+}
+
+.date-picker-trigger {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.date-picker-trigger:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .upload {
   gap: 12px;
+}
+
+.ticker-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ticker-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.ticker-table th,
+.ticker-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ticker-table th {
+  position: sticky;
+  top: 0;
+  background: rgba(18, 25, 52, 0.95);
+  color: #c8d1f7;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ticker-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.ticker-table tbody tr:hover {
+  background: rgba(106, 123, 255, 0.12);
+}
+
+.ticker-row-button {
+  width: 100%;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  box-shadow: none;
+}
+
+.ticker-table .active-row {
+  background: rgba(106, 123, 255, 0.25);
+}
+
+.ticker-empty {
+  color: #a3abcb;
 }
 
 .upload-field {
@@ -226,7 +325,16 @@ button:disabled {
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
 }
 
-.chart-card img {
+.chart-preview-trigger {
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  box-shadow: none;
+  background: transparent;
+  overflow: hidden;
+}
+
+.chart-preview-trigger img {
   border-radius: 14px;
   aspect-ratio: 4 / 3;
   object-fit: cover;
@@ -235,8 +343,67 @@ button:disabled {
 .chart-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.85rem;
   color: #b8c0e5;
+}
+
+.chart-meta a,
+.chart-modal-meta a {
+  color: #a8b6ff;
+  text-decoration: none;
+}
+
+.chart-meta a:hover,
+.chart-modal-meta a:hover {
+  text-decoration: underline;
+}
+
+.delete-button {
+  background: linear-gradient(120deg, #ff6a88, #ff6c6c);
+}
+
+.chart-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.chart-modal {
+  width: min(96vw, 1200px);
+  max-height: 94vh;
+  background: #090e1f;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.close-modal {
+  justify-self: end;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.chart-modal-image {
+  width: 100%;
+  max-height: calc(94vh - 110px);
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.chart-modal-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #c7cef0;
+  font-size: 0.95rem;
 }
 
 @media (max-width: 720px) {
@@ -246,5 +413,9 @@ button:disabled {
 
   .header-card {
     width: 100%;
+  }
+
+  .chart-modal-meta {
+    flex-direction: column;
   }
 }

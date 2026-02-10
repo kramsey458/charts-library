@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const emptyState = {
   tickers: [],
@@ -14,17 +14,26 @@ const fetchJson = async (url, options) => {
   return response.json();
 };
 
+const buildChartPath = (chart) => {
+  return `/api/chart-file/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+    chart.date
+  )}/${encodeURIComponent(chart.filename)}`;
+};
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
+  const [tickerSearch, setTickerSearch] = useState("");
   const [charts, setCharts] = useState(emptyState.charts);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [previewChart, setPreviewChart] = useState(null);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
     file: null,
   });
+  const dateInputRef = useRef(null);
 
   const groupedCharts = useMemo(() => {
     return charts.reduce((groups, chart) => {
@@ -39,6 +48,14 @@ export default function App() {
   const sortedDates = useMemo(() => {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
   }, [groupedCharts]);
+
+  const filteredTickers = useMemo(() => {
+    const query = tickerSearch.trim().toUpperCase();
+    if (!query) {
+      return tickers;
+    }
+    return tickers.filter((ticker) => ticker.includes(query));
+  }, [tickerSearch, tickers]);
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -56,7 +73,7 @@ export default function App() {
     setStatus("loading");
     setError("");
     try {
-      const data = await fetchJson(`/api/charts/${ticker}`);
+      const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
       setCharts(data.charts);
     } catch (err) {
       setError(err.message);
@@ -84,8 +101,9 @@ export default function App() {
       return;
     }
 
+    const normalizedTicker = formState.ticker.trim().toUpperCase();
     const formData = new FormData();
-    formData.append("ticker", formState.ticker.trim().toUpperCase());
+    formData.append("ticker", normalizedTicker);
     formData.append("date", formState.date);
     formData.append("chart", formState.file);
 
@@ -96,8 +114,8 @@ export default function App() {
         body: formData,
       });
       await loadTickers();
-      setSelectedTicker(formState.ticker.trim().toUpperCase());
-      await loadCharts(formState.ticker.trim().toUpperCase());
+      setSelectedTicker(normalizedTicker);
+      await loadCharts(normalizedTicker);
       setFormState({ ticker: "", date: "", file: null });
     } catch (err) {
       setError(err.message);
@@ -105,6 +123,56 @@ export default function App() {
       setStatus("idle");
     }
   };
+
+  const handleDeleteChart = async (chart) => {
+    const shouldDelete = window.confirm(
+      `Delete ${chart.filename} from ${chart.ticker} on ${chart.date}?`
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    setError("");
+    try {
+      setStatus("deleting");
+      await fetchJson(
+        `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+          chart.date
+        )}/${encodeURIComponent(chart.filename)}`,
+        { method: "DELETE" }
+      );
+      await loadCharts(selectedTicker);
+      await loadTickers();
+      if (
+        previewChart &&
+        previewChart.ticker === chart.ticker &&
+        previewChart.date === chart.date &&
+        previewChart.filename === chart.filename
+      ) {
+        setPreviewChart(null);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+
+  useEffect(() => {
+    if (!previewChart) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setPreviewChart(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewChart]);
 
   return (
     <div className="app">
@@ -131,19 +199,51 @@ export default function App() {
 
       <section className="controls">
         <div className="selector">
-          <label htmlFor="ticker-select">Ticker library</label>
-          <select
-            id="ticker-select"
-            value={selectedTicker}
-            onChange={(event) => setSelectedTicker(event.target.value)}
-          >
-            <option value="">Select a ticker</option>
-            {tickers.map((ticker) => (
-              <option key={ticker} value={ticker}>
-                {ticker}
-              </option>
-            ))}
-          </select>
+          <label htmlFor="ticker-search">Ticker library</label>
+          <input
+            id="ticker-search"
+            placeholder="Search ticker (e.g. NVDA)"
+            value={tickerSearch}
+            onChange={(event) => setTickerSearch(event.target.value.toUpperCase())}
+          />
+
+          <div className="ticker-table-wrap">
+            <table className="ticker-table" aria-label="Stored tickers">
+              <thead>
+                <tr>
+                  <th scope="col">Ticker</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTickers.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="ticker-empty">
+                      No tickers match your search.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTickers.map((ticker) => {
+                    const isActive = ticker === selectedTicker;
+                    return (
+                      <tr key={ticker} className={isActive ? "active-row" : ""}>
+                        <td>{ticker}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ticker-row-button"
+                            onClick={() => setSelectedTicker(ticker)}
+                          >
+                            {isActive ? "Selected" : "View"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <form className="upload" onSubmit={handleUpload}>
@@ -164,14 +264,31 @@ export default function App() {
           </div>
           <div className="upload-field">
             <label htmlFor="date-input">Date</label>
-            <input
-              id="date-input"
-              type="date"
-              value={formState.date}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, date: event.target.value }))
-              }
-            />
+            <div className="date-input-wrap">
+              <input
+                id="date-input"
+                ref={dateInputRef}
+                type="date"
+                value={formState.date}
+                onChange={(event) =>
+                  setFormState((prev) => ({ ...prev, date: event.target.value }))
+                }
+              />
+              <button
+                type="button"
+                className="date-picker-trigger"
+                aria-label="Open date picker"
+                onClick={() => {
+                  if (dateInputRef.current?.showPicker) {
+                    dateInputRef.current.showPicker();
+                  } else {
+                    dateInputRef.current?.focus();
+                  }
+                }}
+              >
+                📅
+              </button>
+            </div>
           </div>
           <div className="upload-field">
             <label htmlFor="file-input">Chart PNG</label>
@@ -216,11 +333,28 @@ export default function App() {
                 <div className="chart-grid">
                   {groupedCharts[date].map((chart) => (
                     <div className="chart-card" key={`${chart.date}-${chart.filename}`}>
-                      <img src={chart.url} alt={`${chart.ticker} chart`} />
+                      <button
+                        type="button"
+                        className="chart-preview-trigger"
+                        onClick={() => setPreviewChart(chart)}
+                        aria-label={`Open full image for ${chart.filename}`}
+                      >
+                        <img src={buildChartPath(chart)} alt={`${chart.ticker} chart`} />
+                      </button>
                       <div className="chart-meta">
-                        <span>{chart.filename}</span>
+                        <a href={buildChartPath(chart)} download={chart.filename}>
+                          {chart.filename}
+                        </a>
                         <span>{chart.ticker}</span>
                       </div>
+                      <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() => handleDeleteChart(chart)}
+                        disabled={status === "deleting"}
+                      >
+                        Delete
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -229,6 +363,39 @@ export default function App() {
           </div>
         )}
       </section>
+
+      {previewChart && (
+        <div className="chart-modal-overlay" onClick={() => setPreviewChart(null)}>
+          <div
+            className="chart-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chart image preview"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="close-modal"
+              onClick={() => setPreviewChart(null)}
+            >
+              Close
+            </button>
+            <img
+              className="chart-modal-image"
+              src={buildChartPath(previewChart)}
+              alt={`${previewChart.ticker} ${previewChart.filename}`}
+            />
+            <div className="chart-modal-meta">
+              <a href={buildChartPath(previewChart)} download={previewChart.filename}>
+                {previewChart.filename}
+              </a>
+              <span>
+                {previewChart.ticker} • {previewChart.date}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
