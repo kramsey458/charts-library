@@ -298,21 +298,15 @@ export default function App() {
             history with a responsive, card-based gallery.
           </p>
         </div>
-        <div className="header-card">
-          <div className="stat">
-            <span className="stat-label">Tickers tracked</span>
-            <span className="stat-value">{tickers.length}</span>
-          </div>
-          <div className="stat">
-            <span className="stat-label">Charts stored</span>
-            <span className="stat-value">{charts.length}</span>
-          </div>
-        </div>
       </header>
 
       <section className="controls">
         <div className="selector">
           <label htmlFor="ticker-search">Ticker library</label>
+          <p className="ticker-library-summary">
+            {tickers.length} ticker{tickers.length === 1 ? "" : "s"} tracked • {charts.length} chart
+            {charts.length === 1 ? "" : "s"} stored
+          </p>
           <input
             id="ticker-search"
             placeholder="Search ticker (e.g. NVDA)"
