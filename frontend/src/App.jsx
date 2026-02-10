@@ -31,12 +31,14 @@ export default function App() {
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
+  const [isModalFullscreen, setIsModalFullscreen] = useState(false);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
     file: null,
   });
   const dateInputRef = useRef(null);
+  const modalRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
 
@@ -55,8 +57,12 @@ export default function App() {
   };
 
   const closeChartPreview = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
     setPreviewChart(null);
     setIsPanning(false);
+    setIsModalFullscreen(false);
   };
 
   const updateZoom = (nextZoom) => {
@@ -115,6 +121,22 @@ export default function App() {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     setIsPanning(false);
+  };
+
+  const toggleModalFullscreen = async () => {
+    if (!modalRef.current) {
+      return;
+    }
+
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await modalRef.current.requestFullscreen();
+      }
+    } catch {
+      // no-op when fullscreen is unavailable
+    }
   };
 
   const groupedCharts = useMemo(() => {
@@ -255,6 +277,15 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [previewChart]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsModalFullscreen(Boolean(document.fullscreenElement));
+    };
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   return (
     <div className="app">
@@ -449,7 +480,8 @@ export default function App() {
       {previewChart && (
         <div className="chart-modal-overlay" onClick={closeChartPreview}>
           <div
-            className="chart-modal"
+            ref={modalRef}
+            className={`chart-modal ${isModalFullscreen ? "is-fullscreen" : ""}`}
             role="dialog"
             aria-modal="true"
             aria-label="Chart image preview"
@@ -468,9 +500,14 @@ export default function App() {
                 </button>
                 <span>{Math.round(previewZoom * 100)}%</span>
               </div>
-              <button type="button" className="close-modal" onClick={closeChartPreview}>
-                Close
-              </button>
+              <div className="modal-actions">
+                <button type="button" className="fullscreen-toggle" onClick={toggleModalFullscreen}>
+                  {isModalFullscreen ? "Exit full screen" : "Full screen"}
+                </button>
+                <button type="button" className="close-modal" onClick={closeChartPreview}>
+                  Close
+                </button>
+              </div>
             </div>
             <div
               className={`chart-modal-image-viewport ${previewZoom > 1 ? "is-zoomed" : ""}`}
