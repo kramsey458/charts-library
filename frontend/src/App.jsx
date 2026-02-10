@@ -158,6 +158,22 @@ export default function App() {
     }
   };
 
+
+  useEffect(() => {
+    if (!previewChart) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setPreviewChart(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [previewChart]);
+
   return (
     <div className="app">
       <header className="header">
@@ -210,13 +226,17 @@ export default function App() {
                   filteredTickers.map((ticker) => {
                     const isActive = ticker === selectedTicker;
                     return (
-                      <tr
-                        key={ticker}
-                        className={isActive ? "active-row" : ""}
-                        onClick={() => setSelectedTicker(ticker)}
-                      >
+                      <tr key={ticker} className={isActive ? "active-row" : ""}>
                         <td>{ticker}</td>
-                        <td>{isActive ? "Selected" : "View"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="ticker-row-button"
+                            onClick={() => setSelectedTicker(ticker)}
+                          >
+                            {isActive ? "Selected" : "View"}
+                          </button>
+                        </td>
                       </tr>
                     );
                   })
@@ -345,18 +365,14 @@ export default function App() {
       </section>
 
       {previewChart && (
-        <div
-          className="chart-modal-overlay"
-          role="button"
-          tabIndex={0}
-          onClick={() => setPreviewChart(null)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" || event.key === "Enter") {
-              setPreviewChart(null);
-            }
-          }}
-        >
-          <div className="chart-modal" onClick={(event) => event.stopPropagation()}>
+        <div className="chart-modal-overlay" onClick={() => setPreviewChart(null)}>
+          <div
+            className="chart-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chart image preview"
+            onClick={(event) => event.stopPropagation()}
+          >
             <button
               type="button"
               className="close-modal"

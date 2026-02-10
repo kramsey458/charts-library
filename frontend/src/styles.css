@@ -204,12 +204,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .ticker-table tbody tr {
-  cursor: pointer;
   transition: background-color 0.2s ease;
 }
 
 .ticker-table tbody tr:hover {
-  background: rgba(106, 123, 255, 0.15);
+  background: rgba(106, 123, 255, 0.12);
+}
+
+.ticker-row-button {
+  width: 100%;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  box-shadow: none;
 }
 
 .ticker-table .active-row {
