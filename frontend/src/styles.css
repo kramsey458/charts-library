@@ -472,6 +472,17 @@ button:disabled {
   gap: 12px;
   color: #c7cef0;
   font-size: 0.95rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chart-modal-context {
+  white-space: nowrap;
+}
+
+.resize-hint {
+  color: #94a1d7;
+  font-size: 0.85rem;
 }
 
 @media (max-width: 720px) {

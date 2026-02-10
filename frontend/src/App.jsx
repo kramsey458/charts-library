@@ -57,7 +57,7 @@ export default function App() {
   };
 
   const closeChartPreview = () => {
-    if (document.fullscreenElement) {
+    if (document.fullscreenElement === modalRef.current) {
       document.exitFullscreen().catch(() => {});
     }
     setPreviewChart(null);
@@ -129,9 +129,9 @@ export default function App() {
     }
 
     try {
-      if (document.fullscreenElement) {
+      if (document.fullscreenElement === modalRef.current) {
         await document.exitFullscreen();
-      } else {
+      } else if (!document.fullscreenElement) {
         await modalRef.current.requestFullscreen();
       }
     } catch {
@@ -280,7 +280,7 @@ export default function App() {
 
   useEffect(() => {
     const onFullscreenChange = () => {
-      setIsModalFullscreen(Boolean(document.fullscreenElement));
+      setIsModalFullscreen(document.fullscreenElement === modalRef.current);
     };
 
     document.addEventListener("fullscreenchange", onFullscreenChange);
@@ -484,7 +484,7 @@ export default function App() {
             className={`chart-modal ${isModalFullscreen ? "is-fullscreen" : ""}`}
             role="dialog"
             aria-modal="true"
-            aria-label="Chart image preview"
+            aria-label="Chart image preview. You can resize this modal from its bottom-right corner."
             onClick={(event) => event.stopPropagation()}
           >
             <div className="chart-modal-toolbar">
@@ -501,7 +501,12 @@ export default function App() {
                 <span>{Math.round(previewZoom * 100)}%</span>
               </div>
               <div className="modal-actions">
-                <button type="button" className="fullscreen-toggle" onClick={toggleModalFullscreen}>
+                <button
+                  type="button"
+                  className="fullscreen-toggle"
+                  onClick={toggleModalFullscreen}
+                  aria-label={isModalFullscreen ? "Exit fullscreen chart preview" : "Enter fullscreen chart preview"}
+                >
                   {isModalFullscreen ? "Exit full screen" : "Full screen"}
                 </button>
                 <button type="button" className="close-modal" onClick={closeChartPreview}>
@@ -530,9 +535,10 @@ export default function App() {
               <a href={buildChartPath(previewChart)} download={previewChart.filename}>
                 {previewChart.filename}
               </a>
-              <span>
+              <span className="chart-modal-context">
                 {previewChart.ticker} • {previewChart.date}
               </span>
+              {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
             </div>
           </div>
         </div>
