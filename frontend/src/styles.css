@@ -226,7 +226,16 @@ button:disabled {
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
 }
 
-.chart-card img {
+.chart-preview-trigger {
+  padding: 0;
+  border: none;
+  border-radius: 14px;
+  box-shadow: none;
+  background: transparent;
+  overflow: hidden;
+}
+
+.chart-preview-trigger img {
   border-radius: 14px;
   aspect-ratio: 4 / 3;
   object-fit: cover;
@@ -235,8 +244,67 @@ button:disabled {
 .chart-meta {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   font-size: 0.85rem;
   color: #b8c0e5;
+}
+
+.chart-meta a,
+.chart-modal-meta a {
+  color: #a8b6ff;
+  text-decoration: none;
+}
+
+.chart-meta a:hover,
+.chart-modal-meta a:hover {
+  text-decoration: underline;
+}
+
+.delete-button {
+  background: linear-gradient(120deg, #ff6a88, #ff6c6c);
+}
+
+.chart-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.chart-modal {
+  width: min(96vw, 1200px);
+  max-height: 94vh;
+  background: #090e1f;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.close-modal {
+  justify-self: end;
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.chart-modal-image {
+  width: 100%;
+  max-height: calc(94vh - 110px);
+  object-fit: contain;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.chart-modal-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #c7cef0;
+  font-size: 0.95rem;
 }
 
 @media (max-width: 720px) {
@@ -246,5 +314,9 @@ button:disabled {
 
   .header-card {
     width: 100%;
+  }
+
+  .chart-modal-meta {
+    flex-direction: column;
   }
 }

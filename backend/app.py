@@ -110,6 +110,24 @@ def upload_chart():
     )
 
 
+@app.delete("/api/charts/<ticker>/<date_label>/<filename>")
+def delete_chart(ticker: str, date_label: str, filename: str):
+    chart_path = STORAGE_DIR / ticker / date_label / filename
+    if not chart_path.exists() or not chart_path.is_file():
+        return jsonify({"error": "Chart not found."}), 404
+
+    chart_path.unlink()
+
+    date_dir = chart_path.parent
+    ticker_dir = date_dir.parent
+
+    if date_dir.exists() and not any(date_dir.iterdir()):
+        date_dir.rmdir()
+    if ticker_dir.exists() and not any(ticker_dir.iterdir()):
+        ticker_dir.rmdir()
+
+    return jsonify({"message": "Chart deleted."})
+
 @app.get("/api/chart-file/<ticker>/<date_label>/<filename>")
 def get_chart_file(ticker: str, date_label: str, filename: str):
     target_dir = STORAGE_DIR / ticker / date_label

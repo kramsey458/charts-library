@@ -14,12 +14,19 @@ const fetchJson = async (url, options) => {
   return response.json();
 };
 
+const buildChartPath = (chart) => {
+  return `/api/chart-file/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+    chart.date
+  )}/${encodeURIComponent(chart.filename)}`;
+};
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
   const [charts, setCharts] = useState(emptyState.charts);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
+  const [previewChart, setPreviewChart] = useState(null);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
@@ -56,7 +63,7 @@ export default function App() {
     setStatus("loading");
     setError("");
     try {
-      const data = await fetchJson(`/api/charts/${ticker}`);
+      const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
       setCharts(data.charts);
     } catch (err) {
       setError(err.message);
@@ -84,8 +91,9 @@ export default function App() {
       return;
     }
 
+    const normalizedTicker = formState.ticker.trim().toUpperCase();
     const formData = new FormData();
-    formData.append("ticker", formState.ticker.trim().toUpperCase());
+    formData.append("ticker", normalizedTicker);
     formData.append("date", formState.date);
     formData.append("chart", formState.file);
 
@@ -96,9 +104,43 @@ export default function App() {
         body: formData,
       });
       await loadTickers();
-      setSelectedTicker(formState.ticker.trim().toUpperCase());
-      await loadCharts(formState.ticker.trim().toUpperCase());
+      setSelectedTicker(normalizedTicker);
+      await loadCharts(normalizedTicker);
       setFormState({ ticker: "", date: "", file: null });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const handleDeleteChart = async (chart) => {
+    const shouldDelete = window.confirm(
+      `Delete ${chart.filename} from ${chart.ticker} on ${chart.date}?`
+    );
+    if (!shouldDelete) {
+      return;
+    }
+
+    setError("");
+    try {
+      setStatus("deleting");
+      await fetchJson(
+        `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+          chart.date
+        )}/${encodeURIComponent(chart.filename)}`,
+        { method: "DELETE" }
+      );
+      await loadCharts(selectedTicker);
+      await loadTickers();
+      if (
+        previewChart &&
+        previewChart.ticker === chart.ticker &&
+        previewChart.date === chart.date &&
+        previewChart.filename === chart.filename
+      ) {
+        setPreviewChart(null);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -216,11 +258,28 @@ export default function App() {
                 <div className="chart-grid">
                   {groupedCharts[date].map((chart) => (
                     <div className="chart-card" key={`${chart.date}-${chart.filename}`}>
-                      <img src={chart.url} alt={`${chart.ticker} chart`} />
+                      <button
+                        type="button"
+                        className="chart-preview-trigger"
+                        onClick={() => setPreviewChart(chart)}
+                        aria-label={`Open full image for ${chart.filename}`}
+                      >
+                        <img src={buildChartPath(chart)} alt={`${chart.ticker} chart`} />
+                      </button>
                       <div className="chart-meta">
-                        <span>{chart.filename}</span>
+                        <a href={buildChartPath(chart)} download={chart.filename}>
+                          {chart.filename}
+                        </a>
                         <span>{chart.ticker}</span>
                       </div>
+                      <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() => handleDeleteChart(chart)}
+                        disabled={status === "deleting"}
+                      >
+                        Delete
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -229,6 +288,43 @@ export default function App() {
           </div>
         )}
       </section>
+
+      {previewChart && (
+        <div
+          className="chart-modal-overlay"
+          role="button"
+          tabIndex={0}
+          onClick={() => setPreviewChart(null)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" || event.key === "Enter") {
+              setPreviewChart(null);
+            }
+          }}
+        >
+          <div className="chart-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="close-modal"
+              onClick={() => setPreviewChart(null)}
+            >
+              Close
+            </button>
+            <img
+              className="chart-modal-image"
+              src={buildChartPath(previewChart)}
+              alt={`${previewChart.ticker} ${previewChart.filename}`}
+            />
+            <div className="chart-modal-meta">
+              <a href={buildChartPath(previewChart)} download={previewChart.filename}>
+                {previewChart.filename}
+              </a>
+              <span>
+                {previewChart.ticker} • {previewChart.date}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
