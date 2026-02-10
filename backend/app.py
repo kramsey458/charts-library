@@ -41,12 +41,17 @@ def list_charts_for_ticker(ticker: str) -> list[dict]:
             continue
         date_label = date_dir.name
         for chart_file in sorted(date_dir.glob("*.png")):
+            notes_path = date_dir / f"{chart_file.stem}.notes.txt"
+            notes = ""
+            if notes_path.exists() and notes_path.is_file():
+                notes = notes_path.read_text(encoding="utf-8").strip()
             charts.append(
                 {
                     "ticker": ticker,
                     "date": date_label,
                     "filename": chart_file.name,
                     "url": f"/api/chart-file/{ticker}/{date_label}/{chart_file.name}",
+                    "notes": notes,
                 }
             )
     return charts
@@ -92,6 +97,7 @@ def upload_chart():
     ensure_storage()
     ticker = request.form.get("ticker", "").strip().upper()
     date_label = request.form.get("date", "").strip()
+    notes = request.form.get("notes", "").strip()
     chart_file = request.files.get("chart")
 
     if not ticker:
@@ -114,6 +120,12 @@ def upload_chart():
     target_path = target_dir / filename
     chart_file.save(target_path)
 
+    notes_path = target_dir / f"{Path(filename).stem}.notes.txt"
+    if notes:
+        notes_path.write_text(notes, encoding="utf-8")
+    elif notes_path.exists() and notes_path.is_file():
+        notes_path.unlink()
+
     return (
         jsonify(
             {
@@ -123,6 +135,7 @@ def upload_chart():
                     "date": safe_date,
                     "filename": filename,
                     "url": f"/api/chart-file/{safe_ticker}/{safe_date}/{filename}",
+                    "notes": notes,
                 },
             }
         ),
@@ -137,6 +150,9 @@ def delete_chart(ticker: str, date_label: str, filename: str):
         return jsonify({"error": "Chart not found."}), 404
 
     chart_path.unlink()
+    notes_path = chart_path.parent / f"{chart_path.stem}.notes.txt"
+    if notes_path.exists() and notes_path.is_file():
+        notes_path.unlink()
 
     date_dir = chart_path.parent
     ticker_dir = date_dir.parent

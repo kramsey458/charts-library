@@ -21,6 +21,17 @@ const buildChartPath = (chart) => {
   )}/${encodeURIComponent(chart.filename)}`;
 };
 
+const buildNotesPreview = (notes = "") => {
+  const trimmedNotes = notes.trim();
+  if (!trimmedNotes) {
+    return "";
+  }
+  if (trimmedNotes.length <= 100) {
+    return trimmedNotes;
+  }
+  return `${trimmedNotes.slice(0, 100)}...`;
+};
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
@@ -38,6 +49,7 @@ export default function App() {
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
+    notes: "",
     file: null,
   });
   const dateInputRef = useRef(null);
@@ -228,6 +240,7 @@ export default function App() {
     formData.append("ticker", normalizedTicker);
     formData.append("date", formState.date);
     formData.append("chart", formState.file);
+    formData.append("notes", formState.notes.trim());
 
     try {
       setStatus("uploading");
@@ -238,7 +251,7 @@ export default function App() {
       await loadTickers();
       setSelectedTicker(normalizedTicker);
       await loadCharts(normalizedTicker);
-      setFormState({ ticker: "", date: "", file: null });
+      setFormState({ ticker: "", date: "", notes: "", file: null });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -413,6 +426,21 @@ export default function App() {
             </div>
           </div>
           <div className="upload-field">
+            <label htmlFor="notes-input">Notes</label>
+            <textarea
+              id="notes-input"
+              placeholder="Optional notes about this chart setup"
+              value={formState.notes}
+              onChange={(event) =>
+                setFormState((prev) => ({
+                  ...prev,
+                  notes: event.target.value,
+                }))
+              }
+              rows={3}
+            />
+          </div>
+          <div className="upload-field">
             <label htmlFor="file-input">Chart PNG</label>
             <input
               id="file-input"
@@ -469,6 +497,9 @@ export default function App() {
                         </a>
                         <span>{chart.ticker}</span>
                       </div>
+                      {chart.notes ? (
+                        <p className="chart-notes-preview">{buildNotesPreview(chart.notes)}</p>
+                      ) : null}
                       <button
                         type="button"
                         className="delete-button"
@@ -549,6 +580,12 @@ export default function App() {
               </span>
               {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
             </div>
+            {previewChart.notes ? (
+              <div className="chart-modal-notes">
+                <h3>Notes</h3>
+                <p>{previewChart.notes}</p>
+              </div>
+            ) : null}
           </div>
         </div>
       )}
