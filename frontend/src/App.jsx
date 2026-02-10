@@ -28,12 +28,116 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [previewChart, setPreviewChart] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [isModalFullscreen, setIsModalFullscreen] = useState(false);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
     file: null,
   });
   const dateInputRef = useRef(null);
+  const modalRef = useRef(null);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
+
+  const clampZoom = (zoom) => Math.min(4, Math.max(1, zoom));
+
+  const resetPreviewTransform = () => {
+    setPreviewZoom(1);
+    const nextPan = { x: 0, y: 0 };
+    panRef.current = nextPan;
+    setPreviewPan(nextPan);
+  };
+
+  const openChartPreview = (chart) => {
+    setPreviewChart(chart);
+    resetPreviewTransform();
+  };
+
+  const closeChartPreview = () => {
+    if (document.fullscreenElement === modalRef.current) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setPreviewChart(null);
+    setIsPanning(false);
+    setIsModalFullscreen(false);
+  };
+
+  const updateZoom = (nextZoom) => {
+    const clampedZoom = clampZoom(nextZoom);
+    setPreviewZoom(clampedZoom);
+    if (clampedZoom === 1) {
+      const nextPan = { x: 0, y: 0 };
+      panRef.current = nextPan;
+      setPreviewPan(nextPan);
+    }
+  };
+
+  const handleZoomIn = () => updateZoom(previewZoom + 0.25);
+
+  const handleZoomOut = () => updateZoom(previewZoom - 0.25);
+
+  const handleWheelZoom = (event) => {
+    event.preventDefault();
+    const step = event.deltaY < 0 ? 0.2 : -0.2;
+    updateZoom(previewZoom + step);
+  };
+
+  const beginPan = (event) => {
+    if (previewZoom <= 1 || event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    setIsPanning(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: panRef.current.x,
+      panY: panRef.current.y,
+    };
+  };
+
+  const continuePan = (event) => {
+    if (!isPanning) {
+      return;
+    }
+    const nextPan = {
+      x: panStartRef.current.panX + (event.clientX - panStartRef.current.x),
+      y: panStartRef.current.panY + (event.clientY - panStartRef.current.y),
+    };
+    panRef.current = nextPan;
+    setPreviewPan(nextPan);
+  };
+
+  const stopPan = (event) => {
+    if (
+      event &&
+      event.currentTarget.hasPointerCapture &&
+      event.currentTarget.hasPointerCapture(event.pointerId)
+    ) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setIsPanning(false);
+  };
+
+  const toggleModalFullscreen = async () => {
+    if (!modalRef.current) {
+      return;
+    }
+
+    try {
+      if (document.fullscreenElement === modalRef.current) {
+        await document.exitFullscreen();
+      } else if (!document.fullscreenElement) {
+        await modalRef.current.requestFullscreen();
+      }
+    } catch {
+      // no-op when fullscreen is unavailable
+    }
+  };
 
   const groupedCharts = useMemo(() => {
     return charts.reduce((groups, chart) => {
@@ -166,13 +270,22 @@ export default function App() {
 
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
-        setPreviewChart(null);
+        closeChartPreview();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [previewChart]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      setIsModalFullscreen(document.fullscreenElement === modalRef.current);
+    };
+
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, []);
 
   return (
     <div className="app">
@@ -336,7 +449,7 @@ export default function App() {
                       <button
                         type="button"
                         className="chart-preview-trigger"
-                        onClick={() => setPreviewChart(chart)}
+                        onClick={() => openChartPreview(chart)}
                         aria-label={`Open full image for ${chart.filename}`}
                       >
                         <img src={buildChartPath(chart)} alt={`${chart.ticker} chart`} />
@@ -365,33 +478,67 @@ export default function App() {
       </section>
 
       {previewChart && (
-        <div className="chart-modal-overlay" onClick={() => setPreviewChart(null)}>
+        <div className="chart-modal-overlay" onClick={closeChartPreview}>
           <div
-            className="chart-modal"
+            ref={modalRef}
+            className={`chart-modal ${isModalFullscreen ? "is-fullscreen" : ""}`}
             role="dialog"
             aria-modal="true"
-            aria-label="Chart image preview"
+            aria-label="Chart image preview. You can resize this modal from its bottom-right corner."
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              className="close-modal"
-              onClick={() => setPreviewChart(null)}
+            <div className="chart-modal-toolbar">
+              <div className="zoom-controls">
+                <button type="button" onClick={handleZoomOut} disabled={previewZoom <= 1}>
+                  −
+                </button>
+                <button type="button" onClick={handleZoomIn} disabled={previewZoom >= 4}>
+                  +
+                </button>
+                <button type="button" onClick={resetPreviewTransform}>
+                  Reset
+                </button>
+                <span>{Math.round(previewZoom * 100)}%</span>
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="fullscreen-toggle"
+                  onClick={toggleModalFullscreen}
+                  aria-label={isModalFullscreen ? "Exit fullscreen chart preview" : "Enter fullscreen chart preview"}
+                >
+                  {isModalFullscreen ? "Exit full screen" : "Full screen"}
+                </button>
+                <button type="button" className="close-modal" onClick={closeChartPreview}>
+                  Close
+                </button>
+              </div>
+            </div>
+            <div
+              className={`chart-modal-image-viewport ${previewZoom > 1 ? "is-zoomed" : ""}`}
+              onWheel={handleWheelZoom}
+              onPointerDown={beginPan}
+              onPointerMove={continuePan}
+              onPointerUp={stopPan}
+              onPointerCancel={stopPan}
             >
-              Close
-            </button>
-            <img
-              className="chart-modal-image"
-              src={buildChartPath(previewChart)}
-              alt={`${previewChart.ticker} ${previewChart.filename}`}
-            />
+              <img
+                className={`chart-modal-image ${isPanning ? "is-panning" : ""}`}
+                src={buildChartPath(previewChart)}
+                alt={`${previewChart.ticker} ${previewChart.filename}`}
+                style={{
+                  transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})`,
+                }}
+              />
+            </div>
             <div className="chart-modal-meta">
               <a href={buildChartPath(previewChart)} download={previewChart.filename}>
                 {previewChart.filename}
               </a>
-              <span>
+              <span className="chart-modal-context">
                 {previewChart.ticker} • {previewChart.date}
               </span>
+              {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
             </div>
           </div>
         </div>
