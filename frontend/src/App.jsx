@@ -17,7 +17,6 @@ const withApiBase = (path) => {
   return `${apiBaseUrl}${path}`;
 };
 
-
 const fetchJson = async (url, options) => {
   const response = await fetch(withApiBase(url), options);
   if (!response.ok) {
