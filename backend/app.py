@@ -9,8 +9,9 @@ from flask_cors import CORS
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
-STORAGE_DIR = BASE_DIR / "storage"
+STORAGE_DIR = Path(os.environ.get("LOCAL_STORAGE_DIR", BASE_DIR / "storage"))
 ALLOWED_EXTENSIONS = {"png"}
+STORAGE_MODE = os.environ.get("STORAGE_MODE", "local").strip().lower()
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +19,20 @@ CORS(app)
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def ensure_local_mode() -> tuple[bool, tuple[dict, int] | None]:
+    if STORAGE_MODE == "local":
+        return True, None
+    return False, (
+        {
+            "error": (
+                "This Flask backend only supports STORAGE_MODE=local. "
+                "Use the Netlify function API for STORAGE_MODE=external."
+            )
+        },
+        501,
+    )
 
 
 def ensure_storage() -> None:
@@ -72,11 +87,16 @@ def build_ticker_stats() -> tuple[list[str], dict[str, int], int]:
 
 @app.get("/api/health")
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "storage_mode": STORAGE_MODE})
 
 
 @app.get("/api/tickers")
 def get_tickers():
+    is_local, err = ensure_local_mode()
+    if not is_local:
+        payload, status = err
+        return jsonify(payload), status
+
     tickers, chart_counts, total_charts = build_ticker_stats()
     return jsonify(
         {
@@ -89,11 +109,21 @@ def get_tickers():
 
 @app.get("/api/charts/<ticker>")
 def get_charts(ticker: str):
+    is_local, err = ensure_local_mode()
+    if not is_local:
+        payload, status = err
+        return jsonify(payload), status
+
     return jsonify({"charts": list_charts_for_ticker(ticker)})
 
 
 @app.post("/api/charts")
 def upload_chart():
+    is_local, err = ensure_local_mode()
+    if not is_local:
+        payload, status = err
+        return jsonify(payload), status
+
     ensure_storage()
     ticker = request.form.get("ticker", "").strip().upper()
     date_label = request.form.get("date", "").strip()
@@ -145,6 +175,11 @@ def upload_chart():
 
 @app.delete("/api/charts/<ticker>/<date_label>/<filename>")
 def delete_chart(ticker: str, date_label: str, filename: str):
+    is_local, err = ensure_local_mode()
+    if not is_local:
+        payload, status = err
+        return jsonify(payload), status
+
     chart_path = STORAGE_DIR / ticker / date_label / filename
     if not chart_path.exists() or not chart_path.is_file():
         return jsonify({"error": "Chart not found."}), 404
@@ -164,8 +199,14 @@ def delete_chart(ticker: str, date_label: str, filename: str):
 
     return jsonify({"message": "Chart deleted."})
 
+
 @app.get("/api/chart-file/<ticker>/<date_label>/<filename>")
 def get_chart_file(ticker: str, date_label: str, filename: str):
+    is_local, err = ensure_local_mode()
+    if not is_local:
+        payload, status = err
+        return jsonify(payload), status
+
     target_dir = STORAGE_DIR / ticker / date_label
     if not target_dir.exists():
         return jsonify({"error": "Chart not found."}), 404
@@ -173,5 +214,6 @@ def get_chart_file(ticker: str, date_label: str, filename: str):
 
 
 if __name__ == "__main__":
-    ensure_storage()
+    if STORAGE_MODE == "local":
+        ensure_storage()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

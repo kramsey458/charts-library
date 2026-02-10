@@ -4,8 +4,12 @@ services:
       context: ./backend
     ports:
       - "5000:5000"
+    volumes:
+      - chart_uploads:/app/storage
     environment:
       - FLASK_DEBUG=1
+      - STORAGE_MODE=local
+      - LOCAL_STORAGE_DIR=/app/storage
     develop:
       watch:
         - action: sync
@@ -43,3 +47,6 @@ services:
           path: ./frontend/package.json
         - action: rebuild
           path: ./frontend/package-lock.json
+
+volumes:
+  chart_uploads:
