@@ -34,6 +34,8 @@ const buildNotesPreview = (notes = "") => {
 
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
+  const [validTickerEntries, setValidTickerEntries] = useState([]);
+  const [validTickerSet, setValidTickerSet] = useState(new Set());
   const [selectedTicker, setSelectedTicker] = useState("");
   const [tickerSearch, setTickerSearch] = useState("");
   const [charts, setCharts] = useState(emptyState.charts);
@@ -176,6 +178,25 @@ export default function App() {
     return tickers.filter((ticker) => ticker.includes(query));
   }, [tickerSearch, tickers]);
 
+  const tickerSuggestions = useMemo(() => {
+    const query = formState.ticker.trim().toUpperCase();
+    if (!query) {
+      return validTickerEntries.slice(0, 10);
+    }
+
+    return validTickerEntries
+      .filter(
+        (entry) =>
+          entry.ticker.includes(query) ||
+          (entry.name || "").toUpperCase().includes(query)
+      )
+      .slice(0, 10);
+  }, [formState.ticker, validTickerEntries]);
+
+  const normalizedUploadTicker = formState.ticker.trim().toUpperCase();
+  const showTickerWarning =
+    normalizedUploadTicker.length > 0 && !validTickerSet.has(normalizedUploadTicker);
+
   const selectedTickerChartCount = selectedTicker
     ? chartCountsByTicker[selectedTicker] ?? charts.length
     : 0;
@@ -199,6 +220,26 @@ export default function App() {
     }
   };
 
+  const loadValidTickers = async () => {
+    try {
+      const data = await fetchJson("/api/valid-tickers");
+      const entries = Array.isArray(data.tickers) ? data.tickers : [];
+      const tickerSet = new Set(
+        (Array.isArray(data.ticker_set) ? data.ticker_set : []).map((ticker) =>
+          String(ticker || "")
+            .trim()
+            .toUpperCase()
+        )
+      );
+
+      setValidTickerEntries(entries);
+      setValidTickerSet(tickerSet);
+    } catch {
+      setValidTickerEntries([]);
+      setValidTickerSet(new Set());
+    }
+  };
+
   const loadCharts = async (ticker) => {
     if (!ticker) {
       setCharts([]);
@@ -218,6 +259,7 @@ export default function App() {
 
   useEffect(() => {
     loadTickers();
+    loadValidTickers();
   }, []);
 
   useEffect(() => {
@@ -388,14 +430,29 @@ export default function App() {
               id="ticker-input"
               placeholder="NVDA"
               value={formState.ticker}
+              list="ticker-suggestions"
               onChange={(event) =>
                 setFormState((prev) => ({
                   ...prev,
                   ticker: event.target.value.toUpperCase(),
                 }))
               }
-              maxLength={6}
+              maxLength={12}
             />
+            <datalist id="ticker-suggestions">
+              {tickerSuggestions.map((entry) => (
+                <option
+                  key={entry.ticker}
+                  value={entry.ticker}
+                  label={`${entry.ticker} — ${entry.name} (${entry.market})`}
+                />
+              ))}
+            </datalist>
+            {showTickerWarning ? (
+              <p className="ticker-warning">
+                Warning: this ticker is not in the locally scraped US/Canada/OTC ticker list.
+              </p>
+            ) : null}
           </div>
           <div className="upload-field">
             <label htmlFor="date-input">Date</label>

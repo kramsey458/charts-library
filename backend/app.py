@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import json
 import os
 from pathlib import Path
 
@@ -12,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent
 STORAGE_DIR = Path(os.environ.get("LOCAL_STORAGE_DIR", BASE_DIR / "storage"))
 ALLOWED_EXTENSIONS = {"png"}
 STORAGE_MODE = os.environ.get("STORAGE_MODE", "local").strip().lower()
+VALID_TICKERS_PATH = BASE_DIR / "data" / "valid_tickers.json"
 
 app = Flask(__name__)
 CORS(app)
@@ -85,6 +87,22 @@ def build_ticker_stats() -> tuple[list[str], dict[str, int], int]:
     return tickers, chart_counts, total_charts
 
 
+def load_valid_ticker_catalog() -> dict:
+    if not VALID_TICKERS_PATH.exists() or not VALID_TICKERS_PATH.is_file():
+        return {"tickers": []}
+    try:
+        with VALID_TICKERS_PATH.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except json.JSONDecodeError:
+        return {"tickers": []}
+    if not isinstance(payload, dict):
+        return {"tickers": []}
+    tickers = payload.get("tickers")
+    if not isinstance(tickers, list):
+        payload["tickers"] = []
+    return payload
+
+
 @app.get("/api/health")
 def health():
     return jsonify({"status": "ok", "storage_mode": STORAGE_MODE})
@@ -103,6 +121,29 @@ def get_tickers():
             "tickers": tickers,
             "chart_counts": chart_counts,
             "total_charts": total_charts,
+        }
+    )
+
+
+@app.get("/api/valid-tickers")
+def get_valid_tickers():
+    catalog = load_valid_ticker_catalog()
+    tickers = catalog.get("tickers", [])
+    ticker_set = sorted(
+        {
+            str(entry.get("ticker", "")).strip().upper()
+            for entry in tickers
+            if isinstance(entry, dict)
+        }
+    )
+    return jsonify(
+        {
+            "generated_at": catalog.get("generated_at"),
+            "source": catalog.get("source", "unknown"),
+            "warnings": catalog.get("warnings", []),
+            "ticker_count": len(ticker_set),
+            "tickers": tickers,
+            "ticker_set": ticker_set,
         }
     )
 

@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-02-10T00:00:00Z",
+  "source": "seed",
+  "notes": "Seed fallback list. Run backend/scripts/scrape_tickers.py to rebuild with comprehensive US/CA + OTC symbols.",
+  "tickers": [
+    {"ticker": "AAPL", "name": "Apple Inc.", "market": "US"},
+    {"ticker": "MSFT", "name": "Microsoft Corporation", "market": "US"},
+    {"ticker": "NVDA", "name": "NVIDIA Corporation", "market": "US"},
+    {"ticker": "TSLA", "name": "Tesla, Inc.", "market": "US"},
+    {"ticker": "AMZN", "name": "Amazon.com, Inc.", "market": "US"},
+    {"ticker": "GOOGL", "name": "Alphabet Inc.", "market": "US"},
+    {"ticker": "META", "name": "Meta Platforms, Inc.", "market": "US"},
+    {"ticker": "SPY", "name": "SPDR S&P 500 ETF Trust", "market": "US"},
+    {"ticker": "QQQ", "name": "Invesco QQQ Trust", "market": "US"},
+    {"ticker": "KRKNF", "name": "Kraken Robotics Inc.", "market": "OTC"},
+    {"ticker": "SHOP", "name": "Shopify Inc.", "market": "CA"},
+    {"ticker": "RY", "name": "Royal Bank of Canada", "market": "CA"},
+    {"ticker": "TD", "name": "The Toronto-Dominion Bank", "market": "CA"},
+    {"ticker": "BNS", "name": "Bank of Nova Scotia", "market": "CA"}
+  ]
+}

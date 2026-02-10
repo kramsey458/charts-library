@@ -39,6 +39,21 @@ If you change dependencies (`frontend/package.json`, `frontend/package-lock.json
 
 The frontend dev server proxies `/api` requests to the backend container via `VITE_API_PROXY_TARGET=http://backend:5000`, avoiding localhost proxy errors inside Docker.
 
+
+## Ticker autocomplete + validation data
+
+The upload form now uses a locally stored ticker catalog for autocomplete and soft validation (warning only, upload is still allowed).
+
+- Catalog file: `backend/data/valid_tickers.json`
+- API endpoint: `GET /api/valid-tickers`
+- Scraper script (no paid API):
+
+```bash
+python backend/scripts/scrape_tickers.py
+```
+
+The scraper pulls public exchange symbol-directory pages (US, Canada, and OTC) and writes the merged list locally.
+
 ## Storage modes
 
 The app now supports two storage modes using the same `/api/*` contract:
