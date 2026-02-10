@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Scrape US/Canadian (+OTC) tickers and save local JSON for autocomplete/validation.
 
-This script intentionally uses exchange/public files (not paid APIs).
+Uses public exchange pages/files (no paid APIs).
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import datetime as dt
 import io
@@ -22,17 +23,15 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 )
 
-# Public symbol-directory files. No API keys.
 SOURCES = {
     "nasdaq_listed": "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt",
     "other_listed": "https://www.nasdaqtrader.com/dynamic/SymDir/otherlisted.txt",
-    "otc_listed": "https://www.nasdaqtrader.com/dynamic/SymDir/otcotherlisted.txt",
-    # TSX/TSXV CSV endpoints are subject to provider availability and can be swapped as needed.
     "tsx_companies": "https://www.tsx.com/json/company-directory/search/tsx/*",
     "tsxv_companies": "https://www.tsx.com/json/company-directory/search/tsxv/*",
 }
 
 VALID_TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,12}$")
+OTC_TICKER_RE = re.compile(r"^[A-Z]{5}$")
 
 
 def fetch_text(url: str) -> str:
@@ -45,17 +44,36 @@ def _clean_ticker(raw: str) -> str:
     return (raw or "").strip().upper()
 
 
+def _infer_market(ticker: str, market: str) -> str:
+    if market != "US":
+        return market
+    if OTC_TICKER_RE.match(ticker) and ticker.endswith("F"):
+        return "OTC"
+    return market
+
+
 def _push(store: dict[str, dict], ticker: str, name: str, market: str) -> None:
     ticker_value = _clean_ticker(ticker)
     if not ticker_value or not VALID_TICKER_RE.match(ticker_value):
         return
+
+    inferred_market = _infer_market(ticker_value, market)
+    next_value = {
+        "ticker": ticker_value,
+        "name": (name or "").strip() or ticker_value,
+        "market": inferred_market,
+    }
+
     current = store.get(ticker_value)
     if current is None:
-        store[ticker_value] = {
-            "ticker": ticker_value,
-            "name": (name or "").strip() or ticker_value,
-            "market": market,
-        }
+        store[ticker_value] = next_value
+        return
+
+    # Prefer richer name and more specific market labels.
+    if len(next_value["name"]) > len(current.get("name", "")):
+        current["name"] = next_value["name"]
+    if current.get("market") == "US" and inferred_market != "US":
+        current["market"] = inferred_market
 
 
 def parse_pipe_symbol_file(payload: str, symbol_col: str, name_col: str, market: str) -> dict[str, dict]:
@@ -70,11 +88,7 @@ def parse_pipe_symbol_file(payload: str, symbol_col: str, name_col: str, market:
 
 def parse_tmx_json(payload: str, market: str) -> dict[str, dict]:
     parsed: dict[str, dict] = {}
-    try:
-        body = json.loads(payload)
-    except json.JSONDecodeError:
-        return parsed
-
+    body = json.loads(payload)
     entries = body if isinstance(body, list) else body.get("results", [])
     for item in entries:
         ticker = (item.get("symbol") or item.get("ticker") or "").strip().upper()
@@ -83,14 +97,30 @@ def parse_tmx_json(payload: str, market: str) -> dict[str, dict]:
     return parsed
 
 
+def load_existing_catalog() -> dict[str, dict]:
+    if not OUTPUT_PATH.exists() or not OUTPUT_PATH.is_file():
+        return {}
+    try:
+        payload = json.loads(OUTPUT_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+    entries = payload.get("tickers", []) if isinstance(payload, dict) else []
+    existing: dict[str, dict] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        _push(existing, entry.get("ticker", ""), entry.get("name", ""), entry.get("market", "US"))
+    return existing
+
+
 def build_ticker_catalog() -> tuple[dict[str, dict], list[str]]:
-    combined: dict[str, dict] = {}
+    combined = load_existing_catalog()
     warnings: list[str] = []
 
     fetchers = [
         ("nasdaq_listed", lambda payload: parse_pipe_symbol_file(payload, "Symbol", "Security Name", "US")),
         ("other_listed", lambda payload: parse_pipe_symbol_file(payload, "ACT Symbol", "Security Name", "US")),
-        ("otc_listed", lambda payload: parse_pipe_symbol_file(payload, "ACT Symbol", "Security Name", "OTC")),
         ("tsx_companies", lambda payload: parse_tmx_json(payload, "CA")),
         ("tsxv_companies", lambda payload: parse_tmx_json(payload, "CA")),
     ]
@@ -99,9 +129,9 @@ def build_ticker_catalog() -> tuple[dict[str, dict], list[str]]:
         url = SOURCES[source_key]
         try:
             payload = fetch_text(url)
-            for ticker, entry in parser(payload).items():
-                if ticker not in combined:
-                    combined[ticker] = entry
+            parsed = parser(payload)
+            for ticker, entry in parsed.items():
+                _push(combined, ticker, entry.get("name", ""), entry.get("market", "US"))
         except Exception as exc:  # noqa: BLE001 - report and continue for partial builds.
             warnings.append(f"{source_key} failed: {exc}")
 
@@ -109,7 +139,18 @@ def build_ticker_catalog() -> tuple[dict[str, dict], list[str]]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--fail-on-empty",
+        action="store_true",
+        help="Exit with non-zero status if no tickers are available after scraping.",
+    )
+    args = parser.parse_args()
+
     catalog, warnings = build_ticker_catalog()
+
+    if not catalog and args.fail_on_empty:
+        raise SystemExit("No tickers scraped and no existing catalog to preserve.")
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     data = {
@@ -119,7 +160,7 @@ def main() -> None:
         "warnings": warnings,
         "tickers": sorted(catalog.values(), key=lambda item: item["ticker"]),
     }
-    OUTPUT_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    OUTPUT_PATH.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {len(catalog)} tickers to {OUTPUT_PATH}")
     if warnings:
         print("Warnings:")

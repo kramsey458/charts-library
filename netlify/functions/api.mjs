@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { getStore } from "@netlify/blobs";
 
 const ALLOWED_EXTENSIONS = new Set(["png"]);
@@ -59,6 +60,39 @@ const toChartPayload = (chart) => ({
 
 const getPathParts = (pathname) => pathname.replace(/^\/api\/?/, "").split("/").filter(Boolean);
 
+const VALID_TICKERS_PATH = new URL("../../backend/data/valid_tickers.json", import.meta.url);
+
+const loadValidTickerCatalog = async () => {
+  try {
+    const file = await readFile(VALID_TICKERS_PATH, "utf-8");
+    const data = JSON.parse(file);
+    const tickers = Array.isArray(data?.tickers) ? data.tickers : [];
+    const tickerSet = [...new Set(
+      tickers
+        .map((entry) => String(entry?.ticker || "").trim().toUpperCase())
+        .filter(Boolean)
+    )].sort();
+
+    return {
+      generated_at: data?.generated_at || null,
+      source: data?.source || "unknown",
+      warnings: Array.isArray(data?.warnings) ? data.warnings : [],
+      ticker_count: tickerSet.length,
+      tickers,
+      ticker_set: tickerSet,
+    };
+  } catch {
+    return {
+      generated_at: null,
+      source: "unknown",
+      warnings: ["Ticker catalog unavailable in function bundle."],
+      ticker_count: 0,
+      tickers: [],
+      ticker_set: [],
+    };
+  }
+};
+
 export default async (request, context) => {
   const store = getStoreClient(context);
   const url = new URL(request.url);
@@ -66,6 +100,11 @@ export default async (request, context) => {
 
   if (url.pathname === "/api/health" && request.method === "GET") {
     return json({ status: "ok", storage_mode: "external", provider: "netlify-blobs" });
+  }
+
+
+  if (url.pathname === "/api/valid-tickers" && request.method === "GET") {
+    return json(await loadValidTickerCatalog());
   }
 
   if (url.pathname === "/api/tickers" && request.method === "GET") {

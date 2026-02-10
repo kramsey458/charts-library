@@ -45,7 +45,7 @@ The frontend dev server proxies `/api` requests to the backend container via `VI
 The upload form now uses a locally stored ticker catalog for autocomplete and soft validation (warning only, upload is still allowed).
 
 - Catalog file: `backend/data/valid_tickers.json`
-- API endpoint: `GET /api/valid-tickers`
+- API endpoint: `GET /api/valid-tickers` (implemented by both Flask local backend and Netlify function)
 - Scraper script (no paid API):
 
 ```bash
@@ -53,6 +53,8 @@ python backend/scripts/scrape_tickers.py
 ```
 
 The scraper pulls public exchange symbol-directory pages (US, Canada, and OTC) and writes the merged list locally.
+
+The scraper now preserves any existing local catalog entries when remote sources are temporarily blocked, so running it in restricted environments will not wipe your saved ticker dataset.
 
 ## Storage modes
 
