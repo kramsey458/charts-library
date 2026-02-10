@@ -128,6 +128,17 @@ input:focus {
   border-color: transparent;
 }
 
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.4);
+  opacity: 1;
+  cursor: pointer;
+}
+
+input[type="date"] {
+  color-scheme: dark;
+}
+
 .upload {
   gap: 12px;
 }
