@@ -32,3 +32,29 @@ npm run dev
 ```
 
 The React app expects the Flask API to be available at `http://localhost:5000`.
+
+## Windows notes
+
+### Docker (recommended)
+
+```powershell
+docker compose up --build
+```
+
+Then open http://localhost:8080 in your browser.
+
+### Local dev
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
