@@ -72,44 +72,11 @@ img {
   color: #c2c9e9;
 }
 
-.hero-gradient h1 {
-  background: linear-gradient(125deg, #f7f9ff 8%, #bcc7ff 52%, #d6bbff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
 
-.hero-minimal h1 {
-  font-size: clamp(2.6rem, 5.8vw, 4.7rem);
-  letter-spacing: -0.02em;
-}
 
-.hero-variants {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
 
-.variant-button {
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.02);
-  color: #d8e0ff;
-  font-size: 0.82rem;
-  font-weight: 600;
-  box-shadow: none;
-}
 
-.variant-button:hover {
-  background: rgba(255, 255, 255, 0.09);
-}
 
-.variant-button.active {
-  background: rgba(116, 134, 255, 0.28);
-  border-color: rgba(156, 173, 255, 0.7);
-}
 
 .controls {
   display: grid;
