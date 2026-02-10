@@ -167,8 +167,7 @@ export default function App() {
   const selectedTickerChartCount = selectedTicker
     ? chartCountsByTicker[selectedTicker] ?? charts.length
     : 0;
-
-
+  const selectedTickerChartLabel = selectedTickerChartCount === 1 ? "chart" : "charts";
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -436,8 +435,8 @@ export default function App() {
       <section className="gallery">
         <div className="gallery-header">
           <div>
-            <h2>{selectedTicker ? `${selectedTicker} charts` : "Charts"}</h2>
-            <p>{selectedTicker ? `${selectedTickerChartCount} charts saved for ${selectedTicker}.` : "Browse your saved snapshots organized by date."}</p>
+            <h2>{selectedTicker ? `${selectedTicker} ${selectedTickerChartLabel}` : "Charts"}</h2>
+            <p>{selectedTicker ? `${selectedTickerChartCount} ${selectedTickerChartLabel} saved for ${selectedTicker}.` : "Browse your saved snapshots organized by date."}</p>
           </div>
           {error && <span className="error">{error}</span>}
         </div>
