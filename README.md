@@ -39,50 +39,71 @@ If you change dependencies (`frontend/package.json`, `frontend/package-lock.json
 
 The frontend dev server proxies `/api` requests to the backend container via `VITE_API_PROXY_TARGET=http://backend:5000`, avoiding localhost proxy errors inside Docker.
 
+## Deploying frontend on Netlify + backend on Render
+
+This is the recommended hosted setup for this repo.
+
+### 1) Deploy backend to Render (Web Service)
+
+Use these settings in Render:
+
+- Root directory: `backend`
+- Build command: `pip install -r requirements.txt`
+- Start command: `python app.py`
+- Health check path: `/api/health`
+- Environment variables:
+  - `STORAGE_MODE=local`
+  - `LOCAL_STORAGE_DIR=/opt/render/project/src/backend/storage`
+  - `FLASK_DEBUG=0`
+
+Then add a persistent disk in Render:
+
+- Mount path: `/opt/render/project/src/backend/storage`
+- Size: 1GB (or larger)
+
+This is required so uploaded chart files survive restarts/redeploys.
+
+### 2) Deploy frontend to Netlify
+
+Use these settings in Netlify:
+
+- Base directory: repo root
+- Build command: `npm --prefix frontend ci && npm --prefix frontend run build`
+- Publish directory: `frontend/dist`
+
+Set this environment variable in Netlify:
+
+- `VITE_API_BASE_URL=https://<your-render-service>.onrender.com`
+
+The frontend will call the Render API directly using this value.
+
+
+### Local Docker compatibility
+
+These Netlify/Render changes do not break local Docker development:
+
+- Docker Compose sets `STORAGE_MODE=local` and `LOCAL_STORAGE_DIR=/app/storage` for the Flask backend.
+- The frontend keeps using Vite dev proxy (`VITE_API_PROXY_TARGET=http://backend:5000`) in Docker.
+- `VITE_API_BASE_URL` is optional and only used when set to an absolute `http(s)` URL (recommended for Netlify).
+
+### 3) Verify
+
+After both deploys complete:
+
+- Open Netlify site.
+- Confirm ticker list loads.
+- Upload a PNG chart.
+- Confirm preview image loads.
+- Confirm delete works.
+
 ## Storage modes
 
-The app now supports two storage modes using the same `/api/*` contract:
+The Flask backend supports:
 
-- `STORAGE_MODE=local` (default for Docker/local Flask backend)
-  - Files are written to backend disk.
-  - Docker persists uploads using a named volume: `chart_uploads:/app/storage`.
-- `STORAGE_MODE=external` (for Netlify deployment)
-  - Use Netlify Functions + Netlify Blobs (see next section).
-  - Flask backend intentionally returns a helpful 501 in this mode; the Netlify Function is the external API implementation.
-
-### Local mode (Docker volume persistence)
-
-`docker-compose.yml` configures:
-
-- `STORAGE_MODE=local`
-- `LOCAL_STORAGE_DIR=/app/storage`
-- named volume mount `chart_uploads:/app/storage`
-
-This keeps uploaded images and notes across container restarts.
-
-## Netlify external mode (Netlify Blobs)
-
-This repo includes a Netlify Function API at `netlify/functions/api.mjs` that mirrors the Flask endpoints:
-
-- `GET /api/health`
-- `GET /api/tickers`
-- `GET /api/charts/:ticker`
-- `POST /api/charts` (multipart form upload)
-- `DELETE /api/charts/:ticker/:date/:filename`
-- `GET /api/chart-file/:ticker/:date/:filename`
-
-`netlify.toml` routes `/api/*` to that function, and the function stores image binaries + chart metadata in Netlify Blobs.
-
-### Deploying to Netlify
-
-1. Build command: already set in `netlify.toml` (`npm --prefix frontend ci && npm --prefix frontend run build`)
-2. Publish directory: `frontend/dist`
-3. Functions directory: `netlify/functions`
-4. Set env vars in Netlify:
-   - `STORAGE_MODE=external`
-   - optional `NETLIFY_BLOBS_STORE=chart-vault` (or your preferred store name)
-
-With this setup, local Docker uses persistent local volume storage, while Netlify uses persistent blob storage.
+- `STORAGE_MODE=local` (required for Render deployment)
+  - API reads/writes files to `LOCAL_STORAGE_DIR` (or default `backend/storage`).
+- `STORAGE_MODE=external`
+  - Flask API routes intentionally return a 501 to indicate an external API should be used.
 
 ## Windows notes
 
