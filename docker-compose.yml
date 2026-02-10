@@ -4,10 +4,18 @@ services:
       context: ./backend
     ports:
       - "5000:5000"
-    volumes:
-      - ./backend:/app
     environment:
       - FLASK_DEBUG=1
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app
+          ignore:
+            - __pycache__/
+            - .pytest_cache/
+        - action: rebuild
+          path: ./backend/requirements.txt
 
   frontend:
     build:
@@ -16,9 +24,22 @@ services:
     ports:
       - "8080:5173"
     volumes:
-      - ./frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_PROXY_TARGET=http://backend:5000
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=300
     depends_on:
       - backend
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+          ignore:
+            - node_modules/
+            - dist/
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json
