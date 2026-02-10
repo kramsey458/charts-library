@@ -5,15 +5,17 @@ const emptyState = {
   charts: [],
 };
 
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 
 const withApiBase = (path) => {
   if (!apiBaseUrl || /^https?:\/\//i.test(path)) {
     return path;
   }
+  if (!/^https?:\/\//i.test(apiBaseUrl)) {
+    return path;
+  }
   return `${apiBaseUrl}${path}`;
 };
-
 
 const fetchJson = async (url, options) => {
   const response = await fetch(withApiBase(url), options);
