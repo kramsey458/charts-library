@@ -75,7 +75,7 @@ This repo includes a Netlify Function API at `netlify/functions/api.mjs` that mi
 
 ### Deploying to Netlify
 
-1. Build command: already set in `netlify.toml` (`npm --prefix frontend run build`)
+1. Build command: already set in `netlify.toml` (`npm --prefix frontend ci && npm --prefix frontend run build`)
 2. Publish directory: `frontend/dist`
 3. Functions directory: `netlify/functions`
 4. Set env vars in Netlify:
