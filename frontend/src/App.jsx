@@ -486,7 +486,6 @@ export default function App() {
                         </a>
                         <span>{chart.ticker}</span>
                       </div>
-                      {chart.notes ? <p className="chart-notes">{chart.notes}</p> : null}
                       <button
                         type="button"
                         className="delete-button"

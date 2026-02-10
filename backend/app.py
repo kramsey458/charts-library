@@ -121,7 +121,10 @@ def upload_chart():
     chart_file.save(target_path)
 
     notes_path = target_dir / f"{Path(filename).stem}.notes.txt"
-    notes_path.write_text(notes, encoding="utf-8")
+    if notes:
+        notes_path.write_text(notes, encoding="utf-8")
+    elif notes_path.exists() and notes_path.is_file():
+        notes_path.unlink()
 
     return (
         jsonify(
