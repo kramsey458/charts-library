@@ -28,12 +28,78 @@ export default function App() {
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [previewChart, setPreviewChart] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
+  const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
     file: null,
   });
   const dateInputRef = useRef(null);
+  const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  const clampZoom = (zoom) => Math.min(4, Math.max(1, zoom));
+
+  const resetPreviewTransform = () => {
+    setPreviewZoom(1);
+    setPreviewPan({ x: 0, y: 0 });
+  };
+
+  const openChartPreview = (chart) => {
+    setPreviewChart(chart);
+    resetPreviewTransform();
+  };
+
+  const closeChartPreview = () => {
+    setPreviewChart(null);
+    setIsPanning(false);
+  };
+
+  const updateZoom = (nextZoom) => {
+    const clampedZoom = clampZoom(nextZoom);
+    setPreviewZoom(clampedZoom);
+    if (clampedZoom === 1) {
+      setPreviewPan({ x: 0, y: 0 });
+    }
+  };
+
+  const handleZoomIn = () => updateZoom(previewZoom + 0.25);
+
+  const handleZoomOut = () => updateZoom(previewZoom - 0.25);
+
+  const handleWheelZoom = (event) => {
+    event.preventDefault();
+    const step = event.deltaY < 0 ? 0.2 : -0.2;
+    updateZoom(previewZoom + step);
+  };
+
+  const beginPan = (event) => {
+    if (previewZoom <= 1) {
+      return;
+    }
+    setIsPanning(true);
+    panStartRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: previewPan.x,
+      panY: previewPan.y,
+    };
+  };
+
+  const continuePan = (event) => {
+    if (!isPanning) {
+      return;
+    }
+    setPreviewPan({
+      x: panStartRef.current.panX + (event.clientX - panStartRef.current.x),
+      y: panStartRef.current.panY + (event.clientY - panStartRef.current.y),
+    });
+  };
+
+  const stopPan = () => {
+    setIsPanning(false);
+  };
 
   const groupedCharts = useMemo(() => {
     return charts.reduce((groups, chart) => {
@@ -166,7 +232,7 @@ export default function App() {
 
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
-        setPreviewChart(null);
+        closeChartPreview();
       }
     };
 
@@ -336,7 +402,7 @@ export default function App() {
                       <button
                         type="button"
                         className="chart-preview-trigger"
-                        onClick={() => setPreviewChart(chart)}
+                        onClick={() => openChartPreview(chart)}
                         aria-label={`Open full image for ${chart.filename}`}
                       >
                         <img src={buildChartPath(chart)} alt={`${chart.ticker} chart`} />
@@ -365,7 +431,7 @@ export default function App() {
       </section>
 
       {previewChart && (
-        <div className="chart-modal-overlay" onClick={() => setPreviewChart(null)}>
+        <div className="chart-modal-overlay" onClick={closeChartPreview}>
           <div
             className="chart-modal"
             role="dialog"
@@ -373,18 +439,40 @@ export default function App() {
             aria-label="Chart image preview"
             onClick={(event) => event.stopPropagation()}
           >
-            <button
-              type="button"
-              className="close-modal"
-              onClick={() => setPreviewChart(null)}
+            <div className="chart-modal-toolbar">
+              <div className="zoom-controls">
+                <button type="button" onClick={handleZoomOut} disabled={previewZoom <= 1}>
+                  −
+                </button>
+                <button type="button" onClick={handleZoomIn} disabled={previewZoom >= 4}>
+                  +
+                </button>
+                <button type="button" onClick={resetPreviewTransform}>
+                  Reset
+                </button>
+                <span>{Math.round(previewZoom * 100)}%</span>
+              </div>
+              <button type="button" className="close-modal" onClick={closeChartPreview}>
+                Close
+              </button>
+            </div>
+            <div
+              className={`chart-modal-image-viewport ${previewZoom > 1 ? "is-zoomed" : ""}`}
+              onWheel={handleWheelZoom}
+              onMouseDown={beginPan}
+              onMouseMove={continuePan}
+              onMouseUp={stopPan}
+              onMouseLeave={stopPan}
             >
-              Close
-            </button>
-            <img
-              className="chart-modal-image"
-              src={buildChartPath(previewChart)}
-              alt={`${previewChart.ticker} ${previewChart.filename}`}
-            />
+              <img
+                className={`chart-modal-image ${isPanning ? "is-panning" : ""}`}
+                src={buildChartPath(previewChart)}
+                alt={`${previewChart.ticker} ${previewChart.filename}`}
+                style={{
+                  transform: `translate(${previewPan.x}px, ${previewPan.y}px) scale(${previewZoom})`,
+                }}
+              />
+            </div>
             <div className="chart-modal-meta">
               <a href={buildChartPath(previewChart)} download={previewChart.filename}>
                 {previewChart.filename}
