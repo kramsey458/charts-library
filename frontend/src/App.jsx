@@ -23,6 +23,7 @@ const buildChartPath = (chart) => {
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
+  const [tickerSearch, setTickerSearch] = useState("");
   const [charts, setCharts] = useState(emptyState.charts);
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -46,6 +47,14 @@ export default function App() {
   const sortedDates = useMemo(() => {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
   }, [groupedCharts]);
+
+  const filteredTickers = useMemo(() => {
+    const query = tickerSearch.trim().toUpperCase();
+    if (!query) {
+      return tickers;
+    }
+    return tickers.filter((ticker) => ticker.includes(query));
+  }, [tickerSearch, tickers]);
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -173,19 +182,47 @@ export default function App() {
 
       <section className="controls">
         <div className="selector">
-          <label htmlFor="ticker-select">Ticker library</label>
-          <select
-            id="ticker-select"
-            value={selectedTicker}
-            onChange={(event) => setSelectedTicker(event.target.value)}
-          >
-            <option value="">Select a ticker</option>
-            {tickers.map((ticker) => (
-              <option key={ticker} value={ticker}>
-                {ticker}
-              </option>
-            ))}
-          </select>
+          <label htmlFor="ticker-search">Ticker library</label>
+          <input
+            id="ticker-search"
+            placeholder="Search ticker (e.g. NVDA)"
+            value={tickerSearch}
+            onChange={(event) => setTickerSearch(event.target.value.toUpperCase())}
+          />
+
+          <div className="ticker-table-wrap">
+            <table className="ticker-table" aria-label="Stored tickers">
+              <thead>
+                <tr>
+                  <th scope="col">Ticker</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTickers.length === 0 ? (
+                  <tr>
+                    <td colSpan={2} className="ticker-empty">
+                      No tickers match your search.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredTickers.map((ticker) => {
+                    const isActive = ticker === selectedTicker;
+                    return (
+                      <tr
+                        key={ticker}
+                        className={isActive ? "active-row" : ""}
+                        onClick={() => setSelectedTicker(ticker)}
+                      >
+                        <td>{ticker}</td>
+                        <td>{isActive ? "Selected" : "View"}</td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <form className="upload" onSubmit={handleUpload}>

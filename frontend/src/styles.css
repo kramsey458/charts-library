@@ -89,7 +89,7 @@ img {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
 }
 
 .selector,
@@ -100,6 +100,10 @@ img {
   padding: 24px;
   display: grid;
   gap: 16px;
+}
+
+.selector {
+  grid-template-rows: auto auto 1fr;
 }
 
 .selector label,
@@ -126,6 +130,54 @@ input:focus {
 
 .upload {
   gap: 12px;
+}
+
+.ticker-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.ticker-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.ticker-table th,
+.ticker-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ticker-table th {
+  position: sticky;
+  top: 0;
+  background: rgba(18, 25, 52, 0.95);
+  color: #c8d1f7;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ticker-table tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.ticker-table tbody tr:hover {
+  background: rgba(106, 123, 255, 0.15);
+}
+
+.ticker-table .active-row {
+  background: rgba(106, 123, 255, 0.25);
+}
+
+.ticker-empty {
+  color: #a3abcb;
 }
 
 .upload-field {
