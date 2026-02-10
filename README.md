@@ -39,27 +39,6 @@ If you change dependencies (`frontend/package.json`, `frontend/package-lock.json
 
 The frontend dev server proxies `/api` requests to the backend container via `VITE_API_PROXY_TARGET=http://backend:5000`, avoiding localhost proxy errors inside Docker.
 
-## Storage modes
-
-The app now supports two storage modes using the same `/api/*` contract:
-
-- `STORAGE_MODE=local` (default for Docker/local Flask backend)
-  - Files are written to backend disk.
-  - Docker persists uploads using a named volume: `chart_uploads:/app/storage`.
-- `STORAGE_MODE=external` (for Netlify deployment)
-  - Use Netlify Functions + Netlify Blobs (see next section).
-  - Flask backend intentionally returns a helpful 501 in this mode; the Netlify Function is the external API implementation.
-
-### Local mode (Docker volume persistence)
-
-`docker-compose.yml` configures:
-
-- `STORAGE_MODE=local`
-- `LOCAL_STORAGE_DIR=/app/storage`
-- named volume mount `chart_uploads:/app/storage`
-
-This keeps uploaded images and notes across container restarts.
-
 ## Deploying frontend on Netlify + backend on Render
 
 This is the recommended hosted setup for this repo.
@@ -98,14 +77,6 @@ Set this environment variable in Netlify:
 
 The frontend will call the Render API directly using this value.
 
-### Local Docker compatibility
-
-These Netlify/Render changes do not break local Docker development:
-
-- Docker Compose sets `STORAGE_MODE=local` and `LOCAL_STORAGE_DIR=/app/storage` for the Flask backend.
-- The frontend keeps using Vite dev proxy (`VITE_API_PROXY_TARGET=http://backend:5000`) in Docker.
-- `VITE_API_BASE_URL` is optional and only used when set to an absolute `http(s)` URL (recommended for Netlify).
-
 ### 3) Verify
 
 After both deploys complete:
@@ -115,6 +86,15 @@ After both deploys complete:
 - Upload a PNG chart.
 - Confirm preview image loads.
 - Confirm delete works.
+
+## Storage modes
+
+The Flask backend supports:
+
+- `STORAGE_MODE=local` (required for Render deployment)
+  - API reads/writes files to `LOCAL_STORAGE_DIR` (or default `backend/storage`).
+- `STORAGE_MODE=external`
+  - Flask API routes intentionally return a 501 to indicate an external API should be used.
 
 ## Windows notes
 
