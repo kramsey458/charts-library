@@ -5,6 +5,7 @@ const emptyState = {
   charts: [],
 };
 
+
 const fetchJson = async (url, options) => {
   const response = await fetch(url, options);
   if (!response.ok) {
@@ -25,6 +26,8 @@ export default function App() {
   const [selectedTicker, setSelectedTicker] = useState("");
   const [tickerSearch, setTickerSearch] = useState("");
   const [charts, setCharts] = useState(emptyState.charts);
+  const [totalCharts, setTotalCharts] = useState(0);
+  const [chartCountsByTicker, setChartCountsByTicker] = useState({});
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [previewChart, setPreviewChart] = useState(null);
@@ -161,11 +164,26 @@ export default function App() {
     return tickers.filter((ticker) => ticker.includes(query));
   }, [tickerSearch, tickers]);
 
+  const selectedTickerChartCount = selectedTicker
+    ? chartCountsByTicker[selectedTicker] ?? charts.length
+    : 0;
+  const selectedTickerChartLabel = selectedTickerChartCount === 1 ? "chart" : "charts";
+
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
-    setTickers(data.tickers);
-    if (!selectedTicker && data.tickers.length > 0) {
-      setSelectedTicker(data.tickers[0]);
+    const nextTickers = data.tickers || [];
+    const nextChartCounts = data.chart_counts || {};
+    const fallbackTotalCharts = Object.values(nextChartCounts).reduce(
+      (sum, count) => sum + Number(count || 0),
+      0
+    );
+
+    setTickers(nextTickers);
+    setChartCountsByTicker(nextChartCounts);
+    setTotalCharts(data.total_charts ?? fallbackTotalCharts);
+
+    if (!selectedTicker && nextTickers.length > 0) {
+      setSelectedTicker(nextTickers[0]);
     }
   };
 
@@ -290,13 +308,10 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <div>
-          <p className="eyebrow">Chart Vault</p>
-          <h1>Store and review your trading chart snapshots.</h1>
-          <p className="subtitle">
-            Upload PNG charts by ticker and date. Instantly browse your visual
-            history with a responsive, card-based gallery.
-          </p>
+        <div className="hero">
+          <p className="eyebrow">Trading chart library</p>
+          <h1>Chart Vault</h1>
+          <p className="hero-slogan">Your visual market memory, organized at a glance.</p>
         </div>
       </header>
 
@@ -304,8 +319,8 @@ export default function App() {
         <div className="selector">
           <label htmlFor="ticker-search">Ticker library</label>
           <p className="ticker-library-summary">
-            {tickers.length} ticker{tickers.length === 1 ? "" : "s"} tracked • {charts.length} chart
-            {charts.length === 1 ? "" : "s"} stored
+            {tickers.length} ticker{tickers.length === 1 ? "" : "s"} tracked • {totalCharts} chart
+            {totalCharts === 1 ? "" : "s"} stored
           </p>
           <input
             id="ticker-search"
@@ -420,8 +435,8 @@ export default function App() {
       <section className="gallery">
         <div className="gallery-header">
           <div>
-            <h2>{selectedTicker ? `${selectedTicker} charts` : "Charts"}</h2>
-            <p>Browse your saved snapshots organized by date.</p>
+            <h2>{selectedTicker ? `${selectedTicker} ${selectedTickerChartLabel}` : "Charts"}</h2>
+            <p>{selectedTicker ? `${selectedTickerChartCount} ${selectedTickerChartLabel} saved for ${selectedTicker}.` : "Browse your saved snapshots organized by date."}</p>
           </div>
           {error && <span className="error">{error}</span>}
         </div>

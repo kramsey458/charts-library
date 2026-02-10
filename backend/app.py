@@ -52,6 +52,19 @@ def list_charts_for_ticker(ticker: str) -> list[dict]:
     return charts
 
 
+def build_ticker_stats() -> tuple[list[str], dict[str, int], int]:
+    tickers = list_tickers()
+    chart_counts: dict[str, int] = {}
+    total_charts = 0
+
+    for ticker in tickers:
+        ticker_chart_count = len(list_charts_for_ticker(ticker))
+        chart_counts[ticker] = ticker_chart_count
+        total_charts += ticker_chart_count
+
+    return tickers, chart_counts, total_charts
+
+
 @app.get("/api/health")
 def health():
     return jsonify({"status": "ok"})
@@ -59,7 +72,14 @@ def health():
 
 @app.get("/api/tickers")
 def get_tickers():
-    return jsonify({"tickers": list_tickers()})
+    tickers, chart_counts, total_charts = build_ticker_stats()
+    return jsonify(
+        {
+            "tickers": tickers,
+            "chart_counts": chart_counts,
+            "total_charts": total_charts,
+        }
+    )
 
 
 @app.get("/api/charts/<ticker>")
