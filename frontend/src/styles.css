@@ -1,0 +1,250 @@
+:root {
+  font-family: "Inter", system-ui, sans-serif;
+  color: #eef2ff;
+  background-color: #0b1020;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1a2142, #0b1020 55%);
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 24px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.7rem;
+  color: #9aa3c4;
+}
+
+.header h1 {
+  font-size: clamp(2.2rem, 2.8vw, 3.2rem);
+  margin-top: 12px;
+}
+
+.subtitle {
+  margin-top: 16px;
+  max-width: 540px;
+  color: #c2c9e9;
+}
+
+.header-card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  min-width: 240px;
+  backdrop-filter: blur(8px);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #9aa3c4;
+}
+
+.stat-value {
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  align-items: stretch;
+}
+
+.selector,
+.upload {
+  background: rgba(15, 20, 40, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.selector label,
+.upload label {
+  font-size: 0.8rem;
+  color: #9aa3c4;
+}
+
+select,
+input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(10, 12, 26, 0.9);
+  color: #eef2ff;
+}
+
+select:focus,
+input:focus {
+  outline: 2px solid rgba(103, 126, 255, 0.8);
+  border-color: transparent;
+}
+
+.upload {
+  gap: 12px;
+}
+
+.upload-field {
+  display: grid;
+  gap: 8px;
+}
+
+button {
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(120deg, #6a7bff, #8c5bff);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(106, 123, 255, 0.3);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.gallery {
+  background: rgba(8, 12, 28, 0.85);
+  border-radius: 24px;
+  padding: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.gallery-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.gallery-header h2 {
+  font-size: 1.6rem;
+  margin-bottom: 6px;
+}
+
+.gallery-header p {
+  color: #a3abcb;
+}
+
+.error {
+  color: #ff8f8f;
+  font-size: 0.9rem;
+}
+
+.empty-state {
+  border-radius: 16px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  padding: 40px;
+  text-align: center;
+  color: #9aa3c4;
+}
+
+.date-groups {
+  display: grid;
+  gap: 32px;
+}
+
+.date-group {
+  display: grid;
+  gap: 16px;
+}
+
+.date-label {
+  font-size: 1rem;
+  color: #d3d8f5;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.chart-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.chart-card {
+  background: rgba(12, 16, 36, 0.9);
+  border-radius: 18px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chart-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+}
+
+.chart-card img {
+  border-radius: 14px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.chart-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #b8c0e5;
+}
+
+@media (max-width: 720px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .header-card {
+    width: 100%;
+  }
+}
