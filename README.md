@@ -35,6 +35,8 @@ The React app expects the Flask API to be available at `http://localhost:5000`.
 
 In Docker Compose development mode, code changes under `frontend/` and `backend/` are mounted into the containers so both services automatically reload when files change.
 
+The frontend dev server proxies `/api` requests to the backend container via `VITE_API_PROXY_TARGET=http://backend:5000`, avoiding localhost proxy errors inside Docker.
+
 ## Windows notes
 
 ### Docker (recommended)
