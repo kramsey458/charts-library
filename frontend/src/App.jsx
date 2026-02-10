@@ -38,12 +38,15 @@ export default function App() {
   });
   const dateInputRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  const panRef = useRef({ x: 0, y: 0 });
 
   const clampZoom = (zoom) => Math.min(4, Math.max(1, zoom));
 
   const resetPreviewTransform = () => {
     setPreviewZoom(1);
-    setPreviewPan({ x: 0, y: 0 });
+    const nextPan = { x: 0, y: 0 };
+    panRef.current = nextPan;
+    setPreviewPan(nextPan);
   };
 
   const openChartPreview = (chart) => {
@@ -60,7 +63,9 @@ export default function App() {
     const clampedZoom = clampZoom(nextZoom);
     setPreviewZoom(clampedZoom);
     if (clampedZoom === 1) {
-      setPreviewPan({ x: 0, y: 0 });
+      const nextPan = { x: 0, y: 0 };
+      panRef.current = nextPan;
+      setPreviewPan(nextPan);
     }
   };
 
@@ -75,15 +80,17 @@ export default function App() {
   };
 
   const beginPan = (event) => {
-    if (previewZoom <= 1) {
+    if (previewZoom <= 1 || event.button !== 0) {
       return;
     }
+    event.preventDefault();
     setIsPanning(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
     panStartRef.current = {
       x: event.clientX,
       y: event.clientY,
-      panX: previewPan.x,
-      panY: previewPan.y,
+      panX: panRef.current.x,
+      panY: panRef.current.y,
     };
   };
 
@@ -91,13 +98,22 @@ export default function App() {
     if (!isPanning) {
       return;
     }
-    setPreviewPan({
+    const nextPan = {
       x: panStartRef.current.panX + (event.clientX - panStartRef.current.x),
       y: panStartRef.current.panY + (event.clientY - panStartRef.current.y),
-    });
+    };
+    panRef.current = nextPan;
+    setPreviewPan(nextPan);
   };
 
-  const stopPan = () => {
+  const stopPan = (event) => {
+    if (
+      event &&
+      event.currentTarget.hasPointerCapture &&
+      event.currentTarget.hasPointerCapture(event.pointerId)
+    ) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
     setIsPanning(false);
   };
 
@@ -459,10 +475,10 @@ export default function App() {
             <div
               className={`chart-modal-image-viewport ${previewZoom > 1 ? "is-zoomed" : ""}`}
               onWheel={handleWheelZoom}
-              onMouseDown={beginPan}
-              onMouseMove={continuePan}
-              onMouseUp={stopPan}
-              onMouseLeave={stopPan}
+              onPointerDown={beginPan}
+              onPointerMove={continuePan}
+              onPointerUp={stopPan}
+              onPointerCancel={stopPan}
             >
               <img
                 className={`chart-modal-image ${isPanning ? "is-panning" : ""}`}
