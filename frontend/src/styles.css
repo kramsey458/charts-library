@@ -58,33 +58,6 @@ img {
   color: #c2c9e9;
 }
 
-.header-card {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  padding: 24px;
-  display: grid;
-  gap: 16px;
-  min-width: 240px;
-  backdrop-filter: blur(8px);
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  color: #9aa3c4;
-}
-
-.stat-value {
-  font-size: 1.8rem;
-  font-weight: 600;
-}
-
 .controls {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -102,14 +75,16 @@ img {
   gap: 16px;
 }
 
-.selector {
-  grid-template-rows: auto auto 1fr;
-}
-
 .selector label,
 .upload label {
   font-size: 0.8rem;
   color: #9aa3c4;
+}
+
+.ticker-library-summary {
+  color: #b6c0e8;
+  font-size: 0.86rem;
+  margin-top: -8px;
 }
 
 select,
@@ -488,10 +463,6 @@ button:disabled {
 @media (max-width: 720px) {
   .header {
     flex-direction: column;
-  }
-
-  .header-card {
-    width: 100%;
   }
 
   .chart-modal-toolbar {
