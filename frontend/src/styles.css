@@ -129,14 +129,43 @@ input:focus {
 }
 
 
+input[type="date"] {
+  color-scheme: dark;
+  padding-right: 52px;
+}
+
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.4);
-  opacity: 1;
+  opacity: 0;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
 }
 
-input[type="date"] {
-  color-scheme: dark;
+.date-input-wrap {
+  position: relative;
+}
+
+.date-picker-trigger {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.date-picker-trigger:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .upload {

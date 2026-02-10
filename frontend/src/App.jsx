@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const emptyState = {
   tickers: [],
@@ -33,6 +33,7 @@ export default function App() {
     date: "",
     file: null,
   });
+  const dateInputRef = useRef(null);
 
   const groupedCharts = useMemo(() => {
     return charts.reduce((groups, chart) => {
@@ -243,14 +244,31 @@ export default function App() {
           </div>
           <div className="upload-field">
             <label htmlFor="date-input">Date</label>
-            <input
-              id="date-input"
-              type="date"
-              value={formState.date}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, date: event.target.value }))
-              }
-            />
+            <div className="date-input-wrap">
+              <input
+                id="date-input"
+                ref={dateInputRef}
+                type="date"
+                value={formState.date}
+                onChange={(event) =>
+                  setFormState((prev) => ({ ...prev, date: event.target.value }))
+                }
+              />
+              <button
+                type="button"
+                className="date-picker-trigger"
+                aria-label="Open date picker"
+                onClick={() => {
+                  if (dateInputRef.current?.showPicker) {
+                    dateInputRef.current.showPicker();
+                  } else {
+                    dateInputRef.current?.focus();
+                  }
+                }}
+              >
+                📅
+              </button>
+            </div>
           </div>
           <div className="upload-field">
             <label htmlFor="file-input">Chart PNG</label>
