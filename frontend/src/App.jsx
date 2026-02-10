@@ -5,9 +5,18 @@ const emptyState = {
   charts: [],
 };
 
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+const withApiBase = (path) => {
+  if (!apiBaseUrl || /^https?:\/\//i.test(path)) {
+    return path;
+  }
+  return `${apiBaseUrl}${path}`;
+};
+
 
 const fetchJson = async (url, options) => {
-  const response = await fetch(url, options);
+  const response = await fetch(withApiBase(url), options);
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.error || "Request failed");
@@ -16,9 +25,9 @@ const fetchJson = async (url, options) => {
 };
 
 const buildChartPath = (chart) => {
-  return `/api/chart-file/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+  return withApiBase(`/api/chart-file/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
     chart.date
-  )}/${encodeURIComponent(chart.filename)}`;
+  )}/${encodeURIComponent(chart.filename)}`);
 };
 
 const buildNotesPreview = (notes = "") => {
