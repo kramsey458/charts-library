@@ -21,6 +21,17 @@ const buildChartPath = (chart) => {
   )}/${encodeURIComponent(chart.filename)}`;
 };
 
+const buildNotesPreview = (notes = "") => {
+  const trimmedNotes = notes.trim();
+  if (!trimmedNotes) {
+    return "";
+  }
+  if (trimmedNotes.length <= 100) {
+    return trimmedNotes;
+  }
+  return `${trimmedNotes.slice(0, 100)}...`;
+};
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
@@ -486,6 +497,9 @@ export default function App() {
                         </a>
                         <span>{chart.ticker}</span>
                       </div>
+                      {chart.notes ? (
+                        <p className="chart-notes-preview">{buildNotesPreview(chart.notes)}</p>
+                      ) : null}
                       <button
                         type="button"
                         className="delete-button"
