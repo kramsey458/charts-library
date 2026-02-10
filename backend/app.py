@@ -174,7 +174,7 @@ def build_chart_stats_external() -> tuple[list[str], dict[str, int], int]:
 
 
 def upload_chart_external(ticker: str, date_label: str, filename: str, notes: str, chart_file) -> None:
-    timestamp = int(datetime.datetime.now(datetime.UTC).timestamp())
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     folder = f"{CLOUDINARY_FOLDER}/{ticker}/{date_label}"
     base_name = Path(filename).stem
     safe_base_name = secure_filename(base_name) or "chart"
@@ -210,7 +210,7 @@ def upload_chart_external(ticker: str, date_label: str, filename: str, notes: st
 
 
 def delete_chart_external(public_id: str) -> None:
-    timestamp = int(datetime.datetime.now(datetime.UTC).timestamp())
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     signature = cloudinary_signature({"public_id": public_id, "timestamp": timestamp})
     destroy_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/image/destroy"
     response = requests.post(
