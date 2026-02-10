@@ -7,6 +7,10 @@ const apiProxyTarget =
 export default defineConfig({
   plugins: [react()],
   server: {
+    watch: {
+      usePolling: true,
+      interval: Number(process.env.CHOKIDAR_INTERVAL || 300),
+    },
     proxy: {
       "/api": apiProxyTarget,
     },

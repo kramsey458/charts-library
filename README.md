@@ -7,7 +7,7 @@ A React + Flask application for saving and browsing PNG trading charts by ticker
 ### Docker (recommended)
 
 ```bash
-docker compose up --build
+docker compose up --build --watch
 ```
 
 - Frontend (Vite dev server with hot reload): http://localhost:8080
@@ -33,7 +33,9 @@ npm run dev
 
 The React app expects the Flask API to be available at `http://localhost:5000`.
 
-In Docker Compose development mode, code changes under `frontend/` and `backend/` are mounted into the containers so both services automatically reload when files change.
+In Docker Compose watch mode, file changes under `frontend/` and `backend/` are synced into the containers so both services automatically reload. This also catches large updates such as switching Git branches while containers are running.
+
+If you change dependencies (`frontend/package.json`, `frontend/package-lock.json`, or `backend/requirements.txt`), Compose watch automatically rebuilds the affected service.
 
 The frontend dev server proxies `/api` requests to the backend container via `VITE_API_PROXY_TARGET=http://backend:5000`, avoiding localhost proxy errors inside Docker.
 
@@ -42,7 +44,7 @@ The frontend dev server proxies `/api` requests to the backend container via `VI
 ### Docker (recommended)
 
 ```powershell
-docker compose up --build
+docker compose up --build --watch
 ```
 
 Then open http://localhost:8080 in your browser.
