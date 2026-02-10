@@ -26,6 +26,8 @@ export default function App() {
   const [selectedTicker, setSelectedTicker] = useState("");
   const [tickerSearch, setTickerSearch] = useState("");
   const [charts, setCharts] = useState(emptyState.charts);
+  const [totalCharts, setTotalCharts] = useState(0);
+  const [chartCountsByTicker, setChartCountsByTicker] = useState({});
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
   const [previewChart, setPreviewChart] = useState(null);
@@ -162,12 +164,27 @@ export default function App() {
     return tickers.filter((ticker) => ticker.includes(query));
   }, [tickerSearch, tickers]);
 
+  const selectedTickerChartCount = selectedTicker
+    ? chartCountsByTicker[selectedTicker] ?? charts.length
+    : 0;
+
+
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
-    setTickers(data.tickers);
-    if (!selectedTicker && data.tickers.length > 0) {
-      setSelectedTicker(data.tickers[0]);
+    const nextTickers = data.tickers || [];
+    const nextChartCounts = data.chart_counts || {};
+    const fallbackTotalCharts = Object.values(nextChartCounts).reduce(
+      (sum, count) => sum + Number(count || 0),
+      0
+    );
+
+    setTickers(nextTickers);
+    setChartCountsByTicker(nextChartCounts);
+    setTotalCharts(data.total_charts ?? fallbackTotalCharts);
+
+    if (!selectedTicker && nextTickers.length > 0) {
+      setSelectedTicker(nextTickers[0]);
     }
   };
 
@@ -303,8 +320,8 @@ export default function App() {
         <div className="selector">
           <label htmlFor="ticker-search">Ticker library</label>
           <p className="ticker-library-summary">
-            {tickers.length} ticker{tickers.length === 1 ? "" : "s"} tracked • {charts.length} chart
-            {charts.length === 1 ? "" : "s"} stored
+            {tickers.length} ticker{tickers.length === 1 ? "" : "s"} tracked • {totalCharts} chart
+            {totalCharts === 1 ? "" : "s"} stored
           </p>
           <input
             id="ticker-search"
@@ -420,7 +437,7 @@ export default function App() {
         <div className="gallery-header">
           <div>
             <h2>{selectedTicker ? `${selectedTicker} charts` : "Charts"}</h2>
-            <p>Browse your saved snapshots organized by date.</p>
+            <p>{selectedTicker ? `${selectedTickerChartCount} charts saved for ${selectedTicker}.` : "Browse your saved snapshots organized by date."}</p>
           </div>
           {error && <span className="error">{error}</span>}
         </div>
