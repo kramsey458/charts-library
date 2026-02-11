@@ -352,16 +352,19 @@ export default function App() {
     event.preventDefault();
     setError("");
 
-    if (!formState.ticker || !formState.file) {
+    const normalizedTicker = formState.ticker.trim().toUpperCase();
+    const selectedFile =
+      formState.file || event.currentTarget?.querySelector("#file-input")?.files?.[0] || null;
+
+    if (!normalizedTicker || !selectedFile) {
       setError("Please provide a ticker and PNG chart file.");
       return;
     }
 
-    const normalizedTicker = formState.ticker.trim().toUpperCase();
     const formData = new FormData();
     formData.append("ticker", normalizedTicker);
     formData.append("date", formState.date);
-    formData.append("chart", formState.file);
+    formData.append("chart", selectedFile);
     formData.append("notes", formState.notes.trim());
     CHECKLIST_FIELDS.forEach((field) => {
       formData.append(field.key, formState.checklist[field.key] ? "true" : "false");
