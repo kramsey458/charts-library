@@ -28,6 +28,7 @@ services:
     ports:
       - "8080:5173"
     volumes:
+      - ./frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_PROXY_TARGET=http://backend:5000
