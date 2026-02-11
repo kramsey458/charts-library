@@ -202,7 +202,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  padding-right: 46px;
+  padding-right: 40px;
   background-image: linear-gradient(45deg, transparent 50%, #b6c0e8 50%),
     linear-gradient(135deg, #b6c0e8 50%, transparent 50%);
   background-position: calc(100% - 26px) calc(50% - 2px), calc(100% - 20px) calc(50% - 2px);
