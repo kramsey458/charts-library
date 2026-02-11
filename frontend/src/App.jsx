@@ -579,9 +579,27 @@ export default function App() {
                       </div>
                       <div className="chart-notes-row">
                         {chart.notes ? (
-                          <p className="chart-notes-preview">{buildNotesPreview(chart.notes)}</p>
+                          <p
+                            className="chart-notes-preview"
+                            onDoubleClick={() => {
+                              openChartPreview(chart);
+                              startEditingNotes(chart);
+                            }}
+                            title="Double-click to edit notes"
+                          >
+                            {buildNotesPreview(chart.notes)}
+                          </p>
                         ) : (
-                          <p className="chart-notes-preview chart-notes-preview-empty">No notes yet.</p>
+                          <p
+                            className="chart-notes-preview chart-notes-preview-empty"
+                            onDoubleClick={() => {
+                              openChartPreview(chart);
+                              startEditingNotes(chart);
+                            }}
+                            title="Double-click to add notes"
+                          >
+                            No notes yet.
+                          </p>
                         )}
                         <button
                           type="button"
