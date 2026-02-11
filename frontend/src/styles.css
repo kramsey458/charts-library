@@ -249,6 +249,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   background: rgba(106, 123, 255, 0.12);
 }
 
+.ticker-link {
+  color: #dfe6ff;
+  text-decoration: none;
+}
+
+.ticker-link:hover,
+.ticker-link:focus-visible {
+  color: #9fb0ff;
+}
+
 .ticker-row-button {
   width: 100%;
   border-radius: 8px;
