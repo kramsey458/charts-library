@@ -68,6 +68,21 @@ export default function App() {
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
 
+  const getTodayDateValue = () => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const handleDateInputDoubleClick = () => {
+    setFormState((prev) => ({
+      ...prev,
+      date: getTodayDateValue(),
+    }));
+  };
+
   const clampZoom = (zoom) => Math.min(4, Math.max(1, zoom));
 
   const resetPreviewTransform = () => {
@@ -416,6 +431,7 @@ export default function App() {
                 ref={dateInputRef}
                 type="date"
                 value={formState.date}
+                onDoubleClick={handleDateInputDoubleClick}
                 onChange={(event) =>
                   setFormState((prev) => ({ ...prev, date: event.target.value }))
                 }
