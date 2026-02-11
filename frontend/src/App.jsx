@@ -43,6 +43,8 @@ const buildNotesPreview = (notes = "") => {
   return `${trimmedNotes.slice(0, 100)}...`;
 };
 
+const getChartKey = (chart) => `${chart.ticker}::${chart.date}::${chart.filename}`;
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
@@ -57,6 +59,9 @@ export default function App() {
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [isModalFullscreen, setIsModalFullscreen] = useState(false);
+  const [editingNotesKey, setEditingNotesKey] = useState("");
+  const [notesDraft, setNotesDraft] = useState("");
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
@@ -79,7 +84,14 @@ export default function App() {
 
   const openChartPreview = (chart) => {
     setPreviewChart(chart);
+    setEditingNotesKey("");
+    setNotesDraft("");
     resetPreviewTransform();
+  };
+
+  const openChartNotesEditor = (chart) => {
+    openChartPreview(chart);
+    startEditingNotes(chart);
   };
 
   const closeChartPreview = () => {
@@ -89,6 +101,68 @@ export default function App() {
     setPreviewChart(null);
     setIsPanning(false);
     setIsModalFullscreen(false);
+    setEditingNotesKey("");
+    setNotesDraft("");
+  };
+
+  const startEditingNotes = (chart) => {
+    setEditingNotesKey(getChartKey(chart));
+    setNotesDraft(chart.notes || "");
+  };
+
+  const cancelEditingNotes = () => {
+    setEditingNotesKey("");
+    setNotesDraft("");
+  };
+
+  const updateChartNotesInState = (targetChart, nextNotes) => {
+    setCharts((prevCharts) =>
+      prevCharts.map((chart) => {
+        if (
+          chart.ticker === targetChart.ticker &&
+          chart.date === targetChart.date &&
+          chart.filename === targetChart.filename
+        ) {
+          return { ...chart, notes: nextNotes };
+        }
+        return chart;
+      })
+    );
+
+    setPreviewChart((prevPreviewChart) => {
+      if (
+        prevPreviewChart &&
+        prevPreviewChart.ticker === targetChart.ticker &&
+        prevPreviewChart.date === targetChart.date &&
+        prevPreviewChart.filename === targetChart.filename
+      ) {
+        return { ...prevPreviewChart, notes: nextNotes };
+      }
+      return prevPreviewChart;
+    });
+  };
+
+  const saveChartNotes = async (chart) => {
+    setError("");
+    try {
+      setIsSavingNotes(true);
+      const response = await fetchJson(
+        `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+          chart.date
+        )}/${encodeURIComponent(chart.filename)}/notes`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ notes: notesDraft }),
+        }
+      );
+      updateChartNotesInState(chart, response.chart?.notes || "");
+      cancelEditingNotes();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSavingNotes(false);
+    }
   };
 
   const updateZoom = (nextZoom) => {
@@ -508,9 +582,29 @@ export default function App() {
                         </a>
                         <span>{chart.ticker}</span>
                       </div>
-                      {chart.notes ? (
-                        <p className="chart-notes-preview">{buildNotesPreview(chart.notes)}</p>
-                      ) : null}
+                      <div className="chart-notes-row">
+                        <button
+                          type="button"
+                          className={`chart-notes-preview ${chart.notes ? "" : "chart-notes-preview-empty"}`.trim()}
+                          onDoubleClick={() => openChartNotesEditor(chart)}
+                          aria-label={
+                            chart.notes
+                              ? `Double-click to edit notes for ${chart.filename}`
+                              : `Double-click to add notes for ${chart.filename}`
+                          }
+                          title={chart.notes ? "Double-click to edit notes" : "Double-click to add notes"}
+                        >
+                          {chart.notes ? buildNotesPreview(chart.notes) : "No notes yet."}
+                        </button>
+                        <button
+                          type="button"
+                          className="notes-edit-icon"
+                          aria-label={`Edit notes for ${chart.filename}`}
+                          onClick={() => openChartNotesEditor(chart)}
+                        >
+                          ✎
+                        </button>
+                      </div>
                       <button
                         type="button"
                         className="delete-button"
@@ -591,12 +685,59 @@ export default function App() {
               </span>
               {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
             </div>
-            {previewChart.notes ? (
-              <div className="chart-modal-notes">
+            <div
+              className="chart-modal-notes"
+              onDoubleClick={() => {
+                if (editingNotesKey !== getChartKey(previewChart)) {
+                  startEditingNotes(previewChart);
+                }
+              }}
+            >
+              <div className="chart-modal-notes-header">
                 <h3>Notes</h3>
-                <p>{previewChart.notes}</p>
+                {editingNotesKey !== getChartKey(previewChart) ? (
+                  <button
+                    type="button"
+                    className="notes-edit-icon"
+                    onClick={() => startEditingNotes(previewChart)}
+                    aria-label={`Edit notes for ${previewChart.filename}`}
+                  >
+                    ✎
+                  </button>
+                ) : null}
               </div>
-            ) : null}
+              {editingNotesKey === getChartKey(previewChart) ? (
+                <div className="chart-notes-editor">
+                  <textarea
+                    aria-label="Edit chart notes"
+                    value={notesDraft}
+                    onChange={(event) => setNotesDraft(event.target.value)}
+                    rows={4}
+                  />
+                  <div className="chart-notes-actions">
+                    <button
+                      type="button"
+                      onClick={() => saveChartNotes(previewChart)}
+                      disabled={isSavingNotes}
+                    >
+                      {isSavingNotes ? "Saving..." : "Save notes"}
+                    </button>
+                    <button
+                      type="button"
+                      className="notes-cancel"
+                      onClick={cancelEditingNotes}
+                      disabled={isSavingNotes}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : previewChart.notes ? (
+                <p>{previewChart.notes}</p>
+              ) : (
+                <p className="chart-notes-empty">Double-click to add notes.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

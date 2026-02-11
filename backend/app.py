@@ -209,6 +209,36 @@ def upload_chart_external(ticker: str, date_label: str, filename: str, notes: st
         raise RuntimeError(message or "Cloudinary upload failed.")
 
 
+
+
+def update_chart_notes_external(public_id: str, ticker: str, date_label: str, filename: str, notes: str) -> None:
+    timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    context = f"ticker={ticker}|date={date_label}|filename={filename}|notes={quote(notes)}"
+    signature = cloudinary_signature(
+        {
+            "context": context,
+            "public_id": public_id,
+            "timestamp": timestamp,
+            "type": "upload",
+        }
+    )
+    explicit_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/image/explicit"
+    response = requests.post(
+        explicit_url,
+        data={
+            "public_id": public_id,
+            "type": "upload",
+            "api_key": CLOUDINARY_API_KEY,
+            "timestamp": str(timestamp),
+            "signature": signature,
+            "context": context,
+        },
+        timeout=30,
+    )
+    if response.status_code >= 400:
+        message = response.json().get("error", {}).get("message") if response.headers.get("content-type", "").startswith("application/json") else "Cloudinary note update failed."
+        raise RuntimeError(message or "Cloudinary note update failed.")
+
 def delete_chart_external(public_id: str) -> None:
     timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     signature = cloudinary_signature({"public_id": public_id, "timestamp": timestamp})
@@ -414,6 +444,70 @@ def delete_chart(ticker: str, date_label: str, filename: str):
 
     return jsonify({"message": "Chart deleted."})
 
+
+
+
+@app.patch("/api/charts/<ticker>/<date_label>/<filename>/notes")
+def update_chart_notes(ticker: str, date_label: str, filename: str):
+    is_ok, err = ensure_external_config()
+    if not is_ok:
+        payload, status = err
+        return jsonify(payload), status
+
+    normalized_ticker = ticker.strip().upper()
+    payload = request.get_json(silent=True) or {}
+    notes = str(payload.get("notes", "")).strip()
+
+    if STORAGE_MODE == "external":
+        try:
+            chart = next(
+                (
+                    c
+                    for c in list_all_charts_external()
+                    if c["ticker"] == normalized_ticker
+                    and c["date"] == date_label
+                    and c["filename"] == filename
+                ),
+                None,
+            )
+            if not chart:
+                return jsonify({"error": "Chart not found."}), 404
+            update_chart_notes_external(chart["public_id"], normalized_ticker, date_label, filename, notes)
+            return jsonify(
+                {
+                    "message": "Notes updated.",
+                    "chart": {
+                        "ticker": normalized_ticker,
+                        "date": date_label,
+                        "filename": filename,
+                        "notes": notes,
+                    },
+                }
+            )
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 502
+
+    chart_path = STORAGE_DIR / normalized_ticker / date_label / filename
+    if not chart_path.exists() or not chart_path.is_file():
+        return jsonify({"error": "Chart not found."}), 404
+
+    notes_path = chart_path.parent / f"{chart_path.stem}.notes.txt"
+    if notes:
+        notes_path.write_text(notes, encoding="utf-8")
+    elif notes_path.exists() and notes_path.is_file():
+        notes_path.unlink()
+
+    return jsonify(
+        {
+            "message": "Notes updated.",
+            "chart": {
+                "ticker": normalized_ticker,
+                "date": date_label,
+                "filename": filename,
+                "notes": notes,
+            },
+        }
+    )
 
 @app.get("/api/chart-file/<ticker>/<date_label>/<filename>")
 def get_chart_file(ticker: str, date_label: str, filename: str):

@@ -372,6 +372,11 @@ button:disabled {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  box-shadow: none;
+  font-weight: 400;
+  text-align: left;
+  width: 100%;
 }
 
 .delete-button {
@@ -512,6 +517,57 @@ button:disabled {
   color: #c7cef0;
   white-space: pre-wrap;
   font-size: 0.9rem;
+}
+
+
+.chart-notes-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.chart-notes-preview-empty,
+.chart-notes-empty {
+  color: #9aa3c4;
+  font-style: italic;
+}
+
+.notes-edit-icon {
+  border-radius: 10px;
+  padding: 6px 9px;
+  min-width: 34px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+}
+
+.notes-edit-icon:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.chart-modal-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.chart-notes-editor {
+  display: grid;
+  gap: 10px;
+}
+
+.chart-notes-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.notes-cancel {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: none;
 }
 
 .resize-hint {
