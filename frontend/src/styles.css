@@ -82,7 +82,7 @@ img {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .selector,
@@ -93,6 +93,7 @@ img {
   padding: 24px;
   display: grid;
   gap: 16px;
+  align-content: start;
 }
 
 .selector label,
@@ -123,6 +124,10 @@ input:focus,
 textarea:focus {
   outline: 2px solid rgba(103, 126, 255, 0.8);
   border-color: transparent;
+}
+
+select {
+  padding-right: 34px;
 }
 
 
@@ -174,6 +179,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .upload {
   gap: 12px;
+}
+
+
+.ticker-sort-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ticker-sort-field {
+  display: grid;
+  gap: 6px;
+}
+
+.ticker-sort-field label {
+  font-size: 0.74rem;
+  color: #9aa3c4;
 }
 
 .ticker-table-wrap {
@@ -591,6 +613,10 @@ button:disabled {
 
   .modal-actions {
     justify-content: flex-end;
+  }
+
+  .ticker-sort-controls {
+    grid-template-columns: 1fr;
   }
 
   .chart-modal {
