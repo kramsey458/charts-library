@@ -586,7 +586,6 @@ export default function App() {
             />
           </div>
           <div className="upload-field file-upload-box">
-            <label htmlFor="file-input">Chart PNG</label>
             <div className="file-input-control">
               <input
                 id="file-input"
