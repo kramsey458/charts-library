@@ -5,13 +5,19 @@ A React + Flask application for saving and browsing PNG trading charts by ticker
 ## Architecture
 
 - **Frontend:** React (Vite) app in `frontend/`.
-- **Backend:** Flask API in `backend/app.py`.
-- The frontend always calls the Flask API (`/api/*`).
-- Storage is selected by backend `STORAGE_MODE`:
-  - `local`: files on disk (`LOCAL_STORAGE_DIR`)
-  - `external`: Cloudinary (free tier supported)
+  - UI entry point: `frontend/src/App.jsx`
+  - Shared chart helpers: `frontend/src/lib/chartHelpers.js`
+- **Backend:** Flask API in `backend/`.
+  - Runtime entry point: `backend/app.py`
+  - App factory and route wiring: `backend/charts_api/app_factory.py` and `backend/charts_api/routes.py`
+  - Storage services:
+    - local filesystem: `backend/charts_api/local_storage.py`
+    - Cloudinary external mode: `backend/charts_api/cloudinary_storage.py`
 
-There is no separate Netlify Function API in this architecture.
+The frontend always calls the Flask API (`/api/*`).
+Storage is selected by backend `STORAGE_MODE`:
+- `local`: files on disk (`LOCAL_STORAGE_DIR`)
+- `external`: Cloudinary (free tier supported)
 
 ## Quick start
 
@@ -43,6 +49,20 @@ npm run dev
 ```
 
 The frontend dev server proxies `/api` to the backend via `VITE_API_PROXY_TARGET` (defaults to `http://localhost:5000` locally).
+
+## Testing
+
+### Backend tests
+
+```bash
+pytest backend/tests -q
+```
+
+### Frontend tests
+
+```bash
+npm --prefix frontend run test
+```
 
 ## Storage modes
 

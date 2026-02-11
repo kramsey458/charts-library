@@ -1,0 +1,115 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from .checklist import empty_checklist, sanitize_checklist
+
+
+class LocalStorage:
+    def __init__(self, storage_dir: Path) -> None:
+        self.storage_dir = storage_dir
+
+    def ensure_storage(self) -> None:
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+
+    @staticmethod
+    def checklist_file_path(chart_file: Path) -> Path:
+        return chart_file.parent / f"{chart_file.stem}.checklist.json"
+
+    def read_checklist(self, chart_file: Path) -> dict[str, bool]:
+        metadata_path = self.checklist_file_path(chart_file)
+        if not metadata_path.exists() or not metadata_path.is_file():
+            return empty_checklist()
+
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except Exception:
+            return empty_checklist()
+
+        return sanitize_checklist(payload if isinstance(payload, dict) else {})
+
+    def write_checklist(self, chart_file: Path, checklist: dict[str, bool]) -> None:
+        metadata_path = self.checklist_file_path(chart_file)
+        metadata_path.write_text(json.dumps(sanitize_checklist(checklist)), encoding="utf-8")
+
+    def list_tickers(self) -> list[str]:
+        self.ensure_storage()
+        return sorted(path.name for path in self.storage_dir.iterdir() if path.is_dir())
+
+    def list_charts_for_ticker(self, ticker: str) -> list[dict]:
+        self.ensure_storage()
+        ticker_dir = self.storage_dir / ticker
+        if not ticker_dir.exists():
+            return []
+
+        charts: list[dict] = []
+        for date_dir in sorted(ticker_dir.iterdir(), reverse=True):
+            if not date_dir.is_dir():
+                continue
+            for chart_file in sorted(date_dir.glob("*.png")):
+                notes_path = date_dir / f"{chart_file.stem}.notes.txt"
+                notes = notes_path.read_text(encoding="utf-8").strip() if notes_path.exists() else ""
+                charts.append(
+                    {
+                        "ticker": ticker,
+                        "date": date_dir.name,
+                        "filename": chart_file.name,
+                        "url": f"/api/chart-file/{ticker}/{date_dir.name}/{chart_file.name}",
+                        "notes": notes,
+                        "checklist": self.read_checklist(chart_file),
+                    }
+                )
+
+        return charts
+
+    def save_chart(self, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool], chart_file) -> None:
+        target_dir = self.storage_dir / ticker / date_label
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_path = target_dir / filename
+        chart_file.save(target_path)
+
+        notes_path = target_dir / f"{Path(filename).stem}.notes.txt"
+        if notes:
+            notes_path.write_text(notes, encoding="utf-8")
+        elif notes_path.exists() and notes_path.is_file():
+            notes_path.unlink()
+
+        self.write_checklist(target_path, checklist)
+
+    def delete_chart(self, ticker: str, date_label: str, filename: str) -> bool:
+        chart_path = self.storage_dir / ticker / date_label / filename
+        if not chart_path.exists() or not chart_path.is_file():
+            return False
+
+        chart_path.unlink()
+        notes_path = chart_path.parent / f"{chart_path.stem}.notes.txt"
+        if notes_path.exists() and notes_path.is_file():
+            notes_path.unlink()
+
+        checklist_path = self.checklist_file_path(chart_path)
+        if checklist_path.exists() and checklist_path.is_file():
+            checklist_path.unlink()
+
+        date_dir = chart_path.parent
+        ticker_dir = date_dir.parent
+        if date_dir.exists() and not any(date_dir.iterdir()):
+            date_dir.rmdir()
+        if ticker_dir.exists() and not any(ticker_dir.iterdir()):
+            ticker_dir.rmdir()
+
+        return True
+
+    def update_notes(self, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool]) -> bool:
+        chart_path = self.storage_dir / ticker / date_label / filename
+        if not chart_path.exists() or not chart_path.is_file():
+            return False
+
+        notes_path = chart_path.parent / f"{chart_path.stem}.notes.txt"
+        if notes:
+            notes_path.write_text(notes, encoding="utf-8")
+        elif notes_path.exists() and notes_path.is_file():
+            notes_path.unlink()
+
+        self.write_checklist(chart_path, checklist)
+        return True
