@@ -50,6 +50,8 @@ npm run dev
 
 The frontend dev server proxies `/api` to the backend via `VITE_API_PROXY_TARGET` (defaults to `http://localhost:5000` locally).
 
+For Docker development (`docker compose up --build --watch`), the frontend service sets `VITE_API_BASE_URL=http://localhost:5000` so the browser calls Flask directly and does not depend on Vite proxy DNS inside the container network.
+
 ## Testing
 
 ### Backend tests
