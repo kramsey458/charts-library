@@ -88,3 +88,37 @@ def test_upload_validation_errors(client):
         content_type="multipart/form-data",
     )
     assert bad_extension.status_code == 400
+
+
+def test_rest_upload_endpoint_accepts_image_field(client, png_file):
+    fileobj, filename = png_file
+    response = client.post(
+        "/api/uploads/charts",
+        data={
+            "ticker": "AAPL",
+            "date": "2026-02-12",
+            "notes": "Uploaded by processing app",
+            "image": (fileobj, filename),
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 201
+    chart = response.get_json()["chart"]
+    assert chart["ticker"] == "AAPL"
+    assert chart["filename"] == filename
+
+    charts_response = client.get("/api/charts/AAPL")
+    assert charts_response.status_code == 200
+    assert len(charts_response.get_json()["charts"]) == 1
+
+
+def test_rest_upload_endpoint_requires_an_image_file(client):
+    response = client.post(
+        "/api/uploads/charts",
+        data={"ticker": "AAPL", "date": "2026-02-12"},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Chart image is required."
