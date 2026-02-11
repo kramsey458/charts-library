@@ -71,6 +71,7 @@ export default function App() {
     file: null,
   });
   const dateInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const modalRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
@@ -368,6 +369,9 @@ export default function App() {
       setSelectedTicker(normalizedTicker);
       await loadCharts(normalizedTicker);
       setFormState({ ticker: "", date: "", notes: "", file: null });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -589,6 +593,7 @@ export default function App() {
             <div className="file-input-control">
               <input
                 id="file-input"
+                ref={fileInputRef}
                 className="file-input-native"
                 type="file"
                 accept="image/png"
