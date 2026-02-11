@@ -52,6 +52,7 @@ export default function App() {
   const [tickerSortBy, setTickerSortBy] = useState("name");
   const [tickerSortDirection, setTickerSortDirection] = useState("asc");
   const [charts, setCharts] = useState(emptyState.charts);
+  const [chartsTicker, setChartsTicker] = useState("");
   const [totalCharts, setTotalCharts] = useState(0);
   const [chartCountsByTicker, setChartCountsByTicker] = useState({});
   const [status, setStatus] = useState("idle");
@@ -292,11 +293,12 @@ export default function App() {
     });
   }, [chartCountsByTicker, tickerSearch, tickerSortBy, tickerSortDirection, tickers]);
 
-  const selectedTickerChartCount = selectedTicker
-    ? chartCountsByTicker[selectedTicker] ?? charts.length
-    : 0;
-  const selectedTickerChartLabel = selectedTickerChartCount === 1 ? "chart" : "charts";
   const isLoadingCharts = status === "loading";
+  const displayedTicker = isLoadingCharts && chartsTicker ? chartsTicker : selectedTicker;
+  const displayedTickerChartCount = displayedTicker
+    ? chartCountsByTicker[displayedTicker] ?? charts.length
+    : charts.length;
+  const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -319,6 +321,7 @@ export default function App() {
   const loadCharts = async (ticker) => {
     if (!ticker) {
       setCharts([]);
+      setChartsTicker("");
       return;
     }
     setStatus("loading");
@@ -326,6 +329,7 @@ export default function App() {
     try {
       const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
       setCharts(data.charts);
+      setChartsTicker(ticker);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -609,8 +613,8 @@ export default function App() {
       <section className="gallery">
         <div className="gallery-header">
           <div>
-            <h2>{selectedTicker ? `${selectedTicker} ${selectedTickerChartLabel}` : "Charts"}</h2>
-            <p>{selectedTicker ? `${selectedTickerChartCount} ${selectedTickerChartLabel} saved for ${selectedTicker}.` : "Browse your saved snapshots organized by date."}</p>
+            <h2>{displayedTicker ? `${displayedTicker} ${displayedTickerChartLabel}` : "Charts"}</h2>
+            <p>{displayedTicker ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.` : "Browse your saved snapshots organized by date."}</p>
           </div>
           {error && <span className="error">{error}</span>}
         </div>
@@ -623,7 +627,9 @@ export default function App() {
           </div>
         ) : (
           <div className="date-groups-wrap">
-            {isLoadingCharts ? <div className="gallery-refreshing">Refreshing charts…</div> : null}
+            {isLoadingCharts ? (
+              <div className="gallery-refreshing">Refreshing {selectedTicker || "charts"}…</div>
+            ) : null}
             <div className={`date-groups ${isLoadingCharts ? "is-refreshing" : ""}`.trim()}>
             {sortedDates.map((date) => (
               <div className="date-group" key={date}>
