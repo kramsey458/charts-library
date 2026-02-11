@@ -636,6 +636,9 @@ export default function App() {
                 <div className="chart-grid">
                   {groupedCharts[date].map((chart) => (
                     <div className="chart-card" key={`${chart.date}-${chart.filename}`}>
+                      <div className="chart-checklist-preview" title={buildChecklistSummary(chart.checklist)}>
+                        {buildChecklistSummary(chart.checklist)}
+                      </div>
                       <button
                         type="button"
                         className="chart-preview-trigger"
@@ -649,9 +652,6 @@ export default function App() {
                           {chart.filename}
                         </a>
                         <span>{chart.ticker}</span>
-                      </div>
-                      <div className="chart-checklist-preview" title={buildChecklistSummary(chart.checklist)}>
-                        {buildChecklistSummary(chart.checklist)}
                       </div>
                       <div className="chart-notes-row">
                         <button
