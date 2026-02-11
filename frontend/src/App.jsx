@@ -321,6 +321,7 @@ export default function App() {
     ? chartCountsByTicker[displayedTicker] ?? charts.length
     : charts.length;
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
+  const getFinvizUrl = (ticker) => `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -544,7 +545,16 @@ export default function App() {
                     const tickerChartCount = Number(chartCountsByTicker[ticker] ?? 0);
                     return (
                       <tr key={ticker} className={isActive ? "active-row" : ""}>
-                        <td>{ticker}</td>
+                        <td>
+                          <a
+                            href={getFinvizUrl(ticker)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ticker-link"
+                          >
+                            {ticker}
+                          </a>
+                        </td>
                         <td>{tickerChartCount}</td>
                         <td>
                           <button
