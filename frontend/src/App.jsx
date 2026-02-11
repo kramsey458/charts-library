@@ -296,6 +296,7 @@ export default function App() {
     ? chartCountsByTicker[selectedTicker] ?? charts.length
     : 0;
   const selectedTickerChartLabel = selectedTickerChartCount === 1 ? "chart" : "charts";
+  const isLoadingCharts = status === "loading";
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -614,14 +615,16 @@ export default function App() {
           {error && <span className="error">{error}</span>}
         </div>
 
-        {status === "loading" ? (
-          <div className="empty-state">Loading charts...</div>
-        ) : charts.length === 0 ? (
+        {charts.length === 0 ? (
           <div className="empty-state">
-            Upload your first chart to start building this ticker timeline.
+            {isLoadingCharts
+              ? "Loading charts..."
+              : "Upload your first chart to start building this ticker timeline."}
           </div>
         ) : (
-          <div className="date-groups">
+          <div className="date-groups-wrap">
+            {isLoadingCharts ? <div className="gallery-refreshing">Refreshing charts…</div> : null}
+            <div className={`date-groups ${isLoadingCharts ? "is-refreshing" : ""}`.trim()}>
             {sortedDates.map((date) => (
               <div className="date-group" key={date}>
                 <div className="date-label">{date}</div>
@@ -678,6 +681,7 @@ export default function App() {
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )}
       </section>

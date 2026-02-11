@@ -313,9 +313,31 @@ button:disabled {
   color: #9aa3c4;
 }
 
+.date-groups-wrap {
+  position: relative;
+}
+
+.gallery-refreshing {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  font-size: 0.8rem;
+  color: #dce3ff;
+  background: rgba(11, 16, 32, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
 .date-groups {
   display: grid;
   gap: 32px;
+}
+
+.date-groups.is-refreshing {
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
 }
 
 .date-group {
