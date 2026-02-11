@@ -14,4 +14,8 @@ export default defineConfig({
       "/api": apiProxyTarget,
     },
   },
+  test: {
+    environment: "node",
+    include: ["tests/**/*.test.js"],
+  },
 });
