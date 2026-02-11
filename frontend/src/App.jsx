@@ -585,19 +585,29 @@ export default function App() {
               rows={3}
             />
           </div>
-          <div className="upload-field">
+          <div className="upload-field file-upload-box">
             <label htmlFor="file-input">Chart PNG</label>
-            <input
-              id="file-input"
-              type="file"
-              accept="image/png"
-              onChange={(event) =>
-                setFormState((prev) => ({
-                  ...prev,
-                  file: event.target.files?.[0] || null,
-                }))
-              }
-            />
+            <div className="file-input-control">
+              <input
+                id="file-input"
+                className="file-input-native"
+                type="file"
+                accept="image/png"
+                onChange={(event) =>
+                  setFormState((prev) => ({
+                    ...prev,
+                    file: event.target.files?.[0] || null,
+                  }))
+                }
+              />
+              <label htmlFor="file-input" className="file-input-trigger">
+                <span aria-hidden="true" className="file-input-icon">
+                  ⤴
+                </span>
+                <span>Choose file</span>
+              </label>
+              <span className="file-input-name">{formState.file?.name || "No file chosen"}</span>
+            </div>
           </div>
           <button type="submit" disabled={status === "uploading"}>
             {status === "uploading" ? "Uploading..." : "Save chart"}

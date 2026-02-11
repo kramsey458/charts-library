@@ -258,6 +258,77 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   gap: 8px;
 }
 
+.file-upload-box {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(10, 12, 26, 0.9);
+}
+
+.file-upload-box label {
+  margin: 0;
+}
+
+.file-input-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+
+.file-input-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.file-input-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 7px 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(118, 135, 255, 0.5);
+  background: linear-gradient(140deg, rgba(106, 123, 255, 0.2), rgba(140, 91, 255, 0.24));
+  color: #e9edff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
+}
+
+.file-input-trigger:hover {
+  border-color: rgba(145, 164, 255, 0.85);
+  background: linear-gradient(140deg, rgba(106, 123, 255, 0.34), rgba(140, 91, 255, 0.32));
+  transform: translateY(-1px);
+}
+
+.file-input-native:focus-visible + .file-input-trigger {
+  outline: 2px solid rgba(103, 126, 255, 0.8);
+  outline-offset: 2px;
+}
+
+.file-input-icon {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.file-input-name {
+  color: #b6c0e8;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 button {
   padding: 12px 18px;
   border-radius: 999px;
