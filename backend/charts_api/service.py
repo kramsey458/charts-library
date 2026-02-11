@@ -74,7 +74,7 @@ class ChartService:
 
         return self.local.list_charts_for_ticker(normalized_ticker)
 
-    def upload_chart(self, form, files) -> tuple[dict, int]:
+    def upload_chart(self, form, files, image_field_names: tuple[str, ...] = ("chart",)) -> tuple[dict, int]:
         if not self.is_external:
             self.local.ensure_storage()
 
@@ -82,7 +82,7 @@ class ChartService:
         date_label = form.get("date", "").strip() or datetime.date.today().isoformat()
         notes = form.get("notes", "").strip()
         checklist = sanitize_checklist({key: form.get(key, "") for key in CHECKLIST_KEYS})
-        chart_file = files.get("chart")
+        chart_file = next((files.get(field_name) for field_name in image_field_names if files.get(field_name)), None)
 
         if not ticker:
             return {"error": "Ticker is required."}, 400

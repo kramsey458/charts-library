@@ -89,6 +89,23 @@ Use backend environment variables:
 
 In this mode, the same Flask API endpoints use Cloudinary for upload/list/delete/file access.
 
+## API upload endpoints
+
+The backend now provides two multipart upload endpoints with the same validation rules for `ticker`, `date`, `notes`, checklist fields, and PNG file type checks:
+
+- `POST /api/charts` for the website upload flow (expects file field `chart`)
+- `POST /api/uploads/charts` for external/future processing apps (accepts file field `image` and also `chart` for compatibility)
+
+Example using the processing-app endpoint:
+
+```bash
+curl -X POST http://localhost:5000/api/uploads/charts \
+  -F ticker=AAPL \
+  -F date=2026-02-12 \
+  -F notes='Uploaded by processor' \
+  -F image=@./chart.png
+```
+
 ## Deploying frontend on Netlify + backend on Render
 
 This is the recommended hosted setup.

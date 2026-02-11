@@ -55,6 +55,17 @@ def create_api_blueprint(service: ChartService) -> Blueprint:
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 502
 
+    @api.post("/api/uploads/charts")
+    def upload_chart_for_processing_app():
+        validation_error = require_config()
+        if validation_error:
+            return validation_error
+        try:
+            payload, status = service.upload_chart(request.form, request.files, image_field_names=("image", "chart"))
+            return jsonify(payload), status
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 502
+
     @api.delete("/api/charts/<ticker>/<date_label>/<filename>")
     def delete_chart(ticker: str, date_label: str, filename: str):
         validation_error = require_config()
