@@ -116,29 +116,3 @@ After deploy:
 ## Netlify config
 
 `netlify.toml` is configured for static SPA hosting (frontend only). API requests are expected to go to Flask backend via `VITE_API_BASE_URL`.
-
-## Windows notes
-
-### Docker (recommended)
-
-```powershell
-docker compose up --build --watch
-```
-
-Then open http://localhost:8080.
-
-### Local dev
-
-```powershell
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
-```
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
