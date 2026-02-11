@@ -75,17 +75,6 @@ const chartMatchesFilters = (chart, filters = {}) => {
   });
 };
 
-export default function App() {
-  const [tickers, setTickers] = useState(emptyState.tickers);
-  const [selectedTicker, setSelectedTicker] = useState("");
-  const [tickerSearch, setTickerSearch] = useState("");
-  const [tickerSortBy, setTickerSortBy] = useState("name");
-  const [tickerSortDirection, setTickerSortDirection] = useState("asc");
-  const [libraryChecklistFilters, setLibraryChecklistFilters] = useState(buildEmptyChecklist());
-  const [tickerChecklistFilters, setTickerChecklistFilters] = useState(buildEmptyChecklist());
-  const [charts, setCharts] = useState(emptyState.charts);
-  const [chartsTicker, setChartsTicker] = useState("");
-  const [totalCharts, setTotalCharts] = useState(0);
   const [chartCountsByTicker, setChartCountsByTicker] = useState({});
   const [status, setStatus] = useState("idle");
   const [error, setError] = useState("");
@@ -342,12 +331,10 @@ export default function App() {
   const displayedTickerChartCount = filteredCharts.length;
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
 
-  const hasActiveLibraryFilter = CHECKLIST_FIELDS.some((field) => libraryChecklistFilters[field.key]);
-  const hasActiveTickerFilter = CHECKLIST_FIELDS.some((field) => tickerChecklistFilters[field.key]);
-
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
-    const nextTickers = data.tickers || [];
+    loadTickers();
+  }, []);
     const nextChartCounts = data.chart_counts || {};
     const fallbackTotalCharts = Object.values(nextChartCounts).reduce(
       (sum, count) => sum + Number(count || 0),
@@ -586,24 +573,6 @@ export default function App() {
             </table>
           </div>
 
-          <fieldset className="checklist-filters">
-            <legend>Ticker library chart filters</legend>
-            {CHECKLIST_FIELDS.map((field) => (
-              <label key={field.key} className="checklist-option">
-                <input
-                  type="checkbox"
-                  checked={Boolean(libraryChecklistFilters[field.key])}
-                  onChange={(event) =>
-                    setLibraryChecklistFilters((prev) => ({
-                      ...prev,
-                      [field.key]: event.target.checked,
-                    }))
-                  }
-                />
-                <span>{field.label}</span>
-              </label>
-            ))}
-          </fieldset>
         </div>
 
         <form className="upload" onSubmit={handleUpload}>

@@ -51,17 +51,6 @@ def sanitize_checklist(payload: dict[str, Any] | None) -> dict[str, bool]:
     return checklist
 
 
-def encode_checklist_context(checklist: dict[str, bool]) -> str:
-    return quote(
-        ",".join(key for key in CHECKLIST_KEYS if checklist.get(key, False)),
-        safe=",",
-    )
-
-
-def parse_checklist_context(raw_value: Any) -> dict[str, bool]:
-    decoded = ""
-    try:
-        decoded = unquote(str(raw_value or ""))
     except Exception:
         decoded = str(raw_value or "")
 
@@ -391,22 +380,6 @@ def get_tickers():
 
     try:
         tickers, chart_counts, total_charts = build_ticker_stats()
-    except RuntimeError as exc:
-        return jsonify({"error": str(exc)}), 502
-
-    return jsonify(
-        {
-            "tickers": tickers,
-            "chart_counts": chart_counts,
-            "total_charts": total_charts,
-        }
-    )
-
-
-@app.get("/api/charts/<ticker>")
-def get_charts(ticker: str):
-    is_ok, err = ensure_external_config()
-    if not is_ok:
         payload, status = err
         return jsonify(payload), status
 
