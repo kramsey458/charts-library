@@ -176,6 +176,23 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   gap: 12px;
 }
 
+
+.ticker-sort-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.ticker-sort-field {
+  display: grid;
+  gap: 6px;
+}
+
+.ticker-sort-field label {
+  font-size: 0.74rem;
+  color: #9aa3c4;
+}
+
 .ticker-table-wrap {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
@@ -535,6 +552,10 @@ button:disabled {
 
   .modal-actions {
     justify-content: flex-end;
+  }
+
+  .ticker-sort-controls {
+    grid-template-columns: 1fr;
   }
 
   .chart-modal {

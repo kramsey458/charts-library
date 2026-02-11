@@ -47,6 +47,8 @@ export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
   const [tickerSearch, setTickerSearch] = useState("");
+  const [tickerSortBy, setTickerSortBy] = useState("name");
+  const [tickerSortDirection, setTickerSortDirection] = useState("asc");
   const [charts, setCharts] = useState(emptyState.charts);
   const [totalCharts, setTotalCharts] = useState(0);
   const [chartCountsByTicker, setChartCountsByTicker] = useState({});
@@ -179,13 +181,27 @@ export default function App() {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
   }, [groupedCharts]);
 
-  const filteredTickers = useMemo(() => {
+  const visibleTickers = useMemo(() => {
     const query = tickerSearch.trim().toUpperCase();
-    if (!query) {
-      return tickers;
-    }
-    return tickers.filter((ticker) => ticker.includes(query));
-  }, [tickerSearch, tickers]);
+    const filtered = query
+      ? tickers.filter((ticker) => ticker.includes(query))
+      : [...tickers];
+
+    return filtered.sort((tickerA, tickerB) => {
+      if (tickerSortBy === "charts") {
+        const chartCountA = Number(chartCountsByTicker[tickerA] ?? 0);
+        const chartCountB = Number(chartCountsByTicker[tickerB] ?? 0);
+        if (chartCountA !== chartCountB) {
+          return tickerSortDirection === "asc"
+            ? chartCountA - chartCountB
+            : chartCountB - chartCountA;
+        }
+      }
+
+      const nameComparison = tickerA.localeCompare(tickerB);
+      return tickerSortDirection === "asc" ? nameComparison : -nameComparison;
+    });
+  }, [chartCountsByTicker, tickerSearch, tickerSortBy, tickerSortDirection, tickers]);
 
   const selectedTickerChartCount = selectedTicker
     ? chartCountsByTicker[selectedTicker] ?? charts.length
@@ -353,27 +369,55 @@ export default function App() {
             onChange={(event) => setTickerSearch(event.target.value.toUpperCase())}
           />
 
+          <div className="ticker-sort-controls">
+            <div className="ticker-sort-field">
+              <label htmlFor="ticker-sort-by">Sort by</label>
+              <select
+                id="ticker-sort-by"
+                value={tickerSortBy}
+                onChange={(event) => setTickerSortBy(event.target.value)}
+              >
+                <option value="name">Name</option>
+                <option value="charts">Charts uploaded</option>
+              </select>
+            </div>
+            <div className="ticker-sort-field">
+              <label htmlFor="ticker-sort-direction">Direction</label>
+              <select
+                id="ticker-sort-direction"
+                value={tickerSortDirection}
+                onChange={(event) => setTickerSortDirection(event.target.value)}
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+          </div>
+
           <div className="ticker-table-wrap">
             <table className="ticker-table" aria-label="Stored tickers">
               <thead>
                 <tr>
                   <th scope="col">Ticker</th>
+                  <th scope="col">Charts</th>
                   <th scope="col">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredTickers.length === 0 ? (
+                {visibleTickers.length === 0 ? (
                   <tr>
-                    <td colSpan={2} className="ticker-empty">
+                    <td colSpan={3} className="ticker-empty">
                       No tickers match your search.
                     </td>
                   </tr>
                 ) : (
-                  filteredTickers.map((ticker) => {
+                  visibleTickers.map((ticker) => {
                     const isActive = ticker === selectedTicker;
+                    const tickerChartCount = Number(chartCountsByTicker[ticker] ?? 0);
                     return (
                       <tr key={ticker} className={isActive ? "active-row" : ""}>
                         <td>{ticker}</td>
+                        <td>{tickerChartCount}</td>
                         <td>
                           <button
                             type="button"
