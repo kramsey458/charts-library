@@ -66,12 +66,23 @@ const buildChecklistSummary = (checklist = {}) => {
 
 const chartHasFlag = (chart, key) => Boolean(chart?.checklist?.[key]);
 
+const chartMatchesFilters = (chart, filters = {}) => {
+  return CHECKLIST_FIELDS.every((field) => {
+    if (!filters[field.key]) {
+      return true;
+    }
+    return chartHasFlag(chart, field.key);
+  });
+};
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
   const [tickerSearch, setTickerSearch] = useState("");
   const [tickerSortBy, setTickerSortBy] = useState("name");
   const [tickerSortDirection, setTickerSortDirection] = useState("asc");
+  const [libraryChecklistFilters, setLibraryChecklistFilters] = useState(buildEmptyChecklist());
+  const [tickerChecklistFilters, setTickerChecklistFilters] = useState(buildEmptyChecklist());
   const [charts, setCharts] = useState(emptyState.charts);
   const [chartsTicker, setChartsTicker] = useState("");
   const [totalCharts, setTotalCharts] = useState(0);
@@ -279,15 +290,23 @@ export default function App() {
     }
   };
 
+  const filteredCharts = useMemo(() => {
+    return charts.filter(
+      (chart) =>
+        chartMatchesFilters(chart, libraryChecklistFilters) &&
+        chartMatchesFilters(chart, tickerChecklistFilters)
+    );
+  }, [charts, libraryChecklistFilters, tickerChecklistFilters]);
+
   const groupedCharts = useMemo(() => {
-    return charts.reduce((groups, chart) => {
+    return filteredCharts.reduce((groups, chart) => {
       if (!groups[chart.date]) {
         groups[chart.date] = [];
       }
       groups[chart.date].push(chart);
       return groups;
     }, {});
-  }, [charts]);
+  }, [filteredCharts]);
 
   const sortedDates = useMemo(() => {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
@@ -317,10 +336,14 @@ export default function App() {
 
   const isLoadingCharts = status === "loading";
   const displayedTicker = isLoadingCharts && chartsTicker ? chartsTicker : selectedTicker;
-  const displayedTickerChartCount = displayedTicker
+  const displayedTickerTotalChartCount = displayedTicker
     ? chartCountsByTicker[displayedTicker] ?? charts.length
     : charts.length;
+  const displayedTickerChartCount = filteredCharts.length;
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
+
+  const hasActiveLibraryFilter = CHECKLIST_FIELDS.some((field) => libraryChecklistFilters[field.key]);
+  const hasActiveTickerFilter = CHECKLIST_FIELDS.some((field) => tickerChecklistFilters[field.key]);
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -562,6 +585,25 @@ export default function App() {
               </tbody>
             </table>
           </div>
+
+          <fieldset className="checklist-filters">
+            <legend>Ticker library chart filters</legend>
+            {CHECKLIST_FIELDS.map((field) => (
+              <label key={field.key} className="checklist-option">
+                <input
+                  type="checkbox"
+                  checked={Boolean(libraryChecklistFilters[field.key])}
+                  onChange={(event) =>
+                    setLibraryChecklistFilters((prev) => ({
+                      ...prev,
+                      [field.key]: event.target.checked,
+                    }))
+                  }
+                />
+                <span>{field.label}</span>
+              </label>
+            ))}
+          </fieldset>
         </div>
 
         <form className="upload" onSubmit={handleUpload}>
@@ -669,16 +711,46 @@ export default function App() {
         <div className="gallery-header">
           <div>
             <h2>{displayedTicker ? `${displayedTicker} ${displayedTickerChartLabel}` : "Charts"}</h2>
-            <p>{displayedTicker ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.` : "Browse your saved snapshots organized by date."}</p>
+            <p>
+              {displayedTicker
+                ? `${displayedTickerChartCount} ${displayedTickerChartLabel} shown${displayedTickerTotalChartCount !== displayedTickerChartCount ? ` of ${displayedTickerTotalChartCount} saved` : ""} for ${displayedTicker}.`
+                : "Browse your saved snapshots organized by date."}
+            </p>
           </div>
           {error && <span className="error">{error}</span>}
         </div>
+
+        <fieldset className="checklist-filters checklist-filters-inline">
+          <legend>Ticker chart filters</legend>
+          {CHECKLIST_FIELDS.map((field) => (
+            <label key={field.key} className="checklist-option">
+              <input
+                type="checkbox"
+                checked={Boolean(tickerChecklistFilters[field.key])}
+                onChange={(event) =>
+                  setTickerChecklistFilters((prev) => ({
+                    ...prev,
+                    [field.key]: event.target.checked,
+                  }))
+                }
+              />
+              <span>{field.label}</span>
+            </label>
+          ))}
+        </fieldset>
 
         {charts.length === 0 ? (
           <div className="empty-state">
             {isLoadingCharts
               ? "Loading charts..."
               : "Upload your first chart to start building this ticker timeline."}
+          </div>
+        ) : filteredCharts.length === 0 ? (
+          <div className="empty-state">
+            No charts match the selected filters.
+            {hasActiveLibraryFilter || hasActiveTickerFilter
+              ? " Clear one or more checklist filters to view more charts."
+              : ""}
           </div>
         ) : (
           <div className="date-groups-wrap">

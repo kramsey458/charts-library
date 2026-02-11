@@ -450,6 +450,24 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+.checklist-filters {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.checklist-filters legend {
+  padding: 0 6px;
+  color: #9aa3c4;
+  font-size: 0.8rem;
+}
+
+.checklist-filters-inline {
+  margin-bottom: 20px;
+}
+
 .checklist-option {
   display: flex;
   align-items: center;
