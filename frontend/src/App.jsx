@@ -45,6 +45,27 @@ const buildNotesPreview = (notes = "") => {
 
 const getChartKey = (chart) => `${chart.ticker}::${chart.date}::${chart.filename}`;
 
+const CHECKLIST_FIELDS = [
+  { key: "red_candle", label: "Red Candle" },
+  { key: "trend_bullish", label: "Trend Bullish" },
+  { key: "whale_over_50", label: "Whale Accumulation" },
+  { key: "momentum_green", label: "MACD Positive" },
+  { key: "macd_blue_cross_over_orange", label: "MACD Cross" },
+];
+
+const buildEmptyChecklist = () =>
+  CHECKLIST_FIELDS.reduce((acc, item) => {
+    acc[item.key] = false;
+    return acc;
+  }, {});
+
+const buildChecklistSummary = (checklist = {}) => {
+  const selected = CHECKLIST_FIELDS.filter((item) => checklist[item.key]).map((item) => item.label);
+  return selected.length > 0 ? selected.join(" • ") : "No checklist flags.";
+};
+
+const chartHasFlag = (chart, key) => Boolean(chart?.checklist?.[key]);
+
 export default function App() {
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
@@ -67,6 +88,7 @@ export default function App() {
     date: "",
     notes: "",
     file: null,
+    checklist: buildEmptyChecklist(),
   });
   const dateInputRef = useRef(null);
   const modalRef = useRef(null);
@@ -341,6 +363,9 @@ export default function App() {
     formData.append("date", formState.date);
     formData.append("chart", formState.file);
     formData.append("notes", formState.notes.trim());
+    CHECKLIST_FIELDS.forEach((field) => {
+      formData.append(field.key, formState.checklist[field.key] ? "true" : "false");
+    });
 
     try {
       setStatus("uploading");
@@ -351,7 +376,13 @@ export default function App() {
       await loadTickers();
       setSelectedTicker(normalizedTicker);
       await loadCharts(normalizedTicker);
-      setFormState({ ticker: "", date: "", notes: "", file: null });
+      setFormState({
+        ticker: "",
+        date: "",
+        notes: "",
+        file: null,
+        checklist: buildEmptyChecklist(),
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -555,6 +586,27 @@ export default function App() {
               }
             />
           </div>
+          <fieldset className="upload-checklist">
+            <legend>Checklist</legend>
+            {CHECKLIST_FIELDS.map((field) => (
+              <label key={field.key} className="checklist-option">
+                <input
+                  type="checkbox"
+                  checked={Boolean(formState.checklist[field.key])}
+                  onChange={(event) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      checklist: {
+                        ...prev.checklist,
+                        [field.key]: event.target.checked,
+                      },
+                    }))
+                  }
+                />
+                <span>{field.label}</span>
+              </label>
+            ))}
+          </fieldset>
           <button type="submit" disabled={status === "uploading"}>
             {status === "uploading" ? "Uploading..." : "Save chart"}
           </button>
@@ -597,6 +649,9 @@ export default function App() {
                           {chart.filename}
                         </a>
                         <span>{chart.ticker}</span>
+                      </div>
+                      <div className="chart-checklist-preview" title={buildChecklistSummary(chart.checklist)}>
+                        {buildChecklistSummary(chart.checklist)}
                       </div>
                       <div className="chart-notes-row">
                         <button
@@ -700,6 +755,17 @@ export default function App() {
                 {previewChart.ticker} • {previewChart.date}
               </span>
               {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
+            </div>
+            <div className="chart-modal-checklist">
+              <h3>Checklist</h3>
+              <ul>
+                {CHECKLIST_FIELDS.map((field) => (
+                  <li key={field.key}>
+                    <span>{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
+                    <span>{field.label}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
             <div
               className="chart-modal-notes"

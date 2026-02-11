@@ -25,6 +25,86 @@ CLOUDINARY_FOLDER = os.environ.get("CLOUDINARY_FOLDER", "charts-library").strip(
 app = Flask(__name__)
 CORS(app)
 
+CHECKLIST_KEYS = [
+    "red_candle",
+    "trend_bullish",
+    "whale_over_50",
+    "momentum_green",
+    "macd_blue_cross_over_orange",
+]
+
+
+def parse_bool(value: Any) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def empty_checklist() -> dict[str, bool]:
+    return {key: False for key in CHECKLIST_KEYS}
+
+
+def sanitize_checklist(payload: dict[str, Any] | None) -> dict[str, bool]:
+    checklist = empty_checklist()
+    if not payload:
+        return checklist
+    for key in CHECKLIST_KEYS:
+        checklist[key] = parse_bool(payload.get(key, False))
+    return checklist
+
+
+def encode_checklist_context(checklist: dict[str, bool]) -> str:
+    return quote(
+        ",".join(key for key in CHECKLIST_KEYS if checklist.get(key, False)),
+        safe=",",
+    )
+
+
+def parse_checklist_context(raw_value: Any) -> dict[str, bool]:
+    decoded = ""
+    try:
+        decoded = unquote(str(raw_value or ""))
+    except Exception:
+        decoded = str(raw_value or "")
+
+    selected_keys = {item.strip() for item in decoded.split(",") if item.strip()}
+    checklist = empty_checklist()
+    for key in CHECKLIST_KEYS:
+        checklist[key] = key in selected_keys
+    return checklist
+
+
+def checklist_file_path(chart_file: Path) -> Path:
+    return chart_file.parent / f"{chart_file.stem}.checklist.json"
+
+
+def read_local_checklist(chart_file: Path) -> dict[str, bool]:
+    metadata_path = checklist_file_path(chart_file)
+    if not metadata_path.exists() or not metadata_path.is_file():
+        return empty_checklist()
+
+    try:
+        import json
+
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except Exception:
+        return empty_checklist()
+    return sanitize_checklist(payload if isinstance(payload, dict) else {})
+
+
+def write_local_checklist(chart_file: Path, checklist: dict[str, bool]) -> None:
+    import json
+
+    metadata_path = checklist_file_path(chart_file)
+    metadata_path.write_text(json.dumps(sanitize_checklist(checklist)), encoding="utf-8")
+
+
+def build_cloudinary_context(
+    *, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool]
+) -> str:
+    return (
+        f"ticker={ticker}|date={date_label}|filename={filename}|"
+        f"notes={quote(notes)}|checklist={encode_checklist_context(checklist)}"
+    )
+
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -78,6 +158,7 @@ def list_charts_for_ticker_local(ticker: str) -> list[dict]:
                     "filename": chart_file.name,
                     "url": f"/api/chart-file/{ticker}/{date_label}/{chart_file.name}",
                     "notes": notes,
+                    "checklist": read_local_checklist(chart_file),
                 }
             )
     return charts
@@ -140,12 +221,15 @@ def list_all_charts_external() -> list[dict[str, Any]]:
         except Exception:
             pass
 
+        checklist = parse_checklist_context(context.get("checklist", ""))
+
         charts.append(
             {
                 "ticker": ticker,
                 "date": date_label,
                 "filename": filename,
                 "notes": notes,
+                "checklist": checklist,
                 "public_id": resource.get("public_id", ""),
                 "secure_url": resource.get("secure_url", ""),
                 "created_at": resource.get("created_at", ""),
@@ -173,13 +257,21 @@ def build_chart_stats_external() -> tuple[list[str], dict[str, int], int]:
     return tickers, chart_counts, len(charts)
 
 
-def upload_chart_external(ticker: str, date_label: str, filename: str, notes: str, chart_file) -> None:
+def upload_chart_external(
+    ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool], chart_file
+) -> None:
     timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
     folder = f"{CLOUDINARY_FOLDER}/{ticker}/{date_label}"
     base_name = Path(filename).stem
     safe_base_name = secure_filename(base_name) or "chart"
     public_id = f"{folder}/{safe_base_name}"
-    context = f"ticker={ticker}|date={date_label}|filename={filename}|notes={quote(notes)}"
+    context = build_cloudinary_context(
+        ticker=ticker,
+        date_label=date_label,
+        filename=filename,
+        notes=notes,
+        checklist=checklist,
+    )
 
     signature = cloudinary_signature(
         {
@@ -211,9 +303,17 @@ def upload_chart_external(ticker: str, date_label: str, filename: str, notes: st
 
 
 
-def update_chart_notes_external(public_id: str, ticker: str, date_label: str, filename: str, notes: str) -> None:
+def update_chart_notes_external(
+    public_id: str, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool]
+) -> None:
     timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
-    context = f"ticker={ticker}|date={date_label}|filename={filename}|notes={quote(notes)}"
+    context = build_cloudinary_context(
+        ticker=ticker,
+        date_label=date_label,
+        filename=filename,
+        notes=notes,
+        checklist=checklist,
+    )
     signature = cloudinary_signature(
         {
             "context": context,
@@ -321,6 +421,7 @@ def get_charts(ticker: str):
                     "filename": c["filename"],
                     "url": f"/api/chart-file/{c['ticker']}/{c['date']}/{c['filename']}",
                     "notes": c.get("notes", ""),
+                    "checklist": c.get("checklist", empty_checklist()),
                 }
                 for c in list_all_charts_external()
                 if c["ticker"] == normalized_ticker
@@ -346,6 +447,7 @@ def upload_chart():
     ticker = request.form.get("ticker", "").strip().upper()
     date_label = request.form.get("date", "").strip()
     notes = request.form.get("notes", "").strip()
+    checklist = sanitize_checklist({key: request.form.get(key, "") for key in CHECKLIST_KEYS})
     chart_file = request.files.get("chart")
 
     if not ticker:
@@ -364,7 +466,7 @@ def upload_chart():
 
     if STORAGE_MODE == "external":
         try:
-            upload_chart_external(safe_ticker, safe_date, filename, notes, chart_file)
+            upload_chart_external(safe_ticker, safe_date, filename, notes, checklist, chart_file)
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 502
     else:
@@ -380,6 +482,8 @@ def upload_chart():
         elif notes_path.exists() and notes_path.is_file():
             notes_path.unlink()
 
+        write_local_checklist(target_path, checklist)
+
     return (
         jsonify(
             {
@@ -390,6 +494,7 @@ def upload_chart():
                     "filename": filename,
                     "url": f"/api/chart-file/{safe_ticker}/{safe_date}/{filename}",
                     "notes": notes,
+                    "checklist": checklist,
                 },
             }
         ),
@@ -434,6 +539,10 @@ def delete_chart(ticker: str, date_label: str, filename: str):
     if notes_path.exists() and notes_path.is_file():
         notes_path.unlink()
 
+    checklist_path = checklist_file_path(chart_path)
+    if checklist_path.exists() and checklist_path.is_file():
+        checklist_path.unlink()
+
     date_dir = chart_path.parent
     ticker_dir = date_dir.parent
 
@@ -457,6 +566,8 @@ def update_chart_notes(ticker: str, date_label: str, filename: str):
     normalized_ticker = ticker.strip().upper()
     payload = request.get_json(silent=True) or {}
     notes = str(payload.get("notes", "")).strip()
+    checklist_payload = payload.get("checklist") if isinstance(payload, dict) else None
+    has_checklist_payload = isinstance(checklist_payload, dict)
 
     if STORAGE_MODE == "external":
         try:
@@ -472,7 +583,15 @@ def update_chart_notes(ticker: str, date_label: str, filename: str):
             )
             if not chart:
                 return jsonify({"error": "Chart not found."}), 404
-            update_chart_notes_external(chart["public_id"], normalized_ticker, date_label, filename, notes)
+
+            checklist = (
+                sanitize_checklist(checklist_payload)
+                if has_checklist_payload
+                else sanitize_checklist(chart.get("checklist"))
+            )
+            update_chart_notes_external(
+                chart["public_id"], normalized_ticker, date_label, filename, notes, checklist
+            )
             return jsonify(
                 {
                     "message": "Notes updated.",
@@ -481,6 +600,7 @@ def update_chart_notes(ticker: str, date_label: str, filename: str):
                         "date": date_label,
                         "filename": filename,
                         "notes": notes,
+                        "checklist": checklist,
                     },
                 }
             )
@@ -491,11 +611,19 @@ def update_chart_notes(ticker: str, date_label: str, filename: str):
     if not chart_path.exists() or not chart_path.is_file():
         return jsonify({"error": "Chart not found."}), 404
 
+    checklist = (
+        sanitize_checklist(checklist_payload)
+        if has_checklist_payload
+        else read_local_checklist(chart_path)
+    )
+
     notes_path = chart_path.parent / f"{chart_path.stem}.notes.txt"
     if notes:
         notes_path.write_text(notes, encoding="utf-8")
     elif notes_path.exists() and notes_path.is_file():
         notes_path.unlink()
+
+    write_local_checklist(chart_path, checklist)
 
     return jsonify(
         {
@@ -505,9 +633,11 @@ def update_chart_notes(ticker: str, date_label: str, filename: str):
                 "date": date_label,
                 "filename": filename,
                 "notes": notes,
+                "checklist": checklist,
             },
         }
     )
+
 
 @app.get("/api/chart-file/<ticker>/<date_label>/<filename>")
 def get_chart_file(ticker: str, date_label: str, filename: str):
