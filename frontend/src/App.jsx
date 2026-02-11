@@ -73,6 +73,7 @@ export default function App() {
   const [tickerSortBy, setTickerSortBy] = useState("name");
   const [tickerSortDirection, setTickerSortDirection] = useState("asc");
   const [charts, setCharts] = useState(emptyState.charts);
+  const [activeChecklistFilters, setActiveChecklistFilters] = useState(buildEmptyChecklist());
   const [chartsTicker, setChartsTicker] = useState("");
   const [totalCharts, setTotalCharts] = useState(0);
   const [chartCountsByTicker, setChartCountsByTicker] = useState({});
@@ -279,15 +280,30 @@ export default function App() {
     }
   };
 
+  const selectedChecklistFilterKeys = useMemo(
+    () => CHECKLIST_FIELDS.filter((field) => activeChecklistFilters[field.key]).map((field) => field.key),
+    [activeChecklistFilters]
+  );
+
+  const filteredCharts = useMemo(() => {
+    if (selectedChecklistFilterKeys.length === 0) {
+      return charts;
+    }
+
+    return charts.filter((chart) =>
+      selectedChecklistFilterKeys.every((key) => chartHasFlag(chart, key))
+    );
+  }, [charts, selectedChecklistFilterKeys]);
+
   const groupedCharts = useMemo(() => {
-    return charts.reduce((groups, chart) => {
+    return filteredCharts.reduce((groups, chart) => {
       if (!groups[chart.date]) {
         groups[chart.date] = [];
       }
       groups[chart.date].push(chart);
       return groups;
     }, {});
-  }, [charts]);
+  }, [filteredCharts]);
 
   const sortedDates = useMemo(() => {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
@@ -320,7 +336,9 @@ export default function App() {
   const displayedTickerChartCount = displayedTicker
     ? chartCountsByTicker[displayedTicker] ?? charts.length
     : charts.length;
+  const displayedTickerMatchingChartCount = filteredCharts.length;
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
+  const displayedTickerMatchingChartLabel = displayedTickerMatchingChartCount === 1 ? "chart" : "charts";
   const getFinvizUrl = (ticker) => `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
 
   const loadTickers = async () => {
@@ -679,16 +697,49 @@ export default function App() {
         <div className="gallery-header">
           <div>
             <h2>{displayedTicker ? `${displayedTicker} ${displayedTickerChartLabel}` : "Charts"}</h2>
-            <p>{displayedTicker ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.` : "Browse your saved snapshots organized by date."}</p>
+            <p>
+              {displayedTicker
+                ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.`
+                : "Browse your saved snapshots organized by date."}
+            </p>
+            {displayedTicker ? (
+              <fieldset className="gallery-checklist-filters">
+                <legend>Checklist filters</legend>
+                <div className="gallery-checklist-filter-options">
+                  {CHECKLIST_FIELDS.map((field) => (
+                    <label key={field.key} className="checklist-option">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(activeChecklistFilters[field.key])}
+                        onChange={(event) =>
+                          setActiveChecklistFilters((prev) => ({
+                            ...prev,
+                            [field.key]: event.target.checked,
+                          }))
+                        }
+                      />
+                      <span>{field.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {selectedChecklistFilterKeys.length > 0 ? (
+                  <p>
+                    Showing {displayedTickerMatchingChartCount} matching {displayedTickerMatchingChartLabel}.
+                  </p>
+                ) : null}
+              </fieldset>
+            ) : null}
           </div>
           {error && <span className="error">{error}</span>}
         </div>
 
-        {charts.length === 0 ? (
+        {filteredCharts.length === 0 ? (
           <div className="empty-state">
             {isLoadingCharts
               ? "Loading charts..."
-              : "Upload your first chart to start building this ticker timeline."}
+              : charts.length === 0
+                ? "Upload your first chart to start building this ticker timeline."
+                : "No charts match the selected checklist filters."}
           </div>
         ) : (
           <div className="date-groups-wrap">
