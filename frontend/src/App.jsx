@@ -89,6 +89,11 @@ export default function App() {
     resetPreviewTransform();
   };
 
+  const openChartNotesEditor = (chart) => {
+    openChartPreview(chart);
+    startEditingNotes(chart);
+  };
+
   const closeChartPreview = () => {
     if (document.fullscreenElement === modalRef.current) {
       document.exitFullscreen().catch(() => {});
@@ -578,37 +583,24 @@ export default function App() {
                         <span>{chart.ticker}</span>
                       </div>
                       <div className="chart-notes-row">
-                        {chart.notes ? (
-                          <p
-                            className="chart-notes-preview"
-                            onDoubleClick={() => {
-                              openChartPreview(chart);
-                              startEditingNotes(chart);
-                            }}
-                            title="Double-click to edit notes"
-                          >
-                            {buildNotesPreview(chart.notes)}
-                          </p>
-                        ) : (
-                          <p
-                            className="chart-notes-preview chart-notes-preview-empty"
-                            onDoubleClick={() => {
-                              openChartPreview(chart);
-                              startEditingNotes(chart);
-                            }}
-                            title="Double-click to add notes"
-                          >
-                            No notes yet.
-                          </p>
-                        )}
+                        <button
+                          type="button"
+                          className={`chart-notes-preview ${chart.notes ? "" : "chart-notes-preview-empty"}`.trim()}
+                          onDoubleClick={() => openChartNotesEditor(chart)}
+                          aria-label={
+                            chart.notes
+                              ? `Double-click to edit notes for ${chart.filename}`
+                              : `Double-click to add notes for ${chart.filename}`
+                          }
+                          title={chart.notes ? "Double-click to edit notes" : "Double-click to add notes"}
+                        >
+                          {chart.notes ? buildNotesPreview(chart.notes) : "No notes yet."}
+                        </button>
                         <button
                           type="button"
                           className="notes-edit-icon"
                           aria-label={`Edit notes for ${chart.filename}`}
-                          onClick={() => {
-                            openChartPreview(chart);
-                            startEditingNotes(chart);
-                          }}
+                          onClick={() => openChartNotesEditor(chart)}
                         >
                           ✎
                         </button>
