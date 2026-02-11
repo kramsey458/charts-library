@@ -251,8 +251,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .ticker-link {
   color: #dfe6ff;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 
 .ticker-link:hover,
