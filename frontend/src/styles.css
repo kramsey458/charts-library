@@ -198,6 +198,18 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: #9aa3c4;
 }
 
+.ticker-sort-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 46px;
+  background-image: linear-gradient(45deg, transparent 50%, #b6c0e8 50%),
+    linear-gradient(135deg, #b6c0e8 50%, transparent 50%);
+  background-position: calc(100% - 26px) calc(50% - 2px), calc(100% - 20px) calc(50% - 2px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+}
+
 .ticker-table-wrap {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
