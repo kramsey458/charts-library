@@ -45,6 +45,7 @@ export default function App() {
     checklist: buildEmptyChecklist(),
   });
   const dateInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const modalRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
@@ -289,6 +290,11 @@ export default function App() {
   const displayedTickerMatchingChartCount = filteredCharts.length;
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
   const displayedTickerMatchingChartLabel = displayedTickerMatchingChartCount === 1 ? "chart" : "charts";
+  const uploadValidationError = error === "Please provide a ticker and PNG chart file.";
+  const selectedUploadFileName = formState.file?.name || "";
+  const uploadFileStatusMessage = uploadValidationError
+    ? error
+    : selectedUploadFileName || "No file chosen";
   const getFinvizUrl = (ticker) => `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
 
   const loadTickers = async () => {
@@ -604,10 +610,27 @@ export default function App() {
           </div>
           <div className="upload-field">
             <label htmlFor="file-input">Chart PNG</label>
+            <div className="file-input-row">
+              <button
+                type="button"
+                className="file-input-trigger"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose File
+              </button>
+              <span
+                className={`file-input-status ${uploadValidationError ? "error" : ""}`.trim()}
+                aria-live="polite"
+              >
+                {uploadFileStatusMessage}
+              </span>
+            </div>
             <input
               id="file-input"
+              ref={fileInputRef}
               type="file"
               accept="image/png"
+              className="file-input-hidden"
               onChange={(event) =>
                 setFormState((prev) => ({
                   ...prev,
@@ -680,7 +703,7 @@ export default function App() {
               </fieldset>
             ) : null}
           </div>
-          {error && <span className="error">{error}</span>}
+          {error && !uploadValidationError && <span className="error">{error}</span>}
         </div>
 
         {filteredCharts.length === 0 ? (

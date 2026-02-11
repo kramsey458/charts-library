@@ -280,6 +280,44 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   gap: 8px;
 }
 
+
+.file-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-input-trigger {
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
+  font-size: 0.88rem;
+}
+
+.file-input-trigger:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.file-input-status {
+  color: #d7ddfb;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+.file-input-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 button {
   padding: 12px 18px;
   border-radius: 999px;
