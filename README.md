@@ -165,7 +165,7 @@ A helper script is included at `scripts/tradingview_export.py` for local, user-d
 - reads tickers from a text file (`tickers.txt`, one symbol per line)
 - opens TradingView chart page in a persistent Chromium profile
 - lets you do a one-time manual login + indicator/layout setup
-- loops each ticker, changes the symbol (top-left), and saves via the camera menu (top-right)
+- loops each ticker, opens TradingView **Symbol Search** (top-left), and saves via the camera menu (top-right)
 
 ### Setup
 
@@ -186,3 +186,5 @@ Options:
 - `--symbol-wait-ms 350` post-symbol settle wait (tune for speed vs stability)
 - `--headless` run without UI (not recommended for TradingView)
 - `--dry-run` only validate and print tickers
+
+Note: the script intentionally closes the `Search tool or function` dialog if it appears and retries until the `Symbol Search` dialog is open.

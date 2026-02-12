@@ -102,30 +102,73 @@ def ensure_chart_page(page: Page, chart_url: str) -> None:
         page.wait_for_timeout(200)
 
 
-def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
-    # Explicitly open SYMBOL SEARCH (not site/global search).
+def _symbol_search_dialog_open(page: Page) -> bool:
+    dialog_signals = [
+        'text=/^Symbol Search$/i',
+        '[data-name="symbol-search-dialog"]',
+        '[data-name="symbol-search-items-dialog"]',
+    ]
+    for selector in dialog_signals:
+        try:
+            page.locator(selector).first.wait_for(state="visible", timeout=180)
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
+def _close_wrong_global_search(page: Page) -> None:
+    # If command palette opens ("Search tool or function"), close it immediately.
+    try:
+        wrong = page.locator('text=/Search tool or function/i').first
+        wrong.wait_for(state="visible", timeout=150)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(60)
+    except Exception:  # noqa: BLE001
+        return
+
+
+def _open_symbol_search(page: Page) -> None:
+    # Click only symbol-entry points from your layout (top-left symbol region).
     open_symbol_selectors = [
         '[data-name="header-toolbar-symbol-search"]',
-        '[data-name="symbol-search-items-dialog"]',
         'button[aria-label*="Symbol Search"]',
         'button[title*="Symbol Search"]',
         '[data-name="legend-source-title"]',
         '[data-name="legend-source-item"]',
     ]
 
-    try:
-        try_click(page, open_symbol_selectors, timeout_ms=900)
-    except RuntimeError:
-        # TradingView shortcut fallback.
-        page.keyboard.press("Control+K")
-        page.wait_for_timeout(120)
+    for selector in open_symbol_selectors:
+        try:
+            target = page.locator(selector).first
+            target.wait_for(state="visible", timeout=450)
+            target.click(timeout=450)
+            _close_wrong_global_search(page)
+            if _symbol_search_dialog_open(page):
+                return
+        except Exception:  # noqa: BLE001
+            continue
 
+    # Keyboard fallback for symbol search only.
+    for shortcut in ("Control+L", "Control+K"):
+        page.keyboard.press(shortcut)
+        page.wait_for_timeout(90)
+        _close_wrong_global_search(page)
+        if _symbol_search_dialog_open(page):
+            return
+
+    raise RuntimeError("Could not open TradingView Symbol Search dialog.")
+
+
+def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
+    _open_symbol_search(page)
+
+    # Keep selectors scoped to symbol search dialog first.
     search_input_selectors = [
+        '[data-name="symbol-search-dialog"] input[type="text"]',
+        '[data-name="symbol-search-items-dialog"] input[type="text"]',
         'input[placeholder*="Symbol"]',
         'input[aria-label*="Symbol"]',
-        'input[data-role="search"]',
-        'input[placeholder*="Search"]',
-        'input[class*="input-"]',
         '[role="dialog"] input[type="text"]',
     ]
 
@@ -133,15 +176,16 @@ def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
     for selector in search_input_selectors:
         candidate = page.locator(selector).first
         try:
-            candidate.wait_for(state="visible", timeout=700)
+            candidate.wait_for(state="visible", timeout=300)
             search_input = candidate
             break
         except Exception:  # noqa: BLE001
             continue
 
     if search_input is None:
-        raise RuntimeError("Could not find symbol search input after opening symbol picker.")
+        raise RuntimeError("Symbol Search opened, but symbol input was not found.")
 
+    search_input.click(timeout=250)
     search_input.fill("")
     search_input.type(ticker, delay=0)
     page.keyboard.press("Enter")
