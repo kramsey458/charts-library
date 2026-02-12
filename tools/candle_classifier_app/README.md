@@ -71,16 +71,20 @@ streamlit run streamlit_app.py
 Workflow:
 
 1. Switch to **Batch** mode.
-2. Set input folder containing `.png` files.
-3. Optional: enable upload and keep endpoint as `/api/uploads/charts` compatible URL
+2. Set input folder containing `.png` files (or click **Browse folder (Windows Explorer)**).
+3. Set output CSV path (or click **Browse output CSV**).
+4. Optional: enable upload and keep endpoint as `/api/uploads/charts` compatible URL
    (example: `http://localhost:8000/api/uploads/charts`).
-4. Run classification.
+5. Run classification.
 
 Expected output (UI):
 
 ```text
 Processed N image(s). CSV saved to /.../classification_report.csv
 ```
+
+> Note: Browse buttons use a native dialog (Windows Explorer on Windows) via `tkinter`.
+> On headless/Linux environments where GUI dialogs are unavailable, enter paths manually.
 
 ## 3) Batch mode (CLI fallback)
 

@@ -29,6 +29,36 @@ config_path = Path(st.sidebar.text_input("Config file", str(DEFAULT_CONFIG_PATH)
 config = load_config(config_path)
 
 
+def _pick_path_dialog(select_directory: bool, initial_path: Path, save_default_name: str | None = None) -> str | None:
+    """Open a native file/folder picker (Windows Explorer on Windows) via tkinter."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+    except Exception as exc:
+        st.warning(f"Native path picker unavailable (tkinter missing): {exc}")
+        return None
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+
+        if select_directory:
+            selected = filedialog.askdirectory(initialdir=str(initial_path))
+        else:
+            selected = filedialog.asksaveasfilename(
+                initialdir=str(initial_path.parent),
+                initialfile=save_default_name or initial_path.name,
+                defaultextension=".csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            )
+        root.destroy()
+        return selected or None
+    except Exception as exc:
+        st.warning(f"Native path picker failed: {exc}")
+        return None
+
+
 def _image_with_roi_box(image_bgr: np.ndarray, roi: ROI) -> np.ndarray:
     preview = image_bgr.copy()
     x1, y1 = roi.x, roi.y
@@ -79,16 +109,30 @@ if mode == "Calibration":
         yellow = hsv_range_editor("Yellow", config.yellow_range)
         threshold = st.number_input("Red-vs-yellow label threshold", value=int(config.label_threshold), step=1)
 
-        live_config = ClassifierConfig(red_range_1=red1, red_range_2=red2, yellow_range=yellow, roi=ROI(roi_x, roi_y, roi_w, roi_h), label_threshold=int(threshold))
+        live_config = ClassifierConfig(
+            red_range_1=red1,
+            red_range_2=red2,
+            yellow_range=yellow,
+            roi=ROI(roi_x, roi_y, roi_w, roi_h),
+            label_threshold=int(threshold),
+        )
         result = classify_image(image_bgr, live_config)
         overlay = build_overlay(result["roi_image"], result["red_mask"], result["yellow_mask"])
 
         st.subheader("Preview")
         p1, p2 = st.columns(2)
         with p1:
-            st.image(cv2.cvtColor(_image_with_roi_box(image_bgr, live_config.roi), cv2.COLOR_BGR2RGB), caption="ROI preview", use_container_width=True)
+            st.image(
+                cv2.cvtColor(_image_with_roi_box(image_bgr, live_config.roi), cv2.COLOR_BGR2RGB),
+                caption="ROI preview",
+                use_container_width=True,
+            )
         with p2:
-            st.image(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB), caption="HSV mask overlay (red/yellow)", use_container_width=True)
+            st.image(
+                cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB),
+                caption="HSV mask overlay (red/yellow)",
+                use_container_width=True,
+            )
 
         st.metric("Red pixels", result["red_pixels"])
         st.metric("Yellow pixels", result["yellow_pixels"])
@@ -103,10 +147,45 @@ if mode == "Calibration":
 
 if mode == "Batch":
     st.header("Batch mode")
-    input_folder = Path(st.text_input("Input folder containing PNGs", str(BASE_DIR))).expanduser()
+
+    default_input_folder = str(BASE_DIR)
+    default_output_csv = str(BASE_DIR / "classification_report.csv")
+    if "batch_input_folder" not in st.session_state:
+        st.session_state.batch_input_folder = default_input_folder
+    if "batch_output_csv" not in st.session_state:
+        st.session_state.batch_output_csv = default_output_csv
+
+    folder_col, csv_col = st.columns(2)
+    with folder_col:
+        st.text_input("Input folder containing PNGs", key="batch_input_folder")
+        if st.button("Browse folder (Windows Explorer)"):
+            selected_folder = _pick_path_dialog(
+                select_directory=True,
+                initial_path=Path(st.session_state.batch_input_folder).expanduser(),
+            )
+            if selected_folder:
+                st.session_state.batch_input_folder = selected_folder
+
+    with csv_col:
+        st.text_input("Output CSV path", key="batch_output_csv")
+        if st.button("Browse output CSV"):
+            selected_csv = _pick_path_dialog(
+                select_directory=False,
+                initial_path=Path(st.session_state.batch_output_csv).expanduser(),
+                save_default_name="classification_report.csv",
+            )
+            if selected_csv:
+                st.session_state.batch_output_csv = selected_csv
+
+    st.caption(
+        "Browse buttons use a native picker dialog (Windows Explorer on Windows). "
+        "If unavailable (e.g. headless Linux), enter paths manually."
+    )
+
+    input_folder = Path(st.session_state.batch_input_folder).expanduser()
     upload_enabled = st.checkbox("POST each result to /api/uploads/charts")
     endpoint = st.text_input("Upload endpoint", "http://localhost:8000/api/uploads/charts")
-    output_csv = Path(st.text_input("Output CSV path", str(BASE_DIR / "classification_report.csv"))).expanduser()
+    output_csv = Path(st.session_state.batch_output_csv).expanduser()
 
     if st.button("Run batch classification"):
         if not input_folder.exists():
@@ -139,9 +218,13 @@ if mode == "Batch":
                     st.warning(f"Upload failed for {path.name}: {exc}")
 
         output_csv.parent.mkdir(parents=True, exist_ok=True)
-        output_csv.write_text("filename,label,red_pixels,yellow_pixels\n" + "\n".join(
-            f"{filename},{label},{red_pixels},{yellow_pixels}" for filename, label, red_pixels, yellow_pixels in rows
-        ))
+        output_csv.write_text(
+            "filename,label,red_pixels,yellow_pixels\n"
+            + "\n".join(
+                f"{filename},{label},{red_pixels},{yellow_pixels}"
+                for filename, label, red_pixels, yellow_pixels in rows
+            )
+        )
 
         st.success(f"Processed {len(rows)} image(s). CSV saved to {output_csv}")
         st.dataframe(rows, use_container_width=True)
