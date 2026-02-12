@@ -1063,7 +1063,9 @@ export default function App() {
                         <a href={buildChartPath(chart)} download={chart.filename}>
                           {chart.filename}
                         </a>
-                        <span>{chart.ticker}</span>
+                        <a href={getFinvizUrl(chart.ticker)} target="_blank" rel="noopener noreferrer">
+                          {chart.ticker}
+                        </a>
                       </div>
                       <div className="chart-notes-row">
                         <button
