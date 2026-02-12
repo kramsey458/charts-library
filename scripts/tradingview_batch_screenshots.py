@@ -15,7 +15,6 @@ Optional env vars:
   TRADINGVIEW_URL (default: https://www.tradingview.com/chart/)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
-  LOGIN_WAIT_MS=120000 (default: 120000)
 """
 
 from __future__ import annotations
@@ -112,6 +111,17 @@ def save_chart_image(page, output_dir: Path, ticker: str, index: int) -> Path | 
     return out_path
 
 
+def confirm_logged_in() -> None:
+    print("\nPlease complete TradingView login/cookie consent in the opened browser window.")
+    print("When finished, type 'y' and press Enter to continue.")
+
+    while True:
+        response = input("Logged in and ready? [y/N]: ").strip().lower()
+        if response in {"y", "yes"}:
+            return
+        print("Waiting for login confirmation. Type 'y' when you are ready.")
+
+
 def parse_bool_env(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -131,13 +141,16 @@ def main() -> int:
 
     url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
     headless = parse_bool_env("HEADLESS", False)
-    login_wait_ms = int(os.getenv("LOGIN_WAIT_MS", "120000"))
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless)
+        browser = p.chromium.launch(
+            headless=headless,
+            args=["--start-maximized"] if not headless else None,
+        )
         context = browser.new_context(
             accept_downloads=True,
-            viewport={"width": 1600, "height": 1000},
+            no_viewport=True if not headless else False,
+            viewport=None if not headless else {"width": 1600, "height": 1000},
         )
         page = context.new_page()
 
@@ -145,11 +158,7 @@ def main() -> int:
             print(f"Opening {url}")
             page.goto(url, wait_until="domcontentloaded", timeout=90000)
 
-            print(
-                "\nIf login/cookie consent is needed, complete it now. "
-                f"Waiting up to {login_wait_ms}ms..."
-            )
-            page.wait_for_timeout(login_wait_ms)
+            confirm_logged_in()
 
             saved_paths: List[Path] = []
 
