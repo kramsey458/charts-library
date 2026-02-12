@@ -46,6 +46,16 @@ export default function App() {
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [batchFiles, setBatchFiles] = useState([]);
+  const [batchIndex, setBatchIndex] = useState(0);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isBatchUploading, setIsBatchUploading] = useState(false);
+  const [batchFormState, setBatchFormState] = useState({
+    ticker: "",
+    date: "",
+    notes: "",
+    checklist: buildEmptyChecklist(),
+  });
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
@@ -55,9 +65,26 @@ export default function App() {
   });
   const dateInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const batchFileInputRef = useRef(null);
   const slideshowRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
+
+  const currentBatchFile = batchFiles[batchIndex] || null;
+  const currentBatchPreviewUrl = useMemo(() => {
+    if (!currentBatchFile) {
+      return "";
+    }
+    return URL.createObjectURL(currentBatchFile);
+  }, [currentBatchFile]);
+
+  useEffect(() => {
+    return () => {
+      if (currentBatchPreviewUrl) {
+        URL.revokeObjectURL(currentBatchPreviewUrl);
+      }
+    };
+  }, [currentBatchPreviewUrl]);
 
   const getTodayDateValue = () => {
     const today = new Date();
@@ -588,6 +615,25 @@ export default function App() {
     }
   }, [selectedTicker, visibleTickers]);
 
+  const uploadChart = async ({ ticker, date, notes, file, checklist }) => {
+    const normalizedTicker = ticker.trim().toUpperCase();
+    const formData = new FormData();
+    formData.append("ticker", normalizedTicker);
+    formData.append("date", date);
+    formData.append("chart", file);
+    formData.append("notes", notes.trim());
+    CHECKLIST_FIELDS.forEach((field) => {
+      formData.append(field.key, checklist[field.key] ? "true" : "false");
+    });
+
+    await fetchJson("/api/charts", {
+      method: "POST",
+      body: formData,
+    });
+
+    return normalizedTicker;
+  };
+
   const handleUpload = async (event) => {
     event.preventDefault();
     setError("");
@@ -601,24 +647,18 @@ export default function App() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("ticker", normalizedTicker);
-    formData.append("date", formState.date);
-    formData.append("chart", selectedFile);
-    formData.append("notes", formState.notes.trim());
-    CHECKLIST_FIELDS.forEach((field) => {
-      formData.append(field.key, formState.checklist[field.key] ? "true" : "false");
-    });
-
     try {
       setStatus("uploading");
-      await fetchJson("/api/charts", {
-        method: "POST",
-        body: formData,
+      const uploadedTicker = await uploadChart({
+        ticker: normalizedTicker,
+        date: formState.date,
+        notes: formState.notes,
+        file: selectedFile,
+        checklist: formState.checklist,
       });
       await loadTickers();
-      setSelectedTicker(normalizedTicker);
-      await loadCharts(normalizedTicker);
+      setSelectedTicker(uploadedTicker);
+      await loadCharts(uploadedTicker);
       setFormState({
         ticker: "",
         date: "",
@@ -633,6 +673,86 @@ export default function App() {
       setError(err.message);
     } finally {
       setStatus("idle");
+    }
+  };
+
+  const closeBatchModal = () => {
+    setIsBatchModalOpen(false);
+    setBatchFiles([]);
+    setBatchIndex(0);
+    setBatchFormState({
+      ticker: "",
+      date: "",
+      notes: "",
+      checklist: buildEmptyChecklist(),
+    });
+    if (batchFileInputRef.current) {
+      batchFileInputRef.current.value = "";
+    }
+  };
+
+  const handleBatchFileSelection = (event) => {
+    const selectedFiles = Array.from(event.target.files || []).filter((file) =>
+      file.type.startsWith("image/")
+    );
+
+    if (selectedFiles.length === 0) {
+      return;
+    }
+
+    setBatchFiles(selectedFiles);
+    setBatchIndex(0);
+    setBatchFormState({
+      ticker: formState.ticker || selectedTicker || "",
+      date: formState.date || "",
+      notes: "",
+      checklist: buildEmptyChecklist(),
+    });
+    setIsBatchModalOpen(true);
+  };
+
+  const handleBatchModalSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+
+    const currentFile = currentBatchFile;
+    const normalizedTicker = batchFormState.ticker.trim().toUpperCase();
+
+    if (!currentFile || !normalizedTicker || !batchFormState.date) {
+      setError("Please add a ticker and date before uploading this chart.");
+      return;
+    }
+
+    try {
+      setIsBatchUploading(true);
+      const uploadedTicker = await uploadChart({
+        ticker: normalizedTicker,
+        date: batchFormState.date,
+        notes: batchFormState.notes,
+        file: currentFile,
+        checklist: batchFormState.checklist,
+      });
+
+      const nextIndex = batchIndex + 1;
+      if (nextIndex >= batchFiles.length) {
+        await loadTickers();
+        setSelectedTicker(uploadedTicker);
+        await loadCharts(uploadedTicker);
+        closeBatchModal();
+        return;
+      }
+
+      setBatchIndex(nextIndex);
+      setBatchFormState((prev) => ({
+        ...prev,
+        date: "",
+        notes: "",
+        checklist: buildEmptyChecklist(),
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsBatchUploading(false);
     }
   };
 
@@ -878,6 +998,24 @@ export default function App() {
         </div>
 
         <form className="upload" onSubmit={handleUpload}>
+          <div className="upload-header">
+            <h2>Upload chart</h2>
+            <button
+              type="button"
+              className="batch-upload-button"
+              onClick={() => batchFileInputRef.current?.click()}
+            >
+              Batch upload
+            </button>
+          </div>
+          <input
+            ref={batchFileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="batch-file-input"
+            onChange={handleBatchFileSelection}
+          />
           <div className="upload-field">
             <label htmlFor="ticker-input">Ticker</label>
             <input
@@ -982,6 +1120,110 @@ export default function App() {
           </button>
         </form>
       </section>
+
+      {isBatchModalOpen && batchFiles.length > 0 ? (
+        <div className="chart-modal-overlay" onClick={closeBatchModal}>
+          <div
+            className="chart-modal batch-upload-modal is-fullscreen"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Batch upload details"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="chart-modal-toolbar">
+              <h3>
+                Batch upload ({batchIndex + 1}/{batchFiles.length})
+              </h3>
+              <button type="button" className="close-modal" onClick={closeBatchModal}>
+                Cancel
+              </button>
+            </div>
+            <div className="batch-upload-content">
+              <div className="batch-upload-preview">
+                {currentBatchPreviewUrl ? (
+                  <img src={currentBatchPreviewUrl} alt={currentBatchFile?.name || "Batch chart preview"} />
+                ) : null}
+              </div>
+              <form className="batch-upload-form" onSubmit={handleBatchModalSubmit}>
+                <p className="batch-upload-file">File: {currentBatchFile?.name || ""}</p>
+                <div className="upload-field">
+                  <label htmlFor="batch-ticker-input">Ticker</label>
+                  <input
+                    id="batch-ticker-input"
+                    placeholder="NVDA"
+                    value={batchFormState.ticker}
+                    onChange={(event) =>
+                      setBatchFormState((prev) => ({
+                        ...prev,
+                        ticker: event.target.value.toUpperCase(),
+                      }))
+                    }
+                    maxLength={6}
+                  />
+                </div>
+                <div className="upload-field">
+                  <label htmlFor="batch-date-input">Date</label>
+                  <input
+                    id="batch-date-input"
+                    type="date"
+                    value={batchFormState.date}
+                    onChange={(event) =>
+                      setBatchFormState((prev) => ({ ...prev, date: event.target.value }))
+                    }
+                  />
+                </div>
+                <div className="upload-field">
+                  <label htmlFor="batch-notes-input">Notes</label>
+                  <textarea
+                    id="batch-notes-input"
+                    placeholder="Optional notes about this chart setup"
+                    value={batchFormState.notes}
+                    onChange={(event) =>
+                      setBatchFormState((prev) => ({
+                        ...prev,
+                        notes: event.target.value,
+                      }))
+                    }
+                    rows={3}
+                  />
+                </div>
+                <fieldset className="upload-checklist">
+                  <legend>Checklist</legend>
+                  {checklistRows.map((row, rowIndex) => (
+                    <div key={`batch-checklist-row-${rowIndex + 1}`} className="checklist-row">
+                      {row.map((field) => (
+                        <label key={field.key} className="checklist-option">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(batchFormState.checklist[field.key])}
+                            onChange={(event) =>
+                              setBatchFormState((prev) => ({
+                                ...prev,
+                                checklist: {
+                                  ...prev.checklist,
+                                  [field.key]: event.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span>{field.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ))}
+                </fieldset>
+                <button type="submit" disabled={isBatchUploading}>
+                  {isBatchUploading
+                    ? "Uploading..."
+                    : batchIndex + 1 === batchFiles.length
+                      ? "Upload final chart"
+                      : "Upload & continue"}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <section className="gallery">
         <div className="gallery-header">
