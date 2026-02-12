@@ -1122,7 +1122,7 @@ export default function App() {
       </section>
 
       {isBatchModalOpen && batchFiles.length > 0 ? (
-        <div className="chart-modal-overlay" onClick={closeBatchModal}>
+        <div className="chart-modal-overlay batch-upload-overlay" onClick={closeBatchModal}>
           <div
             className="chart-modal batch-upload-modal is-fullscreen"
             role="dialog"

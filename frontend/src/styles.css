@@ -766,6 +766,13 @@ button:disabled {
   z-index: 1000;
 }
 
+.batch-upload-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px max(72px, env(safe-area-inset-right)) 20px 20px;
+}
+
 .chart-modal {
   width: min(96vw, 1200px);
   height: min(94vh, 760px);
@@ -785,9 +792,10 @@ button:disabled {
 }
 
 .batch-upload-modal {
-  width: min(86vw, calc(100vw - 56px));
-  height: min(86vh, calc(100vh - 56px));
-  max-width: calc(100vw - 56px);
+  box-sizing: border-box;
+  width: min(88vw, 1400px);
+  height: min(88vh, 920px);
+  max-width: calc(100vw - 96px);
   max-height: calc(100vh - 56px);
   margin: 0 auto;
   border-radius: 16px;
@@ -797,9 +805,9 @@ button:disabled {
 }
 
 .batch-upload-modal.is-fullscreen {
-  width: min(86vw, calc(100vw - 56px));
-  height: min(86vh, calc(100vh - 56px));
-  max-width: calc(100vw - 56px);
+  width: min(88vw, 1400px);
+  height: min(88vh, 920px);
+  max-width: calc(100vw - 96px);
   max-height: calc(100vh - 56px);
   margin: 0 auto;
   border-radius: 16px;
@@ -882,11 +890,15 @@ button:disabled {
 }
 
 @media (max-width: 980px) {
+  .batch-upload-overlay {
+    padding: 8px 18px 8px 8px;
+  }
+
   .batch-upload-modal,
   .batch-upload-modal.is-fullscreen {
-    width: calc(100vw - 16px);
+    width: calc(100vw - 26px);
     height: calc(100vh - 16px);
-    max-width: calc(100vw - 16px);
+    max-width: calc(100vw - 26px);
     max-height: calc(100vh - 16px);
   }
 
