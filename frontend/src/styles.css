@@ -797,7 +797,7 @@ button:disabled {
 .batch-upload-content {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+  grid-template-columns: minmax(0, 1fr) minmax(620px, 700px);
   gap: 18px;
 }
 
