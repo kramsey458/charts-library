@@ -46,8 +46,8 @@ def parse_args() -> Config:
     parser.add_argument("--profile", default="tv_profile", help="Chromium user profile dir for persistent login.")
     parser.add_argument("--url", default="https://www.tradingview.com/chart/", help="TradingView chart URL.")
     parser.add_argument("--headless", action="store_true", help="Run headless. Usually keep this off for TradingView.")
-    parser.add_argument("--delay", type=float, default=1.0, help="Delay between tickers in seconds.")
-    parser.add_argument("--symbol-wait-ms", type=int, default=1700, help="Wait time after changing symbol.")
+    parser.add_argument("--delay", type=float, default=0.0, help="Delay between tickers in seconds.")
+    parser.add_argument("--symbol-wait-ms", type=int, default=350, help="Wait time after changing symbol.")
     parser.add_argument("--dry-run", action="store_true", help="Read and print tickers without automating browser.")
     args = parser.parse_args()
     return Config(
@@ -82,7 +82,7 @@ def safe_name(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", text)
 
 
-def try_click(page: Page, selectors: list[str], timeout_ms: int = 3000) -> str:
+def try_click(page: Page, selectors: list[str], timeout_ms: int = 1200) -> str:
     """Click first visible selector; return matched selector."""
     errors: list[str] = []
     for selector in selectors:
@@ -99,26 +99,30 @@ def try_click(page: Page, selectors: list[str], timeout_ms: int = 3000) -> str:
 def ensure_chart_page(page: Page, chart_url: str) -> None:
     if "tradingview.com/chart" not in page.url:
         page.goto(chart_url, wait_until="domcontentloaded")
-        page.wait_for_timeout(1200)
+        page.wait_for_timeout(200)
 
 
 def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
-    # Primary path for your layout: the symbol chip/button in top-left.
+    # Explicitly open SYMBOL SEARCH (not site/global search).
     open_symbol_selectors = [
+        '[data-name="header-toolbar-symbol-search"]',
+        '[data-name="symbol-search-items-dialog"]',
+        'button[aria-label*="Symbol Search"]',
+        'button[title*="Symbol Search"]',
         '[data-name="legend-source-title"]',
         '[data-name="legend-source-item"]',
-        '[data-name="symbol-edit-button"]',
-        'button[aria-label*="Symbol"]',
     ]
 
     try:
-        try_click(page, open_symbol_selectors, timeout_ms=4000)
+        try_click(page, open_symbol_selectors, timeout_ms=900)
     except RuntimeError:
-        # Fallback: keyboard shortcut often opens symbol search.
+        # TradingView shortcut fallback.
         page.keyboard.press("Control+K")
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(120)
 
     search_input_selectors = [
+        'input[placeholder*="Symbol"]',
+        'input[aria-label*="Symbol"]',
         'input[data-role="search"]',
         'input[placeholder*="Search"]',
         'input[class*="input-"]',
@@ -129,7 +133,7 @@ def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
     for selector in search_input_selectors:
         candidate = page.locator(selector).first
         try:
-            candidate.wait_for(state="visible", timeout=2500)
+            candidate.wait_for(state="visible", timeout=700)
             search_input = candidate
             break
         except Exception:  # noqa: BLE001
@@ -139,7 +143,7 @@ def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
         raise RuntimeError("Could not find symbol search input after opening symbol picker.")
 
     search_input.fill("")
-    search_input.type(ticker, delay=35)
+    search_input.type(ticker, delay=0)
     page.keyboard.press("Enter")
     page.wait_for_timeout(symbol_wait_ms)
 
@@ -152,7 +156,7 @@ def download_image_for_ticker(page: Page, ticker: str, output_dir: Path) -> Path
         'button[aria-label*="Snapshot"]',
     ]
 
-    try_click(page, camera_button_selectors, timeout_ms=6000)
+    try_click(page, camera_button_selectors, timeout_ms=900)
 
     download_item_selectors = [
         'text=/^Download image$/i',
@@ -163,8 +167,8 @@ def download_image_for_ticker(page: Page, ticker: str, output_dir: Path) -> Path
     last_error: Exception | None = None
     for selector in download_item_selectors:
         try:
-            with page.expect_download(timeout=12000) as download_info:
-                page.locator(selector).first.click(timeout=5000)
+            with page.expect_download(timeout=3500) as download_info:
+                page.locator(selector).first.click(timeout=900)
             download = download_info.value
             out_path = output_dir / f"{safe_name(ticker)}.png"
             download.save_as(str(out_path))
@@ -190,7 +194,6 @@ def run_export(context: BrowserContext, config: Config, tickers: list[str]) -> i
     for index, ticker in enumerate(tickers, start=1):
         print(f"[{index}/{len(tickers)}] {ticker}")
         try:
-            ensure_chart_page(page, config.chart_url)
             select_ticker(page, ticker, config.symbol_wait_ms)
             out_file = download_image_for_ticker(page, ticker, config.output_dir)
             print(f"  ✅ Saved: {out_file}")

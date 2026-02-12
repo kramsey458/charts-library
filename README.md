@@ -182,6 +182,7 @@ python scripts/tradingview_export.py --tickers tickers.txt --out tv_exports --pr
 
 Options:
 
-- `--delay 1.0` delay between symbols
+- `--delay 0.0` delay between symbols (max speed)
+- `--symbol-wait-ms 350` post-symbol settle wait (tune for speed vs stability)
 - `--headless` run without UI (not recommended for TradingView)
 - `--dry-run` only validate and print tickers
