@@ -15,6 +15,7 @@ Optional env vars:
   TRADINGVIEW_URL (default: https://www.tradingview.com/chart/)
   TRADINGVIEW_LOGIN_URL (default: https://www.tradingview.com/accounts/signin/)
   START_ON_LOGIN=true|false (default: true)
+  AUTH_FIRST_MODE=true|false (default: true)
   APPLY_STEALTH_DURING_LOGIN=true|false (default: false)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
@@ -232,6 +233,48 @@ def open_login_flow_if_configured(page, chart_url: str) -> None:
     if start_on_login:
         print("After login/captcha is complete, the script will navigate to the chart page.")
 
+
+
+def looks_like_login_page(url: str) -> bool:
+    lowered = (url or "").lower()
+    return "/accounts/signin" in lowered or "captcha" in lowered
+
+
+def enforce_auth_first(page, chart_url: str, headless: bool) -> None:
+    if not parse_bool_env("AUTH_FIRST_MODE", True):
+        return
+
+    print("Auth-first mode is enabled. Verifying authenticated session before automation...")
+
+    while True:
+        current_url = page.url
+        if not looks_like_login_page(current_url):
+            print(f"Auth check passed on page: {current_url}")
+            return
+
+        if headless and parse_bool_env("AUTO_CONFIRM_LOGIN", False):
+            print(
+                "[WARN] Could not verify authenticated session in headless mode. "
+                "Proceeding because AUTO_CONFIRM_LOGIN=true."
+            )
+            return
+
+        print("Still on login/captcha page. Complete challenge, then press Enter to retry auth check.")
+        response = input("Press Enter when auth is complete (or type 'skip' to continue anyway): ").strip().lower()
+        if response == "skip":
+            print("[WARN] Proceeding without confirmed auth because user chose skip.")
+            return
+
+        if parse_bool_env("START_ON_LOGIN", True):
+            print(f"Checking chart access: {chart_url}")
+            page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
+            human_pause(page, 900, 2000)
+
+        if not looks_like_login_page(page.url):
+            print(f"Auth check passed on page: {page.url}")
+            return
+
+
 def parse_bool_env(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -284,6 +327,8 @@ def main() -> int:
                 print(f"Navigating to chart page: {url}")
                 page.goto(url, wait_until="domcontentloaded", timeout=90000)
                 human_pause(page, 900, 2000)
+
+            enforce_auth_first(page, chart_url=url, headless=headless)
 
             saved_paths: List[Path] = []
 
