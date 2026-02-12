@@ -14,9 +14,9 @@ describe("chartHelpers", () => {
   });
 
   it("buildChecklistSummary returns selected labels", () => {
-    const summary = buildChecklistSummary({ red_candle: true, momentum_green: true });
+    const summary = buildChecklistSummary({ red_candle: true, yellow_candle: true });
     expect(summary).toMatch(/Red Candle/);
-    expect(summary).toMatch(/MACD Positive/);
+    expect(summary).toMatch(/Yellow Candle/);
   });
 
   it("buildNotesPreview truncates long notes", () => {
