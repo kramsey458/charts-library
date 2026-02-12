@@ -971,7 +971,18 @@ export default function App() {
       <section className="gallery">
         <div className="gallery-header">
           <div className="gallery-header-main">
-            <h2>{displayedTicker ? `${displayedTicker} ${displayedTickerChartLabel}` : "Charts"}</h2>
+            <h2>
+              {displayedTicker ? (
+                <>
+                  <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
+                    {displayedTicker}
+                  </a>{" "}
+                  {displayedTickerChartLabel}
+                </>
+              ) : (
+                "Charts"
+              )}
+            </h2>
             <p>
               {displayedTicker
                 ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.`
@@ -1063,9 +1074,7 @@ export default function App() {
                         <a href={buildChartPath(chart)} download={chart.filename}>
                           {chart.filename}
                         </a>
-                        <a href={getFinvizUrl(chart.ticker)} target="_blank" rel="noopener noreferrer">
-                          {chart.ticker}
-                        </a>
+                        <span>{chart.ticker}</span>
                       </div>
                       <div className="chart-notes-row">
                         <button
