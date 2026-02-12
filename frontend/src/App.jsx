@@ -464,10 +464,21 @@ export default function App() {
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
   const displayedTickerMatchingChartLabel = displayedTickerMatchingChartCount === 1 ? "chart" : "charts";
   const getFinvizUrl = (ticker) => `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
-  const getTradingViewEmbedUrl = (ticker) =>
-    `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(
-      `NASDAQ:${ticker}`
+
+  const normalizeTickerForTradingView = (ticker) => {
+    const rawTicker = String(ticker || "").trim();
+    const noExchangePrefix = rawTicker.includes(":") ? rawTicker.split(":").pop() : rawTicker;
+    const firstToken = noExchangePrefix.split(/[\s,/|]+/)[0] || "";
+    return firstToken.toUpperCase().replace(/[^A-Z0-9._-]/g, "");
+  };
+
+  const getTradingViewEmbedUrl = (ticker) => {
+    const normalizedTicker = normalizeTickerForTradingView(ticker);
+    const symbolQuery = normalizedTicker || "AAPL";
+    return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(
+      symbolQuery
     )}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&theme=dark&style=1&timezone=Etc%2FUTC&studies=[]&withdateranges=1&hideideas=1`;
+  };
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -1048,9 +1059,9 @@ export default function App() {
             </div>
           </div>
           {displayedTicker ? (
-            <div className="gallery-chart-panel" aria-label={`${displayedTicker} live chart panel`}>
+            <div className="gallery-chart-panel" aria-label={`${displayedTicker} Live Chart panel`}>
               <div className="gallery-chart-panel-header">
-                <h3>{displayedTicker} live chart</h3>
+                <h3>{displayedTicker} Live Chart</h3>
                 <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
                   Open in Finviz
                 </a>
