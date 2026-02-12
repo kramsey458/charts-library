@@ -534,6 +534,10 @@ button:disabled {
 }
 
 .chart-modal-checklist li {
+  list-style: none;
+}
+
+.chart-modal-checklist .checklist-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -544,6 +548,15 @@ button:disabled {
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+
+.chart-modal-checklist .checklist-chip:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.chart-modal-checklist .checklist-chip:disabled {
+  opacity: 0.7;
 }
 
 .chart-modal-checklist .checklist-icon {

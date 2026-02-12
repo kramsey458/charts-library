@@ -37,6 +37,7 @@ export default function App() {
   const [editingNotesKey, setEditingNotesKey] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
@@ -134,6 +135,33 @@ export default function App() {
     });
   };
 
+  const updateChartChecklistInState = (targetChart, nextChecklist) => {
+    setCharts((prevCharts) =>
+      prevCharts.map((chart) => {
+        if (
+          chart.ticker === targetChart.ticker &&
+          chart.date === targetChart.date &&
+          chart.filename === targetChart.filename
+        ) {
+          return { ...chart, checklist: nextChecklist };
+        }
+        return chart;
+      })
+    );
+
+    setPreviewChart((prevPreviewChart) => {
+      if (
+        prevPreviewChart &&
+        prevPreviewChart.ticker === targetChart.ticker &&
+        prevPreviewChart.date === targetChart.date &&
+        prevPreviewChart.filename === targetChart.filename
+      ) {
+        return { ...prevPreviewChart, checklist: nextChecklist };
+      }
+      return prevPreviewChart;
+    });
+  };
+
   const saveChartNotes = async (chart) => {
     setError("");
     try {
@@ -154,6 +182,37 @@ export default function App() {
       setError(err.message);
     } finally {
       setIsSavingNotes(false);
+    }
+  };
+
+  const toggleChartChecklistFlag = async (chart, key) => {
+    setError("");
+    const nextChecklist = {
+      ...buildEmptyChecklist(),
+      ...(chart.checklist || {}),
+      [key]: !chartHasFlag(chart, key),
+    };
+
+    try {
+      setIsSavingChecklist(true);
+      const response = await fetchJson(
+        `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+          chart.date
+        )}/${encodeURIComponent(chart.filename)}/notes`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            notes: chart.notes || "",
+            checklist: nextChecklist,
+          }),
+        }
+      );
+      updateChartChecklistInState(chart, response.chart?.checklist || nextChecklist);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSavingChecklist(false);
     }
   };
 
@@ -834,8 +893,17 @@ export default function App() {
               <ul>
                 {CHECKLIST_FIELDS.map((field) => (
                   <li key={field.key}>
-                    <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
-                    <span className="checklist-label">{field.label}</span>
+                    <button
+                      type="button"
+                      className="checklist-chip"
+                      onClick={() => toggleChartChecklistFlag(previewChart, field.key)}
+                      disabled={isSavingChecklist}
+                      aria-pressed={chartHasFlag(previewChart, field.key)}
+                      aria-label={`Toggle ${field.label}`}
+                    >
+                      <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
+                      <span className="checklist-label">{field.label}</span>
+                    </button>
                   </li>
                 ))}
               </ul>
