@@ -354,6 +354,16 @@ button:disabled {
   margin-bottom: 6px;
 }
 
+.gallery-header h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.gallery-header h2 a:hover,
+.gallery-header h2 a:focus-visible {
+  text-decoration: underline;
+}
+
 .gallery-header p {
   color: #a3abcb;
 }

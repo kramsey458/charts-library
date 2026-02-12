@@ -971,7 +971,18 @@ export default function App() {
       <section className="gallery">
         <div className="gallery-header">
           <div className="gallery-header-main">
-            <h2>{displayedTicker ? `${displayedTicker} ${displayedTickerChartLabel}` : "Charts"}</h2>
+            <h2>
+              {displayedTicker ? (
+                <>
+                  <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
+                    {displayedTicker}
+                  </a>{" "}
+                  {displayedTickerChartLabel}
+                </>
+              ) : (
+                "Charts"
+              )}
+            </h2>
             <p>
               {displayedTicker
                 ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.`
