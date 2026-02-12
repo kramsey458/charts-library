@@ -797,12 +797,16 @@ button:disabled {
 .batch-upload-content {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(620px, 700px);
+  width: 100%;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
   gap: 18px;
+  overflow-x: hidden;
 }
 
 .batch-upload-preview {
   min-height: 0;
+  min-width: 0;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
   background: rgba(4, 7, 18, 0.95);
@@ -824,10 +828,11 @@ button:disabled {
 .batch-upload-form {
   display: grid;
   min-width: 0;
+  max-width: 100%;
   align-content: start;
   gap: 12px;
   overflow-y: auto;
-  padding-right: 4px;
+  padding-right: 10px;
 }
 
 .batch-upload-file {
