@@ -5,6 +5,7 @@ from urllib.parse import quote, unquote
 
 CHECKLIST_KEYS = [
     "red_candle",
+    "yellow_candle",
     "trend_bullish",
     "whale_over_50",
     "momentum_green",

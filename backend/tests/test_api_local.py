@@ -11,6 +11,7 @@ def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", note
             "date": date,
             "notes": notes,
             "red_candle": "true",
+            "yellow_candle": "true",
             "trend_bullish": "false",
             "chart": (fileobj, filename),
         },
@@ -37,6 +38,7 @@ def test_upload_list_patch_and_delete_flow(client, png_file):
     assert uploaded["ticker"] == "VG"
     assert uploaded["filename"] == filename
     assert uploaded["checklist"]["red_candle"] is True
+    assert uploaded["checklist"]["yellow_candle"] is True
 
     tickers = client.get("/api/tickers").get_json()
     assert tickers["tickers"] == ["VG"]

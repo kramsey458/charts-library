@@ -1,5 +1,6 @@
 export const CHECKLIST_FIELDS = [
   { key: "red_candle", label: "Red Candle" },
+  { key: "yellow_candle", label: "Yellow Candle" },
   { key: "trend_bullish", label: "Trend Bullish" },
   { key: "whale_over_50", label: "Whale Accumulation" },
   { key: "momentum_green", label: "MACD Positive" },
