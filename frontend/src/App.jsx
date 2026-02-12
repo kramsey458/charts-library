@@ -342,25 +342,30 @@ export default function App() {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
   }, [groupedCharts]);
 
-  const slideshowCharts = useMemo(() => {
-    const inDateRange = filteredCharts.filter((chart) => {
-      if (slideshowStartDate && chart.date < slideshowStartDate) {
+  const buildSlideshowChartList = (sourceCharts, sortOrder, startDate, endDate) => {
+    const inDateRange = sourceCharts.filter((chart) => {
+      if (startDate && chart.date < startDate) {
         return false;
       }
-      if (slideshowEndDate && chart.date > slideshowEndDate) {
+      if (endDate && chart.date > endDate) {
         return false;
       }
       return true;
     });
 
-    const sortDirection = slideshowSortOrder === "oldest" ? 1 : -1;
+    const sortDirection = sortOrder === "oldest" ? 1 : -1;
     return [...inDateRange].sort((chartA, chartB) => {
       if (chartA.date !== chartB.date) {
         return chartA.date < chartB.date ? -1 * sortDirection : 1 * sortDirection;
       }
       return chartA.filename.localeCompare(chartB.filename) * sortDirection;
     });
-  }, [filteredCharts, slideshowEndDate, slideshowSortOrder, slideshowStartDate]);
+  };
+
+  const slideshowCharts = useMemo(
+    () => buildSlideshowChartList(filteredCharts, slideshowSortOrder, slideshowStartDate, slideshowEndDate),
+    [filteredCharts, slideshowEndDate, slideshowSortOrder, slideshowStartDate]
+  );
 
   const activeSlideshowChart = slideshowCharts[slideshowIndex] || null;
 
@@ -380,15 +385,16 @@ export default function App() {
     const defaultOrder = "newest";
     const defaultStartDate = "";
     const defaultEndDate = "";
-    const sortedCharts = [...filteredCharts].sort((chartA, chartB) => {
-      if (chartA.date !== chartB.date) {
-        return chartA.date < chartB.date ? 1 : -1;
-      }
-      return chartB.filename.localeCompare(chartA.filename);
-    });
+    const sortedCharts = buildSlideshowChartList(
+      filteredCharts,
+      defaultOrder,
+      defaultStartDate,
+      defaultEndDate
+    );
 
     const chartIndex = getChartIndexInList(chart, sortedCharts);
 
+    closeChartPreview();
     setSlideshowSortOrder(defaultOrder);
     setSlideshowStartDate(defaultStartDate);
     setSlideshowEndDate(defaultEndDate);
@@ -559,7 +565,7 @@ export default function App() {
 
 
   useEffect(() => {
-    if (!previewChart) {
+    if (!previewChart || isSlideshowOpen) {
       return undefined;
     }
 
@@ -571,7 +577,7 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [previewChart]);
+  }, [isSlideshowOpen, previewChart]);
 
   useEffect(() => {
     if (!isSlideshowOpen || !slideshowRef.current) {
