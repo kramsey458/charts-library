@@ -142,11 +142,12 @@ def build_context_options(headless: bool) -> dict:
         "locale": "en-US",
         "timezone_id": "America/New_York",
         "color_scheme": "dark",
-        "device_scale_factor": 1,
     }
     if headless:
         base_options["viewport"] = {"width": 1920, "height": 1080}
+        base_options["device_scale_factor"] = 1
     else:
+        # Playwright does not allow device_scale_factor when viewport is disabled.
         base_options["no_viewport"] = True
     return base_options
 
