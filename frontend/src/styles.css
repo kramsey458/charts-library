@@ -489,20 +489,18 @@ button:disabled {
 
 
 .checklist-row {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
 .checklist-option {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-width: 0;
+  justify-content: flex-start;
   gap: 6px;
   color: #d7ddfb;
-  font-size: 0.8rem;
+  font-size: 0.83rem;
   line-height: 1.1;
   padding: 4px 8px;
   border-radius: 999px;
@@ -516,7 +514,7 @@ button:disabled {
 }
 
 .checklist-option span {
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .chart-checklist-preview {
