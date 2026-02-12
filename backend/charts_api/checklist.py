@@ -5,11 +5,15 @@ from urllib.parse import quote, unquote
 
 CHECKLIST_KEYS = [
     "red_candle",
-    "yellow_candle",
     "trend_bullish",
-    "whale_over_50",
-    "momentum_green",
-    "macd_blue_cross_over_orange",
+    "whale_accumulation_plus",
+    "macd_positive",
+    "macd_plus_cross",
+    "yellow_candle",
+    "trend_bearish",
+    "whale_accumulation_minus",
+    "macd_negative",
+    "macd_minus_cross",
 ]
 
 

@@ -1,10 +1,14 @@
 export const CHECKLIST_FIELDS = [
-  { key: "red_candle", label: "Red Candle" },
-  { key: "yellow_candle", label: "Yellow Candle" },
-  { key: "trend_bullish", label: "Trend Bullish" },
-  { key: "whale_over_50", label: "Whale Accumulation" },
-  { key: "momentum_green", label: "MACD Positive" },
-  { key: "macd_blue_cross_over_orange", label: "MACD Cross" },
+  { key: "red_candle", label: "Red Candle", row: 1 },
+  { key: "trend_bullish", label: "Trend Bullish", row: 1 },
+  { key: "whale_accumulation_plus", label: "+ Whale Accumulation", row: 1 },
+  { key: "macd_positive", label: "MACD Positive", row: 1 },
+  { key: "macd_plus_cross", label: "MACD + Cross", row: 1 },
+  { key: "yellow_candle", label: "Yellow Candle", row: 2 },
+  { key: "trend_bearish", label: "Trend Bearish", row: 2 },
+  { key: "whale_accumulation_minus", label: "- Whale Accumlation", row: 2 },
+  { key: "macd_negative", label: "MACD Negative", row: 2 },
+  { key: "macd_minus_cross", label: "MACD - CROSS", row: 2 },
 ];
 
 const apiBaseUrl = (import.meta.env?.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");

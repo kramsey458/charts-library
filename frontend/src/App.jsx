@@ -290,6 +290,13 @@ export default function App() {
     }
   };
 
+
+  const checklistRows = useMemo(() => {
+    const rowOne = CHECKLIST_FIELDS.filter((field) => field.row === 1);
+    const rowTwo = CHECKLIST_FIELDS.filter((field) => field.row === 2);
+    return [rowOne, rowTwo];
+  }, []);
+
   const selectedChecklistFilterKeys = useMemo(
     () => CHECKLIST_FIELDS.filter((field) => activeChecklistFilters[field.key]).map((field) => field.key),
     [activeChecklistFilters]
@@ -682,23 +689,27 @@ export default function App() {
           </div>
           <fieldset className="upload-checklist">
             <legend>Checklist</legend>
-            {CHECKLIST_FIELDS.map((field) => (
-              <label key={field.key} className="checklist-option">
-                <input
-                  type="checkbox"
-                  checked={Boolean(formState.checklist[field.key])}
-                  onChange={(event) =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      checklist: {
-                        ...prev.checklist,
-                        [field.key]: event.target.checked,
-                      },
-                    }))
-                  }
-                />
-                <span>{field.label}</span>
-              </label>
+            {checklistRows.map((row, rowIndex) => (
+              <div key={`upload-checklist-row-${rowIndex + 1}`} className="checklist-row">
+                {row.map((field) => (
+                  <label key={field.key} className="checklist-option">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formState.checklist[field.key])}
+                      onChange={(event) =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          checklist: {
+                            ...prev.checklist,
+                            [field.key]: event.target.checked,
+                          },
+                        }))
+                      }
+                    />
+                    <span>{field.label}</span>
+                  </label>
+                ))}
+              </div>
             ))}
           </fieldset>
           <button type="submit" disabled={status === "uploading"}>
@@ -720,20 +731,24 @@ export default function App() {
               <fieldset className="gallery-checklist-filters">
                 <legend>Checklist filters</legend>
                 <div className="gallery-checklist-filter-options">
-                  {CHECKLIST_FIELDS.map((field) => (
-                    <label key={field.key} className="checklist-option">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(activeChecklistFilters[field.key])}
-                        onChange={(event) =>
-                          setActiveChecklistFilters((prev) => ({
-                            ...prev,
-                            [field.key]: event.target.checked,
-                          }))
-                        }
-                      />
-                      <span>{field.label}</span>
-                    </label>
+                  {checklistRows.map((row, rowIndex) => (
+                    <div key={`gallery-checklist-row-${rowIndex + 1}`} className="checklist-row">
+                      {row.map((field) => (
+                        <label key={field.key} className="checklist-option">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(activeChecklistFilters[field.key])}
+                            onChange={(event) =>
+                              setActiveChecklistFilters((prev) => ({
+                                ...prev,
+                                [field.key]: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>{field.label}</span>
+                        </label>
+                      ))}
+                    </div>
                   ))}
                 </div>
                 {selectedChecklistFilterKeys.length > 0 ? (
@@ -890,23 +905,27 @@ export default function App() {
             </div>
             <div className="chart-modal-checklist">
               <h3>Checklist</h3>
-              <ul>
-                {CHECKLIST_FIELDS.map((field) => (
-                  <li key={field.key}>
-                    <button
-                      type="button"
-                      className="checklist-chip"
-                      onClick={() => toggleChartChecklistFlag(previewChart, field.key)}
-                      disabled={isSavingChecklist}
-                      aria-pressed={chartHasFlag(previewChart, field.key)}
-                      aria-label={`Toggle ${field.label}`}
-                    >
-                      <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
-                      <span className="checklist-label">{field.label}</span>
-                    </button>
-                  </li>
+              <div className="chart-modal-checklist-rows">
+                {checklistRows.map((row, rowIndex) => (
+                  <ul key={`modal-checklist-row-${rowIndex + 1}`}>
+                    {row.map((field) => (
+                      <li key={field.key}>
+                        <button
+                          type="button"
+                          className="checklist-chip"
+                          onClick={() => toggleChartChecklistFlag(previewChart, field.key)}
+                          disabled={isSavingChecklist}
+                          aria-pressed={chartHasFlag(previewChart, field.key)}
+                          aria-label={`Toggle ${field.label}`}
+                        >
+                          <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
+                          <span className="checklist-label">{field.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 ))}
-              </ul>
+              </div>
             </div>
             <div
               className="chart-modal-notes"
