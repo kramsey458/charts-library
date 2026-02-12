@@ -104,7 +104,6 @@ class ChartService:
         date_label = form.get("date", "").strip() or datetime.date.today().isoformat()
         notes = form.get("notes", "").strip()
         checklist = sanitize_checklist({key: form.get(key, "") for key in CHECKLIST_KEYS})
-        classification: dict | None = None
         chart_file = next((files.get(field_name) for field_name in image_field_names if files.get(field_name)), None)
 
         if not ticker:
@@ -118,16 +117,12 @@ class ChartService:
         safe_date = secure_filename(date_label)
         filename = secure_filename(chart_file.filename)
 
-        if self.settings.auto_classify_candle:
-            classification = self.classify_chart_file(chart_file)
-            checklist = self.merge_candle_classification_into_checklist(checklist, classification.get("label"))
-
         if self.is_external:
             self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
         else:
             self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
 
-        response = {
+        return {
             "message": "Chart uploaded.",
             "chart": {
                 "ticker": safe_ticker,
@@ -137,10 +132,7 @@ class ChartService:
                 "notes": notes,
                 "checklist": checklist,
             },
-        }
-        if classification is not None:
-            response["classification"] = classification
-        return response, 201
+        }, 201
 
 
     def classify_chart_upload(self, files, image_field_names: tuple[str, ...] = ("chart", "image")) -> tuple[dict, int]:
