@@ -21,6 +21,7 @@ def test_sanitize_checklist_only_known_keys():
         "red_candle": "true",
         "trend_bullish": "yes",
         "yellow_candle": "on",
+        "whale_accumulation_plus": "1",
         "unknown": True,
     }
     checklist = sanitize_checklist(payload)
@@ -28,7 +29,8 @@ def test_sanitize_checklist_only_known_keys():
     assert checklist["red_candle"] is True
     assert checklist["trend_bullish"] is True
     assert checklist["yellow_candle"] is True
-    assert checklist["whale_over_50"] is False
+    assert checklist["whale_accumulation_plus"] is True
+    assert checklist["macd_negative"] is False
     assert set(checklist.keys()) == set(CHECKLIST_KEYS)
 
 
@@ -36,7 +38,7 @@ def test_checklist_context_roundtrip():
     checklist = empty_checklist()
     checklist["red_candle"] = True
     checklist["yellow_candle"] = True
-    checklist["momentum_green"] = True
+    checklist["macd_positive"] = True
 
     encoded = encode_checklist_context(checklist)
     decoded = parse_checklist_context(encoded)

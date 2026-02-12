@@ -13,6 +13,8 @@ def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", note
             "red_candle": "true",
             "yellow_candle": "true",
             "trend_bullish": "false",
+            "trend_bearish": "true",
+            "macd_minus_cross": "true",
             "chart": (fileobj, filename),
         },
         content_type="multipart/form-data",
@@ -39,6 +41,8 @@ def test_upload_list_patch_and_delete_flow(client, png_file):
     assert uploaded["filename"] == filename
     assert uploaded["checklist"]["red_candle"] is True
     assert uploaded["checklist"]["yellow_candle"] is True
+    assert uploaded["checklist"]["trend_bearish"] is True
+    assert uploaded["checklist"]["macd_minus_cross"] is True
 
     tickers = client.get("/api/tickers").get_json()
     assert tickers["tickers"] == ["VG"]
@@ -51,12 +55,13 @@ def test_upload_list_patch_and_delete_flow(client, png_file):
 
     patch = client.patch(
         f"/api/charts/VG/{chart['date']}/{chart['filename']}/notes",
-        json={"notes": "Updated VG note", "checklist": {"trend_bullish": True}},
+        json={"notes": "Updated VG note", "checklist": {"trend_bullish": True, "macd_positive": True}},
     )
     assert patch.status_code == 200
     patched_chart = patch.get_json()["chart"]
     assert patched_chart["notes"] == "Updated VG note"
     assert patched_chart["checklist"]["trend_bullish"] is True
+    assert patched_chart["checklist"]["macd_positive"] is True
 
     file_response = client.get(f"/api/chart-file/VG/{chart['date']}/{chart['filename']}")
     assert file_response.status_code == 200
