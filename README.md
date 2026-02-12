@@ -155,3 +155,33 @@ After deploy:
 ## Netlify config
 
 `netlify.toml` is configured for static SPA hosting (frontend only). API requests are expected to go to Flask backend via `VITE_API_BASE_URL`.
+
+## TradingView batch image export script (local automation)
+
+A helper script is included at `scripts/tradingview_export.py` for local, user-driven TradingView automation.
+
+### What it does
+
+- reads tickers from a text file (`tickers.txt`, one symbol per line)
+- opens TradingView chart page in a persistent Chromium profile
+- lets you do a one-time manual login + indicator/layout setup
+- loops each ticker, changes the symbol (top-left), and saves via the camera menu (top-right)
+
+### Setup
+
+```bash
+pip install playwright
+playwright install chromium
+```
+
+### Usage
+
+```bash
+python scripts/tradingview_export.py --tickers tickers.txt --out tv_exports --profile tv_profile
+```
+
+Options:
+
+- `--delay 1.0` delay between symbols
+- `--headless` run without UI (not recommended for TradingView)
+- `--dry-run` only validate and print tickers
