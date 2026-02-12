@@ -39,6 +39,7 @@ export default function App() {
   const [slideshowStartDate, setSlideshowStartDate] = useState("");
   const [slideshowEndDate, setSlideshowEndDate] = useState("");
   const [slideshowIndex, setSlideshowIndex] = useState(0);
+  const [isSlideshowEnhanced, setIsSlideshowEnhanced] = useState(true);
   const [editingNotesKey, setEditingNotesKey] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
@@ -1164,6 +1165,14 @@ export default function App() {
                   }}
                 />
               </label>
+              <button
+                type="button"
+                className={`slideshow-enhance-toggle ${isSlideshowEnhanced ? "is-active" : ""}`.trim()}
+                onClick={() => setIsSlideshowEnhanced((prev) => !prev)}
+                aria-pressed={isSlideshowEnhanced}
+              >
+                {isSlideshowEnhanced ? "Enhanced" : "Enhance"}
+              </button>
               <button type="button" className="slideshow-close" onClick={closeSlideshow}>
                 Exit full screen
               </button>
@@ -1181,6 +1190,7 @@ export default function App() {
             </button>
             <figure className="slideshow-figure">
               <img
+                className={isSlideshowEnhanced ? "is-enhanced" : ""}
                 src={buildChartPath(activeSlideshowChart)}
                 alt={`${activeSlideshowChart.ticker} on ${activeSlideshowChart.date}`}
               />
