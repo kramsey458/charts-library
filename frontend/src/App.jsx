@@ -33,7 +33,6 @@ export default function App() {
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [isModalFullscreen, setIsModalFullscreen] = useState(false);
   const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
   const [slideshowSortOrder, setSlideshowSortOrder] = useState("newest");
   const [slideshowStartDate, setSlideshowStartDate] = useState("");
@@ -53,7 +52,6 @@ export default function App() {
   });
   const dateInputRef = useRef(null);
   const fileInputRef = useRef(null);
-  const modalRef = useRef(null);
   const slideshowRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
@@ -95,12 +93,8 @@ export default function App() {
   };
 
   const closeChartPreview = () => {
-    if (document.fullscreenElement === modalRef.current) {
-      document.exitFullscreen().catch(() => {});
-    }
     setPreviewChart(null);
     setIsPanning(false);
-    setIsModalFullscreen(false);
     setEditingNotesKey("");
     setNotesDraft("");
   };
@@ -311,21 +305,6 @@ export default function App() {
     setIsPanning(false);
   };
 
-  const toggleModalFullscreen = async () => {
-    if (!modalRef.current) {
-      return;
-    }
-
-    try {
-      if (document.fullscreenElement === modalRef.current) {
-        await document.exitFullscreen();
-      } else if (!document.fullscreenElement) {
-        await modalRef.current.requestFullscreen();
-      }
-    } catch {
-      // no-op when fullscreen is unavailable
-    }
-  };
 
 
   const checklistRows = useMemo(() => {
@@ -384,6 +363,38 @@ export default function App() {
   }, [filteredCharts, slideshowEndDate, slideshowSortOrder, slideshowStartDate]);
 
   const activeSlideshowChart = slideshowCharts[slideshowIndex] || null;
+
+  const getChartIndexInList = (targetChart, list) =>
+    list.findIndex(
+      (chart) =>
+        chart.ticker === targetChart.ticker &&
+        chart.date === targetChart.date &&
+        chart.filename === targetChart.filename
+    );
+
+  const openSlideshowFromPreview = (chart) => {
+    if (!chart) {
+      return;
+    }
+
+    const defaultOrder = "newest";
+    const defaultStartDate = "";
+    const defaultEndDate = "";
+    const sortedCharts = [...filteredCharts].sort((chartA, chartB) => {
+      if (chartA.date !== chartB.date) {
+        return chartA.date < chartB.date ? 1 : -1;
+      }
+      return chartB.filename.localeCompare(chartA.filename);
+    });
+
+    const chartIndex = getChartIndexInList(chart, sortedCharts);
+
+    setSlideshowSortOrder(defaultOrder);
+    setSlideshowStartDate(defaultStartDate);
+    setSlideshowEndDate(defaultEndDate);
+    setSlideshowIndex(chartIndex >= 0 ? chartIndex : 0);
+    setIsSlideshowOpen(true);
+  };
 
   const visibleTickers = useMemo(() => {
     const query = tickerSearch.trim().toUpperCase();
@@ -561,15 +572,6 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [previewChart]);
-
-  useEffect(() => {
-    const onFullscreenChange = () => {
-      setIsModalFullscreen(document.fullscreenElement === modalRef.current);
-    };
-
-    document.addEventListener("fullscreenchange", onFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
 
   useEffect(() => {
     if (!isSlideshowOpen || !slideshowRef.current) {
@@ -977,8 +979,7 @@ export default function App() {
       {previewChart && (
         <div className="chart-modal-overlay" onClick={closeChartPreview}>
           <div
-            ref={modalRef}
-            className={`chart-modal ${isModalFullscreen ? "is-fullscreen" : ""}`}
+            className="chart-modal"
             role="dialog"
             aria-modal="true"
             aria-label="Chart image preview. You can resize this modal from its bottom-right corner."
@@ -1001,10 +1002,10 @@ export default function App() {
                 <button
                   type="button"
                   className="fullscreen-toggle"
-                  onClick={toggleModalFullscreen}
-                  aria-label={isModalFullscreen ? "Exit fullscreen chart preview" : "Enter fullscreen chart preview"}
+                  onClick={() => openSlideshowFromPreview(previewChart)}
+                  aria-label="Open fullscreen slideshow"
                 >
-                  {isModalFullscreen ? "Exit full screen" : "Full screen"}
+                  Full Screen
                 </button>
                 <button type="button" className="close-modal" onClick={closeChartPreview}>
                   Close
@@ -1035,7 +1036,7 @@ export default function App() {
               <span className="chart-modal-context">
                 {previewChart.ticker} • {previewChart.date}
               </span>
-              {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
+              <span className="resize-hint">↘ Drag corner to resize</span>
             </div>
             <div className="chart-modal-checklist">
               <h3>Checklist</h3>
