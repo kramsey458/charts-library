@@ -24,9 +24,9 @@ img {
 }
 
 .app {
-  max-width: 1200px;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 48px 24px 80px;
+  padding: 48px 28px 80px;
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -518,6 +518,7 @@ button:disabled {
 
 .checklist-option span {
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .chart-checklist-preview {
@@ -783,6 +784,17 @@ button:disabled {
 .resize-hint {
   color: #94a1d7;
   font-size: 0.85rem;
+}
+
+
+@media (min-width: 1240px) {
+  .controls {
+    grid-template-columns: minmax(420px, 1fr) minmax(620px, 1.35fr);
+  }
+
+  .gallery-checklist-filters {
+    max-width: 980px;
+  }
 }
 
 @media (max-width: 720px) {
