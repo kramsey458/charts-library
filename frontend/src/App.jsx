@@ -464,6 +464,10 @@ export default function App() {
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
   const displayedTickerMatchingChartLabel = displayedTickerMatchingChartCount === 1 ? "chart" : "charts";
   const getFinvizUrl = (ticker) => `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
+  const getTradingViewEmbedUrl = (ticker) =>
+    `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(
+      `NASDAQ:${ticker}`
+    )}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&theme=dark&style=1&timezone=Etc%2FUTC&studies=[]&withdateranges=1&hideideas=1`;
 
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
@@ -989,6 +993,16 @@ export default function App() {
                 : "Browse your saved snapshots organized by date."}
             </p>
             {displayedTicker ? (
+              <button
+                type="button"
+                className="gallery-slideshow-button"
+                onClick={openSlideshow}
+                disabled={slideshowCharts.length === 0}
+              >
+                Presentation mode
+              </button>
+            ) : null}
+            {displayedTicker ? (
               <fieldset className="gallery-checklist-filters">
                 <legend>Checklist filters</legend>
                 <div className="gallery-checklist-filter-options">
@@ -1023,20 +1037,30 @@ export default function App() {
                 ) : null}
               </fieldset>
             ) : null}
-          </div>
-          <div className="gallery-header-actions">
             {displayedTicker ? (
-              <button
-                type="button"
-                className="gallery-slideshow-button"
-                onClick={openSlideshow}
-                disabled={slideshowCharts.length === 0}
-              >
-                Presentation mode
-              </button>
+              <p className="gallery-left-panel-note">Filters and presentation controls stay in this left panel.</p>
             ) : null}
             {error && <span className="error">{error}</span>}
           </div>
+          {displayedTicker ? (
+            <div className="gallery-chart-panel" aria-label={`${displayedTicker} live chart panel`}>
+              <div className="gallery-chart-panel-header">
+                <h3>{displayedTicker} live chart</h3>
+                <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
+                  Open in Finviz
+                </a>
+              </div>
+              <div className="gallery-chart-panel-body">
+                <iframe
+                  title={`${displayedTicker} chart graph`}
+                  src={getTradingViewEmbedUrl(displayedTicker)}
+                  loading="lazy"
+                  allowTransparency="true"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {filteredCharts.length === 0 ? (
