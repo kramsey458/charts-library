@@ -13,6 +13,8 @@ Usage:
 
 Optional env vars:
   TRADINGVIEW_URL (default: https://www.tradingview.com/chart/)
+  TRADINGVIEW_LOGIN_URL (default: https://www.tradingview.com/accounts/signin/)
+  START_ON_LOGIN=true|false (default: true)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
@@ -132,7 +134,7 @@ def build_launch_args(headless: bool) -> list[str]:
         "--lang=en-US,en;q=0.9",
     ]
     if not headless:
-        args.extend(["--start-maximized", "--start-fullscreen"])
+        args.extend(["--start-maximized"])
     return args
 
 
@@ -145,10 +147,10 @@ def build_context_options(headless: bool) -> dict:
     }
     if headless:
         base_options["viewport"] = {"width": 1920, "height": 1080}
-        base_options["device_scale_factor"] = 1
     else:
-        # Playwright does not allow device_scale_factor when viewport is disabled.
-        base_options["no_viewport"] = True
+        # Keep a stable visible viewport so login/captcha widgets are not pushed off-screen.
+        base_options["viewport"] = {"width": 1600, "height": 960}
+    base_options["device_scale_factor"] = 1
     return base_options
 
 
@@ -214,6 +216,20 @@ def confirm_logged_in(headless: bool) -> None:
         print("Waiting for login confirmation. Type 'y' when you are ready.")
 
 
+
+
+def open_login_flow_if_configured(page, chart_url: str) -> None:
+    start_on_login = parse_bool_env("START_ON_LOGIN", True)
+    login_url = os.getenv("TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/")
+    initial_url = login_url if start_on_login else chart_url
+
+    print(f"Opening {initial_url}")
+    page.goto(initial_url, wait_until="domcontentloaded", timeout=90000)
+    human_pause(page, 900, 2000)
+
+    if start_on_login:
+        print("After login/captcha is complete, the script will navigate to the chart page.")
+
 def parse_bool_env(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None:
@@ -243,11 +259,13 @@ def main() -> int:
         apply_stealth(page)
 
         try:
-            print(f"Opening {url}")
-            page.goto(url, wait_until="domcontentloaded", timeout=90000)
-            human_pause(page, 900, 2000)
-
+            open_login_flow_if_configured(page, chart_url=url)
             confirm_logged_in(headless=headless)
+
+            if parse_bool_env("START_ON_LOGIN", True):
+                print(f"Navigating to chart page: {url}")
+                page.goto(url, wait_until="domcontentloaded", timeout=90000)
+                human_pause(page, 900, 2000)
 
             saved_paths: List[Path] = []
 
