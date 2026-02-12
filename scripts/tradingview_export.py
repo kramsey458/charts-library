@@ -47,7 +47,7 @@ def parse_args() -> Config:
     parser.add_argument("--url", default="https://www.tradingview.com/chart/", help="TradingView chart URL.")
     parser.add_argument("--headless", action="store_true", help="Run headless. Usually keep this off for TradingView.")
     parser.add_argument("--delay", type=float, default=0.0, help="Delay between tickers in seconds.")
-    parser.add_argument("--symbol-wait-ms", type=int, default=350, help="Wait time after changing symbol.")
+    parser.add_argument("--symbol-wait-ms", type=int, default=900, help="Wait time after changing symbol.")
     parser.add_argument("--dry-run", action="store_true", help="Read and print tickers without automating browser.")
     args = parser.parse_args()
     return Config(
@@ -176,7 +176,7 @@ def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
     for selector in search_input_selectors:
         candidate = page.locator(selector).first
         try:
-            candidate.wait_for(state="visible", timeout=300)
+            candidate.wait_for(state="visible", timeout=550)
             search_input = candidate
             break
         except Exception:  # noqa: BLE001
@@ -185,10 +185,33 @@ def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
     if search_input is None:
         raise RuntimeError("Symbol Search opened, but symbol input was not found.")
 
-    search_input.click(timeout=250)
+    search_input.click(timeout=350)
     search_input.fill("")
     search_input.type(ticker, delay=0)
-    page.keyboard.press("Enter")
+
+    # Give symbol results a brief moment to populate, then prefer first result row.
+    result_row_selectors = [
+        '[data-name="symbol-search-dialog"] [data-name="list-item"]',
+        '[data-name="symbol-search-dialog"] [role="option"]',
+        '[data-name="symbol-search-items-dialog"] [data-name="list-item"]',
+        '[data-name="symbol-search-items-dialog"] [role="option"]',
+    ]
+
+    row_clicked = False
+    for selector in result_row_selectors:
+        row = page.locator(selector).first
+        try:
+            row.wait_for(state="visible", timeout=650)
+            row.click(timeout=400)
+            row_clicked = True
+            break
+        except Exception:  # noqa: BLE001
+            continue
+
+    if not row_clicked:
+        # Fallback to Enter when rows are not directly clickable in this UI variant.
+        page.keyboard.press("Enter")
+
     page.wait_for_timeout(symbol_wait_ms)
 
 
