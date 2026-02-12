@@ -785,13 +785,22 @@ button:disabled {
 }
 
 .batch-upload-modal {
-  width: min(94vw, 1280px);
-  height: min(92vh, 860px);
-  max-width: 94vw;
-  max-height: 92vh;
+  width: 80vw;
+  height: 80vh;
+  max-width: 80vw;
+  max-height: 80vh;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   resize: none;
+}
+
+.batch-upload-modal.is-fullscreen {
+  width: 80vw;
+  height: 80vh;
+  max-width: 80vw;
+  max-height: 80vh;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
 .batch-upload-content {
