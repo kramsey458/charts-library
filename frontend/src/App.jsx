@@ -465,6 +465,21 @@ export default function App() {
   const displayedTickerMatchingChartLabel = displayedTickerMatchingChartCount === 1 ? "chart" : "charts";
   const getFinvizUrl = (ticker) => `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
 
+  const normalizeTickerForTradingView = (ticker) => {
+    const rawTicker = String(ticker || "").trim();
+    const noExchangePrefix = rawTicker.includes(":") ? rawTicker.split(":").pop() : rawTicker;
+    const firstToken = noExchangePrefix.split(/[\s,/|]+/)[0] || "";
+    return firstToken.toUpperCase().replace(/[^A-Z0-9._-]/g, "");
+  };
+
+  const getTradingViewEmbedUrl = (ticker) => {
+    const normalizedTicker = normalizeTickerForTradingView(ticker);
+    const symbolQuery = normalizedTicker || "SPY";
+    return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(
+      symbolQuery
+    )}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&theme=dark&style=1&timezone=Etc%2FUTC&studies=[]&withdateranges=1&hideideas=1`;
+  };
+
   const loadTickers = async () => {
     const data = await fetchJson("/api/tickers");
     const nextTickers = data.tickers || [];
@@ -971,72 +986,97 @@ export default function App() {
       <section className="gallery">
         <div className="gallery-header">
           <div className="gallery-header-main">
-            <h2>
-              {displayedTicker ? (
-                <>
-                  <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
-                    {displayedTicker}
-                  </a>{" "}
-                  {displayedTickerChartLabel}
-                </>
-              ) : (
-                "Charts"
-              )}
-            </h2>
-            <p>
-              {displayedTicker
-                ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.`
-                : "Browse your saved snapshots organized by date."}
-            </p>
-            {displayedTicker ? (
-              <fieldset className="gallery-checklist-filters">
-                <legend>Checklist filters</legend>
-                <div className="gallery-checklist-filter-options">
-                  {checklistRows.map((row, rowIndex) => (
-                    <div key={`gallery-checklist-row-${rowIndex + 1}`} className="checklist-row">
-                      {row.map((field) => (
-                        <label key={field.key} className="checklist-option">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(activeChecklistFilters[field.key] || libraryChecklistFilters[field.key])}
-                            disabled={Boolean(libraryChecklistFilters[field.key])}
-                            onChange={(event) =>
-                              setActiveChecklistFilters((prev) => ({
-                                ...prev,
-                                [field.key]: event.target.checked,
-                              }))
-                            }
-                          />
-                          <span>{field.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-                {selectedChecklistFilterKeys.length > 0 ? (
+            <div className="gallery-controls-panel">
+              <div className="gallery-controls-header">
+                <div>
+                  <h2>
+                    {displayedTicker ? (
+                      <>
+                        <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
+                          {displayedTicker}
+                        </a>{" "}
+                        {displayedTickerChartLabel}
+                      </>
+                    ) : (
+                      "Charts"
+                    )}
+                  </h2>
                   <p>
-                    Showing {displayedTickerMatchingChartCount} matching {displayedTickerMatchingChartLabel}.
+                    {displayedTicker
+                      ? `${displayedTickerChartCount} ${displayedTickerChartLabel} saved for ${displayedTicker}.`
+                      : "Browse your saved snapshots organized by date."}
                   </p>
+                </div>
+                {displayedTicker ? (
+                  <button
+                    type="button"
+                    className="gallery-slideshow-button"
+                    onClick={openSlideshow}
+                    disabled={slideshowCharts.length === 0}
+                    aria-label="Open presentation mode"
+                    title="Presentation mode"
+                  >
+                    ⛶
+                  </button>
                 ) : null}
-                {selectedLibraryChecklistFilterKeys.length > 0 ? (
-                  <p>Library filters are also applied to this chart grid.</p>
-                ) : null}
-              </fieldset>
-            ) : null}
+              </div>
+              {displayedTicker ? (
+                <fieldset className="gallery-checklist-filters">
+                  <legend>Checklist filters</legend>
+                  <div className="gallery-checklist-filter-options">
+                    {checklistRows.map((row, rowIndex) => (
+                      <div key={`gallery-checklist-row-${rowIndex + 1}`} className="checklist-row">
+                        {row.map((field) => (
+                          <label key={field.key} className="checklist-option">
+                            <input
+                              type="checkbox"
+                              checked={Boolean(activeChecklistFilters[field.key] || libraryChecklistFilters[field.key])}
+                              disabled={Boolean(libraryChecklistFilters[field.key])}
+                              onChange={(event) =>
+                                setActiveChecklistFilters((prev) => ({
+                                  ...prev,
+                                  [field.key]: event.target.checked,
+                                }))
+                              }
+                            />
+                            <span>{field.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                  {selectedChecklistFilterKeys.length > 0 ? (
+                    <p>
+                      Showing {displayedTickerMatchingChartCount} matching {displayedTickerMatchingChartLabel}.
+                    </p>
+                  ) : null}
+                  {selectedLibraryChecklistFilterKeys.length > 0 ? (
+                    <p>Library filters are also applied to this chart grid.</p>
+                  ) : null}
+                </fieldset>
+              ) : null}
+              {error && <span className="error">{error}</span>}
+            </div>
           </div>
-          <div className="gallery-header-actions">
-            {displayedTicker ? (
-              <button
-                type="button"
-                className="gallery-slideshow-button"
-                onClick={openSlideshow}
-                disabled={slideshowCharts.length === 0}
-              >
-                Presentation mode
-              </button>
-            ) : null}
-            {error && <span className="error">{error}</span>}
-          </div>
+          {displayedTicker ? (
+            <div className="gallery-chart-panel" aria-label={`${displayedTicker} Live Chart panel`}>
+              <div className="gallery-chart-panel-header">
+                <h3>{displayedTicker} Live Chart</h3>
+                <a href={getFinvizUrl(displayedTicker)} target="_blank" rel="noopener noreferrer">
+                  Open in Finviz
+                </a>
+              </div>
+              <div className="gallery-chart-panel-body">
+                <iframe
+                  title={`${displayedTicker} chart graph`}
+                  src={getTradingViewEmbedUrl(displayedTicker)}
+                  loading="lazy"
+                  allowTransparency="true"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {filteredCharts.length === 0 ? (

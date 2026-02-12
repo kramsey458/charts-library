@@ -324,26 +324,48 @@ button:disabled {
 }
 
 .gallery-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 18px;
   margin-bottom: 24px;
 }
 
 .gallery-header-main {
-  min-width: 280px;
+  min-width: 0;
+  height: 100%;
 }
 
-.gallery-header-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+.gallery-controls-panel {
+  height: 100%;
+  min-height: 360px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gallery-controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .gallery-slideshow-button {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  flex: 0 0 auto;
   background: linear-gradient(130deg, #4e74ff, #6f55ff);
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 12px 26px rgba(80, 90, 200, 0.35);
@@ -370,13 +392,14 @@ button:disabled {
 
 
 .gallery-checklist-filters {
-  margin-top: 12px;
+  margin-top: 2px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 10px 12px;
   display: grid;
+  align-content: start;
   gap: 8px;
-  max-width: 720px;
+  width: 100%;
 }
 
 .gallery-checklist-filters legend {
@@ -390,9 +413,75 @@ button:disabled {
   gap: 6px;
 }
 
+.gallery-checklist-filters .checklist-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gallery-checklist-filters .checklist-option {
+  min-height: 32px;
+  font-size: 0.78rem;
+  padding: 6px 8px;
+}
+
 .gallery-checklist-filters p {
   color: #a3abcb;
   font-size: 0.85rem;
+}
+
+
+
+.gallery-chart-panel {
+  min-width: 0;
+  height: 100%;
+  min-height: 360px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gallery-chart-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.gallery-chart-panel-header h3 {
+  font-size: 0.98rem;
+  color: #e2e8ff;
+}
+
+.gallery-chart-panel-header a {
+  color: #9fb0ff;
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+
+.gallery-chart-panel-header a:hover,
+.gallery-chart-panel-header a:focus-visible {
+  text-decoration: underline;
+}
+
+.gallery-chart-panel-body {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(5, 8, 20, 0.85);
+  min-height: 0;
+}
+
+.gallery-chart-panel-body iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  display: block;
 }
 
 .error {
@@ -842,10 +931,6 @@ button:disabled {
   .controls {
     grid-template-columns: minmax(540px, 1fr) minmax(540px, 1fr);
   }
-
-  .gallery-checklist-filters {
-    max-width: 980px;
-  }
 }
 
 @media (max-width: 720px) {
@@ -858,10 +943,10 @@ button:disabled {
     align-items: stretch;
   }
 
-  .gallery-header-actions {
-    width: 100%;
-    align-items: stretch;
+  .gallery-header {
+    grid-template-columns: 1fr;
   }
+
 
   .slideshow-shell {
     padding: 16px;
