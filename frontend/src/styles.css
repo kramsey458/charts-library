@@ -340,9 +340,9 @@ button:disabled {
 }
 
 .gallery-checklist-filter-options {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .gallery-checklist-filters p {
@@ -478,8 +478,9 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
   padding: 10px 12px;
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .upload-checklist legend {
@@ -489,15 +490,21 @@ button:disabled {
 }
 
 .checklist-option {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: #d7ddfb;
-  font-size: 0.9rem;
+  font-size: 0.83rem;
+  line-height: 1.1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .checklist-option input {
   width: auto;
+  margin: 0;
 }
 
 .chart-checklist-preview {
@@ -521,15 +528,31 @@ button:disabled {
 
 .chart-modal-checklist ul {
   list-style: none;
-  display: grid;
-  gap: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .chart-modal-checklist li {
-  display: flex;
-  gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #c7cef0;
-  font-size: 0.9rem;
+  font-size: 0.83rem;
+  line-height: 1.1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.chart-modal-checklist .checklist-icon {
+  color: #e3e9ff;
+  font-size: 0.8rem;
+}
+
+.chart-modal-checklist .checklist-label {
+  white-space: nowrap;
 }
 
 .delete-button {

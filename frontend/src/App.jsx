@@ -834,8 +834,8 @@ export default function App() {
               <ul>
                 {CHECKLIST_FIELDS.map((field) => (
                   <li key={field.key}>
-                    <span>{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
-                    <span>{field.label}</span>
+                    <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
+                    <span className="checklist-label">{field.label}</span>
                   </li>
                 ))}
               </ul>
