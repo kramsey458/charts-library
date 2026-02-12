@@ -1258,6 +1258,9 @@ export default function App() {
                 {slideshowIndex + 1} of {slideshowCharts.length} • Use ← and → arrows to navigate
               </p>
             </div>
+            <p className="slideshow-current-date" aria-live="polite">
+              {activeSlideshowChart.date}
+            </p>
             <div className="slideshow-filters">
               <label>
                 Order
