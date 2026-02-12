@@ -45,6 +45,7 @@ export default function App() {
     checklist: buildEmptyChecklist(),
   });
   const dateInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const modalRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
@@ -376,6 +377,9 @@ export default function App() {
         file: null,
         checklist: buildEmptyChecklist(),
       });
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -606,6 +610,7 @@ export default function App() {
             <label htmlFor="file-input">Chart PNG</label>
             <input
               id="file-input"
+              ref={fileInputRef}
               type="file"
               accept="image/png"
               onChange={(event) =>
