@@ -24,7 +24,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from playwright.sync_api import BrowserContext, Page, TimeoutError as PWTimeout, sync_playwright
+from playwright.sync_api import BrowserContext, Locator, Page, TimeoutError as PWTimeout, sync_playwright
 
 
 @dataclass
@@ -104,28 +104,42 @@ def ensure_chart_page(page: Page, chart_url: str) -> None:
 
 def _symbol_search_dialog_open(page: Page) -> bool:
     dialog_signals = [
-        'text=/^Symbol Search$/i',
         '[data-name="symbol-search-dialog"]',
         '[data-name="symbol-search-items-dialog"]',
+        '[role="dialog"]:has-text("Symbol Search")',
     ]
     for selector in dialog_signals:
         try:
-            page.locator(selector).first.wait_for(state="visible", timeout=180)
+            page.locator(selector).first.wait_for(state="visible", timeout=250)
             return True
         except Exception:  # noqa: BLE001
             continue
     return False
 
 
-def _close_wrong_global_search(page: Page) -> None:
-    # If command palette opens ("Search tool or function"), close it immediately.
+def _wrong_global_search_open(page: Page) -> bool:
     try:
-        wrong = page.locator('text=/Search tool or function/i').first
-        wrong.wait_for(state="visible", timeout=150)
-        page.keyboard.press("Escape")
-        page.wait_for_timeout(60)
+        page.locator('text=/Search tool or function/i').first.wait_for(state="visible", timeout=150)
+        return True
     except Exception:  # noqa: BLE001
-        return
+        return False
+
+
+def _close_wrong_global_search(page: Page) -> None:
+    if _wrong_global_search_open(page):
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(120)
+
+
+def _first_visible(page: Page, selectors: list[str], timeout_ms: int = 500) -> Locator | None:
+    for selector in selectors:
+        target = page.locator(selector).first
+        try:
+            target.wait_for(state="visible", timeout=timeout_ms)
+            return target
+        except Exception:  # noqa: BLE001
+            continue
+    return None
 
 
 def _open_symbol_search(page: Page) -> None:
@@ -138,22 +152,46 @@ def _open_symbol_search(page: Page) -> None:
         '[data-name="legend-source-item"]',
     ]
 
-    for selector in open_symbol_selectors:
-        try:
-            target = page.locator(selector).first
-            target.wait_for(state="visible", timeout=450)
-            target.click(timeout=450)
-            _close_wrong_global_search(page)
-            if _symbol_search_dialog_open(page):
-                return
-        except Exception:  # noqa: BLE001
-            continue
+    for _ in range(5):
+        if _symbol_search_dialog_open(page):
+            return
 
-    # Keyboard fallback for symbol search only.
-    for shortcut in ("Control+L", "Control+K"):
-        page.keyboard.press(shortcut)
-        page.wait_for_timeout(90)
-        _close_wrong_global_search(page)
+        target = _first_visible(page, open_symbol_selectors, timeout_ms=450)
+        if target is not None:
+            try:
+                target.click(timeout=450)
+            except Exception:  # noqa: BLE001
+                pass
+
+        page.wait_for_timeout(120)
+
+        if _wrong_global_search_open(page) and not _symbol_search_dialog_open(page):
+            _close_wrong_global_search(page)
+            # Re-attempt open from top-left symbol button immediately.
+            target = _first_visible(page, open_symbol_selectors, timeout_ms=400)
+            if target is not None:
+                try:
+                    target.click(timeout=400)
+                except Exception:  # noqa: BLE001
+                    pass
+                page.wait_for_timeout(120)
+
+        if _symbol_search_dialog_open(page):
+            return
+
+    # Keyboard fallback: use Ctrl+K only (avoid Ctrl+L browser address bar behavior).
+    for _ in range(2):
+        page.keyboard.press("Control+K")
+        page.wait_for_timeout(140)
+        if _wrong_global_search_open(page):
+            _close_wrong_global_search(page)
+            target = _first_visible(page, open_symbol_selectors, timeout_ms=400)
+            if target is not None:
+                try:
+                    target.click(timeout=400)
+                except Exception:  # noqa: BLE001
+                    pass
+                page.wait_for_timeout(120)
         if _symbol_search_dialog_open(page):
             return
 
@@ -161,7 +199,13 @@ def _open_symbol_search(page: Page) -> None:
 
 
 def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
-    _open_symbol_search(page)
+    # Retry once in case the dialog was opened but auto-closed by transient UI focus.
+    for _ in range(2):
+        _open_symbol_search(page)
+        if _symbol_search_dialog_open(page):
+            break
+    if not _symbol_search_dialog_open(page):
+        raise RuntimeError("Symbol Search did not remain open.")
 
     # Keep selectors scoped to symbol search dialog first.
     search_input_selectors = [

@@ -187,4 +187,4 @@ Options:
 - `--headless` run without UI (not recommended for TradingView)
 - `--dry-run` only validate and print tickers
 
-Note: the script intentionally closes the `Search tool or function` dialog if it appears and retries until the `Symbol Search` dialog is open.
+Note: the script intentionally closes the `Search tool or function` dialog if it appears, re-clicks the top-left symbol entry point, and verifies `Symbol Search` stays open before typing.
