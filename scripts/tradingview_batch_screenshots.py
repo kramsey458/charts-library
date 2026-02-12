@@ -219,11 +219,11 @@ def confirm_logged_in(headless: bool) -> None:
         print("Waiting for login confirmation. Type 'y' when you are ready.")
 
 
-
-
 def open_login_flow_if_configured(page, chart_url: str) -> None:
     start_on_login = parse_bool_env("START_ON_LOGIN", True)
-    login_url = os.getenv("TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/")
+    login_url = os.getenv(
+        "TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/"
+    )
     initial_url = login_url if start_on_login else chart_url
 
     print(f"Opening {initial_url}")
@@ -234,10 +234,9 @@ def open_login_flow_if_configured(page, chart_url: str) -> None:
         print("After login/captcha is complete, the script will navigate to the chart page.")
 
 
-
 def looks_like_login_page(url: str) -> bool:
     lowered = (url or "").lower()
-    return "/accounts/signin" in lowered or "captcha" in lowered
+    return any(token in lowered for token in ("/accounts/signin", "captcha", "challenge"))
 
 
 def enforce_auth_first(page, chart_url: str, headless: bool) -> None:
@@ -259,16 +258,20 @@ def enforce_auth_first(page, chart_url: str, headless: bool) -> None:
             )
             return
 
-        print("Still on login/captcha page. Complete challenge, then press Enter to retry auth check.")
-        response = input("Press Enter when auth is complete (or type 'skip' to continue anyway): ").strip().lower()
+        print(
+            "Still on login/captcha page. Complete challenge, "
+            "then press Enter to retry auth check."
+        )
+        response = input(
+            "Press Enter when auth is complete (or type 'skip' to continue anyway): "
+        ).strip().lower()
         if response == "skip":
             print("[WARN] Proceeding without confirmed auth because user chose skip.")
             return
 
-        if parse_bool_env("START_ON_LOGIN", True):
-            print(f"Checking chart access: {chart_url}")
-            page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
-            human_pause(page, 900, 2000)
+        print(f"Checking chart access: {chart_url}")
+        page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
+        human_pause(page, 900, 2000)
 
         if not looks_like_login_page(page.url):
             print(f"Auth check passed on page: {page.url}")

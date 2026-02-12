@@ -115,7 +115,13 @@ pip install playwright playwright-stealth
 playwright install chromium
 ```
 
-The script now applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks), randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts. By default it opens the TradingView sign-in page first (`START_ON_LOGIN=true`) so you can complete cookie/captcha/login challenges before automation begins; set `START_ON_LOGIN=false` to open charts directly. To reduce login hangs with reCAPTCHA, stealth is deferred until after manual login by default (`APPLY_STEALTH_DURING_LOGIN=false`), and can be forced pre-login if needed. Auth-first verification is enabled by default (`AUTH_FIRST_MODE=true`) and blocks automation until the script confirms you are no longer on login/captcha pages (or you explicitly skip). In headed mode, Chromium is launched fullscreen for easier manual captcha/login interaction.
+The script now applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks), randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts.
+
+Behavior flags:
+- `START_ON_LOGIN=true` (default) opens the TradingView sign-in page first; set `START_ON_LOGIN=false` to open charts directly.
+- `APPLY_STEALTH_DURING_LOGIN=false` (default) defers stealth until after manual login to reduce reCAPTCHA/login stalls.
+- `AUTH_FIRST_MODE=true` (default) blocks automation until the script confirms you are no longer on login/captcha pages (or you explicitly skip).
+- In headed mode, Chromium launches fullscreen for easier manual captcha/login interaction.
 
 ## Deploying frontend on Netlify + backend on Render
 
