@@ -1124,7 +1124,7 @@ export default function App() {
       {isBatchModalOpen && batchFiles.length > 0 ? (
         <div className="chart-modal-overlay" onClick={closeBatchModal}>
           <div
-            className="chart-modal batch-upload-modal is-fullscreen"
+            className="chart-modal batch-upload-modal"
             role="dialog"
             aria-modal="true"
             aria-label="Batch upload details"
