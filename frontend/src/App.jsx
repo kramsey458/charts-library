@@ -474,7 +474,7 @@ export default function App() {
 
   const getTradingViewEmbedUrl = (ticker) => {
     const normalizedTicker = normalizeTickerForTradingView(ticker);
-    const symbolQuery = normalizedTicker || "AAPL";
+    const symbolQuery = normalizedTicker || "SPY";
     return `https://s.tradingview.com/widgetembed/?symbol=${encodeURIComponent(
       symbolQuery
     )}&interval=D&hidesidetoolbar=1&symboledit=1&saveimage=0&theme=dark&style=1&timezone=Etc%2FUTC&studies=[]&withdateranges=1&hideideas=1`;
