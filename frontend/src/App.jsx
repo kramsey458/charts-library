@@ -64,6 +64,7 @@ export default function App() {
     checklist: buildEmptyChecklist(),
   });
   const dateInputRef = useRef(null);
+  const batchDateInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const batchFileInputRef = useRef(null);
   const slideshowRef = useRef(null);
@@ -96,6 +97,13 @@ export default function App() {
 
   const handleDateInputDoubleClick = () => {
     setFormState((prev) => ({
+      ...prev,
+      date: getTodayDateValue(),
+    }));
+  };
+
+  const handleBatchDateInputDoubleClick = () => {
+    setBatchFormState((prev) => ({
       ...prev,
       date: getTodayDateValue(),
     }));
@@ -1163,14 +1171,32 @@ export default function App() {
                 </div>
                 <div className="upload-field">
                   <label htmlFor="batch-date-input">Date</label>
-                  <input
-                    id="batch-date-input"
-                    type="date"
-                    value={batchFormState.date}
-                    onChange={(event) =>
-                      setBatchFormState((prev) => ({ ...prev, date: event.target.value }))
-                    }
-                  />
+                  <div className="date-input-wrap">
+                    <input
+                      id="batch-date-input"
+                      ref={batchDateInputRef}
+                      type="date"
+                      value={batchFormState.date}
+                      onDoubleClick={handleBatchDateInputDoubleClick}
+                      onChange={(event) =>
+                        setBatchFormState((prev) => ({ ...prev, date: event.target.value }))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="date-picker-trigger"
+                      aria-label="Open date picker"
+                      onClick={() => {
+                        if (batchDateInputRef.current?.showPicker) {
+                          batchDateInputRef.current.showPicker();
+                        } else {
+                          batchDateInputRef.current?.focus();
+                        }
+                      }}
+                    >
+                      📅
+                    </button>
+                  </div>
                 </div>
                 <div className="upload-field">
                   <label htmlFor="batch-notes-input">Notes</label>
