@@ -106,6 +106,17 @@ curl -X POST http://localhost:5000/api/uploads/charts \
   -F image=@./chart.png
 ```
 
+## TradingView batch screenshot script
+
+For `scripts/tradingview_batch_screenshots.py`, install browser automation dependencies in your Python environment:
+
+```bash
+pip install playwright playwright-stealth
+playwright install chromium
+```
+
+The script now applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks), randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts.
+
 ## Deploying frontend on Netlify + backend on Render
 
 This is the recommended hosted setup.

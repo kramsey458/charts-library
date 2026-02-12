@@ -21,6 +21,8 @@ Optional env vars:
 from __future__ import annotations
 
 import argparse
+import math
+import random
 import os
 import platform
 import sys
@@ -31,6 +33,11 @@ from typing import List
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
+
+try:
+    from playwright_stealth import Stealth
+except ImportError:  # pragma: no cover - optional dependency for stealth hardening
+    Stealth = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -62,7 +69,32 @@ def timestamp_slug() -> str:
     return datetime.now(timezone.utc).isoformat().replace(":", "-").replace(".", "-")
 
 
+def human_pause(page, low_ms: int = 180, high_ms: int = 750) -> None:
+    page.wait_for_timeout(random.randint(low_ms, high_ms))
+
+
+def jitter_mouse(page) -> None:
+    viewport = page.viewport_size or {"width": 1280, "height": 720}
+    width = viewport["width"]
+    height = viewport["height"]
+    start_x = random.randint(int(width * 0.25), int(width * 0.75))
+    start_y = random.randint(int(height * 0.25), int(height * 0.75))
+    end_x = random.randint(int(width * 0.3), int(width * 0.7))
+    end_y = random.randint(int(height * 0.3), int(height * 0.7))
+
+    steps = random.randint(10, 18)
+    for i in range(steps):
+        t = i / max(steps - 1, 1)
+        wiggle_x = math.sin(t * math.pi * 2) * random.uniform(0.7, 2.2)
+        wiggle_y = math.cos(t * math.pi * 2) * random.uniform(0.7, 2.2)
+        x = start_x + (end_x - start_x) * t + wiggle_x
+        y = start_y + (end_y - start_y) * t + wiggle_y
+        page.mouse.move(x, y)
+        page.wait_for_timeout(random.randint(8, 28))
+
+
 def focus_chart(page) -> None:
+    jitter_mouse(page)
     try:
         page.keyboard.press("Escape")
     except PlaywrightError:
@@ -70,26 +102,73 @@ def focus_chart(page) -> None:
 
     viewport = page.viewport_size or {"width": 1280, "height": 720}
     page.mouse.click(int(viewport["width"] * 0.5), int(viewport["height"] * 0.5))
+    human_pause(page)
 
 
 def select_first_symbol_result(page, ticker: str) -> None:
     focus_chart(page)
 
     # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
-    page.keyboard.type(ticker, delay=80)
+    page.keyboard.type(ticker, delay=random.randint(90, 170))
 
     # Give the search window/results time to populate, then select first result.
-    page.wait_for_timeout(900)
+    human_pause(page, 700, 1300)
     page.keyboard.press("Enter")
 
     # Allow chart to switch symbol.
-    page.wait_for_timeout(1800)
+    human_pause(page, 1400, 2500)
 
 
 def trigger_save_shortcut(page) -> None:
     is_mac = platform.system().lower() == "darwin"
     shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
+    human_pause(page, 200, 850)
     page.keyboard.press(shortcut)
+
+
+def build_launch_args(headless: bool) -> list[str]:
+    args = [
+        "--disable-blink-features=AutomationControlled",
+        "--lang=en-US,en;q=0.9",
+    ]
+    if not headless:
+        args.extend(["--start-maximized", "--start-fullscreen"])
+    return args
+
+
+def build_context_options(headless: bool) -> dict:
+    base_options = {
+        "accept_downloads": True,
+        "locale": "en-US",
+        "timezone_id": "America/New_York",
+        "color_scheme": "dark",
+        "device_scale_factor": 1,
+    }
+    if headless:
+        base_options["viewport"] = {"width": 1920, "height": 1080}
+    else:
+        base_options["no_viewport"] = True
+    return base_options
+
+
+def apply_stealth(page) -> None:
+    page.add_init_script(
+        """
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        window.chrome = window.chrome || { runtime: {} };
+        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
+        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
+        """
+    )
+
+    if Stealth is None:
+        print(
+            "[WARN] playwright-stealth not installed; using built-in stealth tweaks only.",
+            file=sys.stderr,
+        )
+        return
+
+    Stealth().apply_stealth_sync(page)
 
 
 def save_chart_image(page, output_dir: Path, ticker: str, index: int) -> Path | None:
@@ -155,24 +234,17 @@ def main() -> int:
     headless = parse_bool_env("HEADLESS", False)
 
     with sync_playwright() as p:
-        launch_args = ["--start-maximized", "--start-fullscreen"] if not headless else None
+        launch_args = build_launch_args(headless=headless)
         browser = p.chromium.launch(headless=headless, args=launch_args)
 
-        if headless:
-            context = browser.new_context(
-                accept_downloads=True,
-                viewport={"width": 1920, "height": 1080},
-            )
-        else:
-            context = browser.new_context(
-                accept_downloads=True,
-                no_viewport=True,
-            )
+        context = browser.new_context(**build_context_options(headless=headless))
         page = context.new_page()
+        apply_stealth(page)
 
         try:
             print(f"Opening {url}")
             page.goto(url, wait_until="domcontentloaded", timeout=90000)
+            human_pause(page, 900, 2000)
 
             confirm_logged_in(headless=headless)
 
@@ -187,7 +259,7 @@ def main() -> int:
                     saved_paths.append(out_path)
                     print(f"Saved: {out_path}")
 
-                page.wait_for_timeout(600)
+                human_pause(page, 450, 1300)
 
             print("\nDone.")
             if saved_paths:
