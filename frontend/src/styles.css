@@ -797,8 +797,8 @@ button:disabled {
 .batch-upload-content {
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 500px);
+  gap: 18px;
 }
 
 .batch-upload-preview {
@@ -823,6 +823,7 @@ button:disabled {
 
 .batch-upload-form {
   display: grid;
+  min-width: 0;
   align-content: start;
   gap: 12px;
   overflow-y: auto;
@@ -857,7 +858,8 @@ button:disabled {
 @media (max-width: 980px) {
   .batch-upload-content {
     grid-template-columns: 1fr;
-    grid-template-rows: minmax(200px, 35vh) auto;
+    grid-template-rows: minmax(180px, 32vh) auto;
+    gap: 12px;
   }
 
   .batch-upload-form .checklist-row {
