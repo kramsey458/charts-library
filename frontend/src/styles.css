@@ -325,20 +325,47 @@ button:disabled {
 
 .gallery-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 1fr);
-  align-items: start;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
   gap: 18px;
   margin-bottom: 24px;
 }
 
 .gallery-header-main {
   min-width: 0;
+  height: 100%;
+}
+
+.gallery-controls-panel {
+  height: 100%;
+  min-height: 360px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 12px;
   display: grid;
+  grid-template-rows: auto 1fr auto;
   gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gallery-controls-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .gallery-slideshow-button {
-  justify-self: start;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  line-height: 1;
+  flex: 0 0 auto;
   background: linear-gradient(130deg, #4e74ff, #6f55ff);
   border: 1px solid rgba(255, 255, 255, 0.22);
   box-shadow: 0 12px 26px rgba(80, 90, 200, 0.35);
@@ -370,6 +397,7 @@ button:disabled {
   border-radius: 14px;
   padding: 10px 12px;
   display: grid;
+  align-content: start;
   gap: 8px;
   width: 100%;
 }
@@ -402,18 +430,17 @@ button:disabled {
 }
 
 
-.gallery-left-panel-note {
-  color: #8f99c2;
-  font-size: 0.8rem;
-}
 
 .gallery-chart-panel {
   min-width: 0;
+  height: 100%;
+  min-height: 360px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 12px;
   display: grid;
+  grid-template-rows: auto 1fr;
   gap: 10px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
@@ -446,13 +473,13 @@ button:disabled {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(5, 8, 20, 0.85);
-  min-height: 280px;
+  min-height: 0;
 }
 
 .gallery-chart-panel-body iframe {
   width: 100%;
   height: 100%;
-  min-height: 280px;
+  min-height: 0;
   border: 0;
   display: block;
 }
@@ -920,9 +947,6 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
-  .gallery-chart-panel {
-    order: -1;
-  }
 
   .slideshow-shell {
     padding: 16px;
