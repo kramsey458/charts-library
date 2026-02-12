@@ -46,6 +46,8 @@ export default function App() {
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [isAutoClassifying, setIsAutoClassifying] = useState(false);
+  const [autoClassifyEnabled, setAutoClassifyEnabled] = useState(false);
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
@@ -522,6 +524,19 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const loadHealth = async () => {
+      try {
+        const health = await fetchJson("/api/health");
+        setAutoClassifyEnabled(Boolean(health?.auto_classify_candle));
+      } catch {
+        setAutoClassifyEnabled(false);
+      }
+    };
+
+    loadHealth();
+  }, []);
+
+  useEffect(() => {
     if (selectedTicker) {
       loadCharts(selectedTicker);
     }
@@ -587,6 +602,36 @@ export default function App() {
       setSelectedTicker(visibleTickers[0]);
     }
   }, [selectedTicker, visibleTickers]);
+
+  const handleAutoClassifyForFile = async (file) => {
+    if (!autoClassifyEnabled || !file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("chart", file);
+
+    try {
+      setIsAutoClassifying(true);
+      const data = await fetchJson("/api/classify-candle", {
+        method: "POST",
+        body: formData,
+      });
+
+      setFormState((prev) => ({
+        ...prev,
+        checklist: {
+          ...prev.checklist,
+          red_candle: Boolean(data?.checklist?.red_candle),
+          yellow_candle: Boolean(data?.checklist?.yellow_candle),
+        },
+      }));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsAutoClassifying(false);
+    }
+  };
 
   const handleUpload = async (event) => {
     event.preventDefault();
@@ -944,14 +989,25 @@ export default function App() {
               ref={fileInputRef}
               type="file"
               accept="image/png"
-              onChange={(event) =>
+              onChange={(event) => {
+                const nextFile = event.target.files?.[0] || null;
                 setFormState((prev) => ({
                   ...prev,
-                  file: event.target.files?.[0] || null,
-                }))
-              }
+                  file: nextFile,
+                }));
+                if (nextFile) {
+                  handleAutoClassifyForFile(nextFile);
+                }
+              }}
             />
           </div>
+          {autoClassifyEnabled ? (
+            <p className="upload-auto-classify-status">
+              {isAutoClassifying
+                ? "Detecting candle color from uploaded image..."
+                : 'Candle color will auto-select "Red Candle" or "Yellow Candle" after file upload.'}
+            </p>
+          ) : null}
           <fieldset className="upload-checklist">
             <legend>Checklist</legend>
             {checklistRows.map((row, rowIndex) => (
@@ -977,8 +1033,12 @@ export default function App() {
               </div>
             ))}
           </fieldset>
-          <button type="submit" disabled={status === "uploading"}>
-            {status === "uploading" ? "Uploading..." : "Save chart"}
+          <button type="submit" disabled={status === "uploading" || isAutoClassifying}>
+            {status === "uploading"
+              ? "Uploading..."
+              : isAutoClassifying
+              ? "Classifying..."
+              : "Save chart"}
           </button>
         </form>
       </section>

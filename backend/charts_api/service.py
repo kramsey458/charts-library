@@ -74,6 +74,28 @@ class ChartService:
 
         return self.local.list_charts_for_ticker(normalized_ticker)
 
+
+    @staticmethod
+    def merge_candle_classification_into_checklist(checklist: dict, label: str | None) -> dict:
+        merged = {**checklist}
+        if label == "red":
+            merged["red_candle"] = True
+            merged["yellow_candle"] = False
+        elif label == "yellow":
+            merged["yellow_candle"] = True
+            merged["red_candle"] = False
+        else:
+            merged["red_candle"] = False
+            merged["yellow_candle"] = False
+        return merged
+
+    def classify_chart_file(self, chart_file) -> dict:
+        image_bytes = chart_file.read()
+        chart_file.stream.seek(0)
+        from .candle_classifier import classify_candle
+
+        return classify_candle(image_bytes)
+
     def upload_chart(self, form, files, image_field_names: tuple[str, ...] = ("chart",)) -> tuple[dict, int]:
         if not self.is_external:
             self.local.ensure_storage()
@@ -97,21 +119,8 @@ class ChartService:
         filename = secure_filename(chart_file.filename)
 
         if self.settings.auto_classify_candle:
-            image_bytes = chart_file.read()
-            chart_file.stream.seek(0)
-            from .candle_classifier import classify_candle
-
-            classification = classify_candle(image_bytes)
-            label = classification.get("label")
-            if label == "red":
-                checklist["red_candle"] = True
-                checklist["yellow_candle"] = False
-            elif label == "yellow":
-                checklist["yellow_candle"] = True
-                checklist["red_candle"] = False
-            else:
-                checklist["red_candle"] = False
-                checklist["yellow_candle"] = False
+            classification = self.classify_chart_file(chart_file)
+            checklist = self.merge_candle_classification_into_checklist(checklist, classification.get("label"))
 
         if self.is_external:
             self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
@@ -132,6 +141,21 @@ class ChartService:
         if classification is not None:
             response["classification"] = classification
         return response, 201
+
+
+    def classify_chart_upload(self, files, image_field_names: tuple[str, ...] = ("chart", "image")) -> tuple[dict, int]:
+        chart_file = next((files.get(field_name) for field_name in image_field_names if files.get(field_name)), None)
+        if not chart_file or chart_file.filename == "":
+            return {"error": "Chart image is required."}, 400
+        if not self.allowed_file(chart_file.filename):
+            return {"error": "Only PNG files are supported."}, 400
+
+        classification = self.classify_chart_file(chart_file)
+        checklist = self.merge_candle_classification_into_checklist(
+            sanitize_checklist({key: False for key in CHECKLIST_KEYS}),
+            classification.get("label"),
+        )
+        return {"classification": classification, "checklist": checklist}, 200
 
     def delete_chart(self, ticker: str, date_label: str, filename: str) -> tuple[dict, int]:
         normalized_ticker = ticker.strip().upper()

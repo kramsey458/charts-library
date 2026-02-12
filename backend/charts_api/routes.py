@@ -10,7 +10,11 @@ def create_api_blueprint(service: ChartService) -> Blueprint:
 
     @api.get("/api/health")
     def health():
-        payload = {"status": "ok", "storage_mode": service.settings.storage_mode}
+        payload = {
+            "status": "ok",
+            "storage_mode": service.settings.storage_mode,
+            "auto_classify_candle": service.settings.auto_classify_candle,
+        }
         if service.is_external:
             payload["provider"] = "cloudinary"
         return jsonify(payload)
@@ -41,6 +45,18 @@ def create_api_blueprint(service: ChartService) -> Blueprint:
             return validation_error
         try:
             return jsonify({"charts": service.list_charts(ticker)})
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 502
+
+
+    @api.post("/api/classify-candle")
+    def classify_candle_upload():
+        validation_error = require_config()
+        if validation_error:
+            return validation_error
+        try:
+            payload, status = service.classify_chart_upload(request.files)
+            return jsonify(payload), status
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 502
 

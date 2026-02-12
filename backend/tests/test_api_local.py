@@ -37,6 +37,7 @@ def test_health_and_empty_tickers(client):
     health = client.get("/api/health")
     assert health.status_code == 200
     assert health.get_json()["storage_mode"] == "local"
+    assert health.get_json()["auto_classify_candle"] is False
 
     tickers = client.get("/api/tickers")
     assert tickers.status_code == 200
@@ -205,3 +206,29 @@ def test_upload_with_toggle_off_keeps_manual_checklist(tmp_path, monkeypatch, pn
     assert uploaded["chart"]["checklist"]["yellow_candle"] is True
     assert "classification" not in uploaded
     classifier_mock.assert_not_called()
+
+
+def test_classify_candle_endpoint_returns_checklist_flags(tmp_path, monkeypatch, png_file):
+    fileobj, filename = png_file
+    with build_test_client(tmp_path, monkeypatch, auto_classify_candle=True) as client:
+        with patch(
+            "charts_api.candle_classifier.classify_candle",
+            return_value={"label": "yellow", "scores": {"red_pixels": 12, "yellow_pixels": 222}},
+        ):
+            response = client.post(
+                "/api/classify-candle",
+                data={"chart": (fileobj, filename)},
+                content_type="multipart/form-data",
+            )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["classification"]["label"] == "yellow"
+    assert payload["checklist"]["yellow_candle"] is True
+    assert payload["checklist"]["red_candle"] is False
+
+
+def test_classify_candle_endpoint_validates_file_required(client):
+    response = client.post("/api/classify-candle", data={}, content_type="multipart/form-data")
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "Chart image is required."
