@@ -134,7 +134,8 @@ def build_launch_args(headless: bool) -> list[str]:
         "--lang=en-US,en;q=0.9",
     ]
     if not headless:
-        args.extend(["--start-maximized"])
+        # Fullscreen window for interactive login/captcha and chart operation.
+        args.extend(["--start-maximized", "--start-fullscreen"])
     return args
 
 
@@ -147,10 +148,10 @@ def build_context_options(headless: bool) -> dict:
     }
     if headless:
         base_options["viewport"] = {"width": 1920, "height": 1080}
+        base_options["device_scale_factor"] = 1
     else:
-        # Keep a stable visible viewport so login/captcha widgets are not pushed off-screen.
-        base_options["viewport"] = {"width": 1600, "height": 960}
-    base_options["device_scale_factor"] = 1
+        # Use the native fullscreen browser window size in headed mode.
+        base_options["no_viewport"] = True
     return base_options
 
 
