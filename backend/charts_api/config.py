@@ -15,6 +15,7 @@ class Settings:
     cloudinary_api_key: str
     cloudinary_api_secret: str
     cloudinary_folder: str
+    auto_classify_candle: bool
 
     @property
     def is_external(self) -> bool:
@@ -23,6 +24,12 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    auto_classify_candle = os.environ.get("AUTO_CLASSIFY_CANDLE", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     base_dir = Path(__file__).resolve().parent.parent
     return Settings(
         base_dir=base_dir,
@@ -33,4 +40,5 @@ def load_settings() -> Settings:
         cloudinary_api_key=os.environ.get("CLOUDINARY_API_KEY", "").strip(),
         cloudinary_api_secret=os.environ.get("CLOUDINARY_API_SECRET", "").strip(),
         cloudinary_folder=os.environ.get("CLOUDINARY_FOLDER", "charts-library").strip().strip("/"),
+        auto_classify_candle=auto_classify_candle,
     )

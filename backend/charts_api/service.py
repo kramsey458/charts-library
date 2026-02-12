@@ -82,6 +82,7 @@ class ChartService:
         date_label = form.get("date", "").strip() or datetime.date.today().isoformat()
         notes = form.get("notes", "").strip()
         checklist = sanitize_checklist({key: form.get(key, "") for key in CHECKLIST_KEYS})
+        classification: dict | None = None
         chart_file = next((files.get(field_name) for field_name in image_field_names if files.get(field_name)), None)
 
         if not ticker:
@@ -95,12 +96,29 @@ class ChartService:
         safe_date = secure_filename(date_label)
         filename = secure_filename(chart_file.filename)
 
+        if self.settings.auto_classify_candle:
+            image_bytes = chart_file.read()
+            chart_file.stream.seek(0)
+            from .candle_classifier import classify_candle
+
+            classification = classify_candle(image_bytes)
+            label = classification.get("label")
+            if label == "red":
+                checklist["red_candle"] = True
+                checklist["yellow_candle"] = False
+            elif label == "yellow":
+                checklist["yellow_candle"] = True
+                checklist["red_candle"] = False
+            else:
+                checklist["red_candle"] = False
+                checklist["yellow_candle"] = False
+
         if self.is_external:
             self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
         else:
             self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
 
-        return {
+        response = {
             "message": "Chart uploaded.",
             "chart": {
                 "ticker": safe_ticker,
@@ -110,7 +128,10 @@ class ChartService:
                 "notes": notes,
                 "checklist": checklist,
             },
-        }, 201
+        }
+        if classification is not None:
+            response["classification"] = classification
+        return response, 201
 
     def delete_chart(self, ticker: str, date_label: str, filename: str) -> tuple[dict, int]:
         normalized_ticker = ticker.strip().upper()

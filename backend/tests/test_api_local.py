@@ -1,6 +1,18 @@
 from __future__ import annotations
 
 import io
+from unittest.mock import patch
+
+from charts_api import create_app
+
+
+def build_test_client(tmp_path, monkeypatch, *, auto_classify_candle: bool = False):
+    monkeypatch.setenv("STORAGE_MODE", "local")
+    monkeypatch.setenv("LOCAL_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("AUTO_CLASSIFY_CANDLE", "true" if auto_classify_candle else "false")
+    app = create_app()
+    app.config.update(TESTING=True)
+    return app.test_client()
 
 
 def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", notes="Base case"):
@@ -129,3 +141,67 @@ def test_rest_upload_endpoint_requires_an_image_file(client):
 
     assert response.status_code == 400
     assert response.get_json()["error"] == "Chart image is required."
+
+
+def test_upload_auto_classifies_red_to_checklist(tmp_path, monkeypatch, png_file):
+    fileobj, filename = png_file
+    with build_test_client(tmp_path, monkeypatch, auto_classify_candle=True) as client:
+        with patch(
+            "charts_api.candle_classifier.classify_candle",
+            return_value={"label": "red", "scores": {"red_pixels": 250, "yellow_pixels": 10}},
+        ) as classifier_mock:
+            response = upload_chart(client, fileobj, filename, ticker="RED")
+
+    assert response.status_code == 201
+    uploaded = response.get_json()
+    assert uploaded["chart"]["checklist"]["red_candle"] is True
+    assert uploaded["chart"]["checklist"]["yellow_candle"] is False
+    assert uploaded["classification"]["label"] == "red"
+    assert uploaded["chart"]["checklist"]["trend_bearish"] is True
+    classifier_mock.assert_called_once()
+
+
+def test_upload_auto_classifies_yellow_to_checklist(tmp_path, monkeypatch, png_file):
+    fileobj, filename = png_file
+    with build_test_client(tmp_path, monkeypatch, auto_classify_candle=True) as client:
+        with patch(
+            "charts_api.candle_classifier.classify_candle",
+            return_value={"label": "yellow", "scores": {"red_pixels": 10, "yellow_pixels": 250}},
+        ):
+            response = upload_chart(client, fileobj, filename, ticker="YLW")
+
+    assert response.status_code == 201
+    uploaded = response.get_json()
+    assert uploaded["chart"]["checklist"]["yellow_candle"] is True
+    assert uploaded["chart"]["checklist"]["red_candle"] is False
+    assert uploaded["classification"]["label"] == "yellow"
+
+
+def test_upload_auto_classifies_ignore_to_checklist(tmp_path, monkeypatch, png_file):
+    fileobj, filename = png_file
+    with build_test_client(tmp_path, monkeypatch, auto_classify_candle=True) as client:
+        with patch(
+            "charts_api.candle_classifier.classify_candle",
+            return_value={"label": "ignore", "scores": {"red_pixels": 5, "yellow_pixels": 5}},
+        ):
+            response = upload_chart(client, fileobj, filename, ticker="IGN")
+
+    assert response.status_code == 201
+    uploaded = response.get_json()
+    assert uploaded["chart"]["checklist"]["red_candle"] is False
+    assert uploaded["chart"]["checklist"]["yellow_candle"] is False
+    assert uploaded["classification"]["label"] == "ignore"
+
+
+def test_upload_with_toggle_off_keeps_manual_checklist(tmp_path, monkeypatch, png_file):
+    fileobj, filename = png_file
+    with build_test_client(tmp_path, monkeypatch, auto_classify_candle=False) as client:
+        with patch("charts_api.candle_classifier.classify_candle") as classifier_mock:
+            response = upload_chart(client, fileobj, filename, ticker="MAN")
+
+    assert response.status_code == 201
+    uploaded = response.get_json()
+    assert uploaded["chart"]["checklist"]["red_candle"] is True
+    assert uploaded["chart"]["checklist"]["yellow_candle"] is True
+    assert "classification" not in uploaded
+    classifier_mock.assert_not_called()
