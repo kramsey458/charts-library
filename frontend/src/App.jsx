@@ -36,7 +36,12 @@ export default function App() {
   const [previewZoom, setPreviewZoom] = useState(1);
   const [previewPan, setPreviewPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [isModalFullscreen, setIsModalFullscreen] = useState(false);
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
+  const [slideshowSortOrder, setSlideshowSortOrder] = useState("newest");
+  const [slideshowStartDate, setSlideshowStartDate] = useState("");
+  const [slideshowEndDate, setSlideshowEndDate] = useState("");
+  const [slideshowIndex, setSlideshowIndex] = useState(0);
+  const [isSlideshowEnhanced, setIsSlideshowEnhanced] = useState(true);
   const [editingNotesKey, setEditingNotesKey] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
@@ -50,7 +55,7 @@ export default function App() {
   });
   const dateInputRef = useRef(null);
   const fileInputRef = useRef(null);
-  const modalRef = useRef(null);
+  const slideshowRef = useRef(null);
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
   const panRef = useRef({ x: 0, y: 0 });
 
@@ -91,14 +96,40 @@ export default function App() {
   };
 
   const closeChartPreview = () => {
-    if (document.fullscreenElement === modalRef.current) {
-      document.exitFullscreen().catch(() => {});
-    }
     setPreviewChart(null);
     setIsPanning(false);
-    setIsModalFullscreen(false);
     setEditingNotesKey("");
     setNotesDraft("");
+  };
+
+  const openSlideshow = () => {
+    if (slideshowCharts.length === 0) {
+      return;
+    }
+
+    setSlideshowIndex(0);
+    setIsSlideshowOpen(true);
+  };
+
+  const closeSlideshow = () => {
+    if (document.fullscreenElement === slideshowRef.current) {
+      document.exitFullscreen().catch(() => {});
+    }
+    setIsSlideshowOpen(false);
+  };
+
+  const goToNextSlideshowChart = () => {
+    if (slideshowCharts.length === 0) {
+      return;
+    }
+    setSlideshowIndex((prevIndex) => (prevIndex + 1) % slideshowCharts.length);
+  };
+
+  const goToPreviousSlideshowChart = () => {
+    if (slideshowCharts.length === 0) {
+      return;
+    }
+    setSlideshowIndex((prevIndex) => (prevIndex - 1 + slideshowCharts.length) % slideshowCharts.length);
   };
 
   const startEditingNotes = (chart) => {
@@ -277,21 +308,6 @@ export default function App() {
     setIsPanning(false);
   };
 
-  const toggleModalFullscreen = async () => {
-    if (!modalRef.current) {
-      return;
-    }
-
-    try {
-      if (document.fullscreenElement === modalRef.current) {
-        await document.exitFullscreen();
-      } else if (!document.fullscreenElement) {
-        await modalRef.current.requestFullscreen();
-      }
-    } catch {
-      // no-op when fullscreen is unavailable
-    }
-  };
 
 
   const checklistRows = useMemo(() => {
@@ -338,6 +354,66 @@ export default function App() {
   const sortedDates = useMemo(() => {
     return Object.keys(groupedCharts).sort((a, b) => (a < b ? 1 : -1));
   }, [groupedCharts]);
+
+  const buildSlideshowChartList = (sourceCharts, sortOrder, startDate, endDate) => {
+    const inDateRange = sourceCharts.filter((chart) => {
+      if (startDate && chart.date < startDate) {
+        return false;
+      }
+      if (endDate && chart.date > endDate) {
+        return false;
+      }
+      return true;
+    });
+
+    const sortDirection = sortOrder === "oldest" ? 1 : -1;
+    return [...inDateRange].sort((chartA, chartB) => {
+      if (chartA.date !== chartB.date) {
+        return chartA.date < chartB.date ? -1 * sortDirection : 1 * sortDirection;
+      }
+      return chartA.filename.localeCompare(chartB.filename) * sortDirection;
+    });
+  };
+
+  const slideshowCharts = useMemo(
+    () => buildSlideshowChartList(filteredCharts, slideshowSortOrder, slideshowStartDate, slideshowEndDate),
+    [filteredCharts, slideshowEndDate, slideshowSortOrder, slideshowStartDate]
+  );
+
+  const activeSlideshowChart = slideshowCharts[slideshowIndex] || null;
+
+  const getChartIndexInList = (targetChart, list) =>
+    list.findIndex(
+      (chart) =>
+        chart.ticker === targetChart.ticker &&
+        chart.date === targetChart.date &&
+        chart.filename === targetChart.filename
+    );
+
+  const openSlideshowFromPreview = (chart) => {
+    if (!chart) {
+      return;
+    }
+
+    const defaultOrder = "newest";
+    const defaultStartDate = "";
+    const defaultEndDate = "";
+    const sortedCharts = buildSlideshowChartList(
+      filteredCharts,
+      defaultOrder,
+      defaultStartDate,
+      defaultEndDate
+    );
+
+    const chartIndex = getChartIndexInList(chart, sortedCharts);
+
+    closeChartPreview();
+    setSlideshowSortOrder(defaultOrder);
+    setSlideshowStartDate(defaultStartDate);
+    setSlideshowEndDate(defaultEndDate);
+    setSlideshowIndex(chartIndex >= 0 ? chartIndex : 0);
+    setIsSlideshowOpen(true);
+  };
 
   const visibleTickers = useMemo(() => {
     const tickersMatchingLibraryFilters = selectedLibraryChecklistFilterKeys.length
@@ -581,7 +657,7 @@ export default function App() {
 
 
   useEffect(() => {
-    if (!previewChart) {
+    if (!previewChart || isSlideshowOpen) {
       return undefined;
     }
 
@@ -593,16 +669,70 @@ export default function App() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [previewChart]);
+  }, [isSlideshowOpen, previewChart]);
 
   useEffect(() => {
+    if (!isSlideshowOpen || !slideshowRef.current) {
+      return undefined;
+    }
+
+    slideshowRef.current.requestFullscreen().catch(() => {});
+    return undefined;
+  }, [isSlideshowOpen]);
+
+  useEffect(() => {
+    if (!isSlideshowOpen) {
+      return undefined;
+    }
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        closeSlideshow();
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goToNextSlideshowChart();
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goToPreviousSlideshowChart();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isSlideshowOpen, slideshowCharts.length]);
+
+  useEffect(() => {
+    if (!isSlideshowOpen) {
+      return;
+    }
+
+    if (slideshowCharts.length === 0) {
+      closeSlideshow();
+      return;
+    }
+
+    setSlideshowIndex((prevIndex) => Math.min(prevIndex, slideshowCharts.length - 1));
+  }, [isSlideshowOpen, slideshowCharts.length]);
+
+  useEffect(() => {
+    if (!isSlideshowOpen) {
+      return undefined;
+    }
+
     const onFullscreenChange = () => {
-      setIsModalFullscreen(document.fullscreenElement === modalRef.current);
+      if (document.fullscreenElement !== slideshowRef.current) {
+        setIsSlideshowOpen(false);
+      }
     };
 
     document.addEventListener("fullscreenchange", onFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-  }, []);
+  }, [isSlideshowOpen]);
 
   return (
     <div className="app">
@@ -840,7 +970,7 @@ export default function App() {
 
       <section className="gallery">
         <div className="gallery-header">
-          <div>
+          <div className="gallery-header-main">
             <h2>{displayedTicker ? `${displayedTicker} ${displayedTickerChartLabel}` : "Charts"}</h2>
             <p>
               {displayedTicker
@@ -883,7 +1013,19 @@ export default function App() {
               </fieldset>
             ) : null}
           </div>
-          {error && <span className="error">{error}</span>}
+          <div className="gallery-header-actions">
+            {displayedTicker ? (
+              <button
+                type="button"
+                className="gallery-slideshow-button"
+                onClick={openSlideshow}
+                disabled={slideshowCharts.length === 0}
+              >
+                Presentation mode
+              </button>
+            ) : null}
+            {error && <span className="error">{error}</span>}
+          </div>
         </div>
 
         {filteredCharts.length === 0 ? (
@@ -967,8 +1109,7 @@ export default function App() {
       {previewChart && (
         <div className="chart-modal-overlay" onClick={closeChartPreview}>
           <div
-            ref={modalRef}
-            className={`chart-modal ${isModalFullscreen ? "is-fullscreen" : ""}`}
+            className="chart-modal"
             role="dialog"
             aria-modal="true"
             aria-label="Chart image preview. You can resize this modal from its bottom-right corner."
@@ -991,10 +1132,10 @@ export default function App() {
                 <button
                   type="button"
                   className="fullscreen-toggle"
-                  onClick={toggleModalFullscreen}
-                  aria-label={isModalFullscreen ? "Exit fullscreen chart preview" : "Enter fullscreen chart preview"}
+                  onClick={() => openSlideshowFromPreview(previewChart)}
+                  aria-label="Open fullscreen slideshow"
                 >
-                  {isModalFullscreen ? "Exit full screen" : "Full screen"}
+                  Full Screen
                 </button>
                 <button type="button" className="close-modal" onClick={closeChartPreview}>
                   Close
@@ -1025,7 +1166,7 @@ export default function App() {
               <span className="chart-modal-context">
                 {previewChart.ticker} • {previewChart.date}
               </span>
-              {!isModalFullscreen && <span className="resize-hint">↘ Drag corner to resize</span>}
+              <span className="resize-hint">↘ Drag corner to resize</span>
             </div>
             <div className="chart-modal-checklist">
               <h3>Checklist</h3>
@@ -1107,6 +1248,101 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {isSlideshowOpen && activeSlideshowChart ? (
+        <div className="slideshow-shell" ref={slideshowRef}>
+          <div className="slideshow-topbar">
+            <div className="slideshow-title-wrap">
+              <h3>{displayedTicker} chart gallery</h3>
+              <p>
+                {slideshowIndex + 1} of {slideshowCharts.length} • Use ← and → arrows to navigate
+              </p>
+            </div>
+            <div className="slideshow-filters">
+              <label>
+                Order
+                <select
+                  value={slideshowSortOrder}
+                  onChange={(event) => {
+                    setSlideshowSortOrder(event.target.value);
+                    setSlideshowIndex(0);
+                  }}
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                </select>
+              </label>
+              <label>
+                From
+                <input
+                  type="date"
+                  value={slideshowStartDate}
+                  max={slideshowEndDate || undefined}
+                  onChange={(event) => {
+                    setSlideshowStartDate(event.target.value);
+                    setSlideshowIndex(0);
+                  }}
+                />
+              </label>
+              <label>
+                To
+                <input
+                  type="date"
+                  value={slideshowEndDate}
+                  min={slideshowStartDate || undefined}
+                  onChange={(event) => {
+                    setSlideshowEndDate(event.target.value);
+                    setSlideshowIndex(0);
+                  }}
+                />
+              </label>
+              <button
+                type="button"
+                className={`slideshow-enhance-toggle ${isSlideshowEnhanced ? "is-active" : ""}`.trim()}
+                onClick={() => setIsSlideshowEnhanced((prev) => !prev)}
+                aria-pressed={isSlideshowEnhanced}
+              >
+                {isSlideshowEnhanced ? "Enhanced" : "Enhance"}
+              </button>
+              <button type="button" className="slideshow-close" onClick={closeSlideshow}>
+                Exit full screen
+              </button>
+            </div>
+          </div>
+
+          <div className="slideshow-stage">
+            <button
+              type="button"
+              className="slideshow-nav previous"
+              aria-label="Previous chart"
+              onClick={goToPreviousSlideshowChart}
+            >
+              ‹
+            </button>
+            <figure className="slideshow-figure">
+              <img
+                className={isSlideshowEnhanced ? "is-enhanced" : ""}
+                src={buildChartPath(activeSlideshowChart)}
+                alt={`${activeSlideshowChart.ticker} on ${activeSlideshowChart.date}`}
+              />
+              <figcaption>
+                <span>{activeSlideshowChart.filename}</span>
+                <span>
+                  {activeSlideshowChart.ticker} • {activeSlideshowChart.date}
+                </span>
+              </figcaption>
+            </figure>
+            <button
+              type="button"
+              className="slideshow-nav next"
+              aria-label="Next chart"
+              onClick={goToNextSlideshowChart}
+            >
+              ›
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

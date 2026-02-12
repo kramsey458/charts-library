@@ -327,9 +327,26 @@ button:disabled {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 24px;
+}
+
+.gallery-header-main {
+  min-width: 280px;
+}
+
+.gallery-header-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.gallery-slideshow-button {
+  background: linear-gradient(130deg, #4e74ff, #6f55ff);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 12px 26px rgba(80, 90, 200, 0.35);
 }
 
 .gallery-header h2 {
@@ -831,6 +848,39 @@ button:disabled {
     align-items: stretch;
   }
 
+  .gallery-header-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .slideshow-shell {
+    padding: 16px;
+    gap: 14px;
+  }
+
+  .slideshow-topbar {
+    flex-direction: column;
+  }
+
+  .slideshow-filters {
+    justify-content: flex-start;
+  }
+
+  .slideshow-stage {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .slideshow-nav {
+    width: 100%;
+    border-radius: 12px;
+    height: 44px;
+  }
+
+  .slideshow-figure {
+    height: calc(100vh - 320px);
+  }
+
   .zoom-controls {
     flex-wrap: wrap;
   }
@@ -852,4 +902,143 @@ button:disabled {
   .chart-modal-meta {
     flex-direction: column;
   }
+}
+
+.slideshow-shell {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, #19264a 0%, #070b1a 60%);
+  color: #eef2ff;
+  z-index: 1500;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 24px;
+  padding: 24px 28px;
+}
+
+.slideshow-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(7, 12, 26, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.slideshow-title-wrap h3 {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.slideshow-title-wrap p {
+  color: #afbbeb;
+  font-size: 0.9rem;
+}
+
+.slideshow-filters {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.slideshow-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: #adbaeb;
+}
+
+.slideshow-filters select,
+.slideshow-filters input,
+.slideshow-enhance-toggle,
+.slideshow-close {
+  min-width: 148px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.slideshow-enhance-toggle,
+.slideshow-close {
+  box-shadow: none;
+}
+
+.slideshow-enhance-toggle {
+  background: rgba(75, 116, 255, 0.3);
+  border: 1px solid rgba(147, 173, 255, 0.5);
+}
+
+.slideshow-enhance-toggle.is-active {
+  background: linear-gradient(130deg, #4f73ff, #6f58ff);
+  border-color: rgba(196, 206, 255, 0.85);
+}
+
+.slideshow-close {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.slideshow-stage {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 0;
+}
+
+.slideshow-nav {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  font-size: 2rem;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: none;
+}
+
+.slideshow-nav:hover {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.slideshow-figure {
+  height: min(100%, calc(100vh - 210px));
+  display: grid;
+  grid-template-rows: 1fr auto;
+  background: rgba(4, 7, 18, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.slideshow-figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.slideshow-figure img.is-enhanced {
+  filter: contrast(1.1) saturate(1.06) brightness(1.03) drop-shadow(0 0 0.35rem rgba(134, 154, 255, 0.25));
+}
+
+.slideshow-figure figcaption {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  color: #cad5fb;
+  font-size: 0.9rem;
 }
