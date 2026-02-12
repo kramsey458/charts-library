@@ -15,6 +15,7 @@ Optional env vars:
   TRADINGVIEW_URL (default: https://www.tradingview.com/chart/)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
+  AUTO_CONFIRM_LOGIN=true|false (default: false)
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
@@ -35,12 +37,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Batch-save TradingView chart images for a list of tickers."
     )
-    parser.add_argument("--tickers", help="Comma-separated tickers, e.g. LPTH,AAPL,MSFT")
-    parser.add_argument("--tickers-file", help="File with one ticker per line")
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--tickers", help="Comma-separated tickers, e.g. LPTH,AAPL,MSFT")
+    source_group.add_argument("--tickers-file", help="File with one ticker per line")
     args = parser.parse_args()
-
-    if not args.tickers and not args.tickers_file:
-        parser.error("Provide --tickers 'LPTH,AAPL' or --tickers-file ./tickers.txt")
 
     return args
 
@@ -65,7 +65,7 @@ def timestamp_slug() -> str:
 def focus_chart(page) -> None:
     try:
         page.keyboard.press("Escape")
-    except Exception:
+    except PlaywrightError:
         pass
 
     viewport = page.viewport_size or {"width": 1280, "height": 720}
@@ -111,7 +111,19 @@ def save_chart_image(page, output_dir: Path, ticker: str, index: int) -> Path | 
     return out_path
 
 
-def confirm_logged_in() -> None:
+def confirm_logged_in(headless: bool) -> None:
+    auto_confirm = parse_bool_env("AUTO_CONFIRM_LOGIN", False)
+
+    if headless:
+        if auto_confirm:
+            print("AUTO_CONFIRM_LOGIN=true set; skipping login prompt in headless mode.")
+            return
+        raise RuntimeError(
+            "HEADLESS=true does not allow manual login confirmation prompts. "
+            "Set HEADLESS=false for interactive login or set AUTO_CONFIRM_LOGIN=true "
+            "if you already have persisted auth state."
+        )
+
     print("\nPlease complete TradingView login/cookie consent in the opened browser window.")
     print("When finished, type 'y' and press Enter to continue.")
 
@@ -143,22 +155,26 @@ def main() -> int:
     headless = parse_bool_env("HEADLESS", False)
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=headless,
-            args=["--start-maximized"] if not headless else None,
-        )
-        context = browser.new_context(
-            accept_downloads=True,
-            no_viewport=True if not headless else False,
-            viewport=None if not headless else {"width": 1600, "height": 1000},
-        )
+        launch_args = ["--start-maximized", "--start-fullscreen"] if not headless else None
+        browser = p.chromium.launch(headless=headless, args=launch_args)
+
+        if headless:
+            context = browser.new_context(
+                accept_downloads=True,
+                viewport={"width": 1920, "height": 1080},
+            )
+        else:
+            context = browser.new_context(
+                accept_downloads=True,
+                no_viewport=True,
+            )
         page = context.new_page()
 
         try:
             print(f"Opening {url}")
             page.goto(url, wait_until="domcontentloaded", timeout=90000)
 
-            confirm_logged_in()
+            confirm_logged_in(headless=headless)
 
             saved_paths: List[Path] = []
 
