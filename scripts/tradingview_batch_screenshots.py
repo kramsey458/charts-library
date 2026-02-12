@@ -15,6 +15,7 @@ Optional env vars:
   TRADINGVIEW_URL (default: https://www.tradingview.com/chart/)
   TRADINGVIEW_LOGIN_URL (default: https://www.tradingview.com/accounts/signin/)
   START_ON_LOGIN=true|false (default: true)
+  APPLY_STEALTH_DURING_LOGIN=true|false (default: false)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
@@ -238,6 +239,10 @@ def parse_bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() == "true"
 
 
+def should_apply_stealth_during_login() -> bool:
+    return parse_bool_env("APPLY_STEALTH_DURING_LOGIN", False)
+
+
 def main() -> int:
     args = parse_args()
     tickers = load_tickers(args)
@@ -257,11 +262,23 @@ def main() -> int:
 
         context = browser.new_context(**build_context_options(headless=headless))
         page = context.new_page()
-        apply_stealth(page)
+
+        stealth_pre_login = should_apply_stealth_during_login()
+        if stealth_pre_login:
+            print("Applying stealth before login (APPLY_STEALTH_DURING_LOGIN=true).")
+            apply_stealth(page)
+        else:
+            print(
+                "Stealth is deferred until after manual login/captcha to avoid reCAPTCHA stalls. "
+                "Set APPLY_STEALTH_DURING_LOGIN=true to override."
+            )
 
         try:
             open_login_flow_if_configured(page, chart_url=url)
             confirm_logged_in(headless=headless)
+
+            if not stealth_pre_login:
+                apply_stealth(page)
 
             if parse_bool_env("START_ON_LOGIN", True):
                 print(f"Navigating to chart page: {url}")
