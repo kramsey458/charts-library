@@ -17,7 +17,7 @@ describe("chartHelpers", () => {
     const summary = buildChecklistSummary({ red_candle: true, trend_bearish: true, macd_minus_cross: true });
     expect(summary).toMatch(/Red Candle/);
     expect(summary).toMatch(/Trend Bearish/);
-    expect(summary).toMatch(/MACD - CROSS/);
+    expect(summary).toMatch(/MACD - Cross/);
   });
 
   it("buildNotesPreview truncates long notes", () => {

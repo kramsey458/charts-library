@@ -538,8 +538,8 @@ button:disabled {
 
 .chart-modal-checklist ul {
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -550,6 +550,9 @@ button:disabled {
 .chart-modal-checklist .checklist-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
   gap: 6px;
   color: #c7cef0;
   font-size: 0.83rem;

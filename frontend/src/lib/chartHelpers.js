@@ -8,7 +8,7 @@ export const CHECKLIST_FIELDS = [
   { key: "trend_bearish", label: "Trend Bearish", row: 2 },
   { key: "whale_accumulation_minus", label: "- Whale Accumlation", row: 2 },
   { key: "macd_negative", label: "MACD Negative", row: 2 },
-  { key: "macd_minus_cross", label: "MACD - CROSS", row: 2 },
+  { key: "macd_minus_cross", label: "MACD - Cross", row: 2 },
 ];
 
 const apiBaseUrl = (import.meta.env?.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
