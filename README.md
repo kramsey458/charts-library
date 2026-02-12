@@ -123,6 +123,10 @@ Behavior flags:
 - `AUTH_FIRST_MODE=true` (default) blocks automation until the script confirms you are no longer on login/captcha pages (or you explicitly skip).
 - In headed mode, Chromium launches fullscreen for easier manual captcha/login interaction.
 
+## Deployment runbook
+
+For a copy-paste deployment checklist, see [`DEPLOY.md`](./DEPLOY.md).
+
 ## Deploying frontend on Netlify + backend on Render
 
 This is the recommended hosted setup.
