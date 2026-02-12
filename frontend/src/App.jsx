@@ -23,7 +23,10 @@ export default function App() {
   const [tickerSortBy, setTickerSortBy] = useState("name");
   const [tickerSortDirection, setTickerSortDirection] = useState("asc");
   const [charts, setCharts] = useState(emptyState.charts);
+  const [libraryChecklistFilters, setLibraryChecklistFilters] = useState(buildEmptyChecklist());
   const [activeChecklistFilters, setActiveChecklistFilters] = useState(buildEmptyChecklist());
+  const [libraryFilteredChartCounts, setLibraryFilteredChartCounts] = useState({});
+  const [isLoadingLibraryFilters, setIsLoadingLibraryFilters] = useState(false);
   const [chartsTicker, setChartsTicker] = useState("");
   const [totalCharts, setTotalCharts] = useState(0);
   const [chartCountsByTicker, setChartCountsByTicker] = useState({});
@@ -302,15 +305,25 @@ export default function App() {
     [activeChecklistFilters]
   );
 
+  const selectedLibraryChecklistFilterKeys = useMemo(
+    () => CHECKLIST_FIELDS.filter((field) => libraryChecklistFilters[field.key]).map((field) => field.key),
+    [libraryChecklistFilters]
+  );
+
+  const appliedChecklistFilterKeys = useMemo(
+    () => Array.from(new Set([...selectedChecklistFilterKeys, ...selectedLibraryChecklistFilterKeys])),
+    [selectedChecklistFilterKeys, selectedLibraryChecklistFilterKeys]
+  );
+
   const filteredCharts = useMemo(() => {
-    if (selectedChecklistFilterKeys.length === 0) {
+    if (appliedChecklistFilterKeys.length === 0) {
       return charts;
     }
 
     return charts.filter((chart) =>
-      selectedChecklistFilterKeys.every((key) => chartHasFlag(chart, key))
+      appliedChecklistFilterKeys.every((key) => chartHasFlag(chart, key))
     );
-  }, [charts, selectedChecklistFilterKeys]);
+  }, [appliedChecklistFilterKeys, charts]);
 
   const groupedCharts = useMemo(() => {
     return filteredCharts.reduce((groups, chart) => {
@@ -327,15 +340,23 @@ export default function App() {
   }, [groupedCharts]);
 
   const visibleTickers = useMemo(() => {
+    const tickersMatchingLibraryFilters = selectedLibraryChecklistFilterKeys.length
+      ? tickers.filter((ticker) => Number(libraryFilteredChartCounts[ticker] ?? 0) > 0)
+      : tickers;
+
     const query = tickerSearch.trim().toUpperCase();
     const filtered = query
-      ? tickers.filter((ticker) => ticker.includes(query))
-      : [...tickers];
+      ? tickersMatchingLibraryFilters.filter((ticker) => ticker.includes(query))
+      : [...tickersMatchingLibraryFilters];
 
     return filtered.sort((tickerA, tickerB) => {
       if (tickerSortBy === "charts") {
-        const chartCountA = Number(chartCountsByTicker[tickerA] ?? 0);
-        const chartCountB = Number(chartCountsByTicker[tickerB] ?? 0);
+        const chartCountA = selectedLibraryChecklistFilterKeys.length
+          ? Number(libraryFilteredChartCounts[tickerA] ?? 0)
+          : Number(chartCountsByTicker[tickerA] ?? 0);
+        const chartCountB = selectedLibraryChecklistFilterKeys.length
+          ? Number(libraryFilteredChartCounts[tickerB] ?? 0)
+          : Number(chartCountsByTicker[tickerB] ?? 0);
         if (chartCountA !== chartCountB) {
           return tickerSortDirection === "asc"
             ? chartCountA - chartCountB
@@ -346,12 +367,22 @@ export default function App() {
       const nameComparison = tickerA.localeCompare(tickerB);
       return tickerSortDirection === "asc" ? nameComparison : -nameComparison;
     });
-  }, [chartCountsByTicker, tickerSearch, tickerSortBy, tickerSortDirection, tickers]);
+  }, [
+    chartCountsByTicker,
+    libraryFilteredChartCounts,
+    selectedLibraryChecklistFilterKeys.length,
+    tickerSearch,
+    tickerSortBy,
+    tickerSortDirection,
+    tickers,
+  ]);
 
   const isLoadingCharts = status === "loading";
   const displayedTicker = isLoadingCharts && chartsTicker ? chartsTicker : selectedTicker;
   const displayedTickerChartCount = displayedTicker
-    ? chartCountsByTicker[displayedTicker] ?? charts.length
+    ? selectedLibraryChecklistFilterKeys.length
+      ? Number(libraryFilteredChartCounts[displayedTicker] ?? 0)
+      : chartCountsByTicker[displayedTicker] ?? charts.length
     : charts.length;
   const displayedTickerMatchingChartCount = filteredCharts.length;
   const displayedTickerChartLabel = displayedTickerChartCount === 1 ? "chart" : "charts";
@@ -404,6 +435,67 @@ export default function App() {
       loadCharts(selectedTicker);
     }
   }, [selectedTicker]);
+
+  useEffect(() => {
+    if (selectedLibraryChecklistFilterKeys.length === 0 || tickers.length === 0) {
+      setLibraryFilteredChartCounts({});
+      setIsLoadingLibraryFilters(false);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadLibraryFilteredCounts = async () => {
+      setIsLoadingLibraryFilters(true);
+      try {
+        const chartCollections = await Promise.all(
+          tickers.map(async (ticker) => {
+            const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
+            return [ticker, data.charts || []];
+          })
+        );
+
+        if (isCancelled) {
+          return;
+        }
+
+        const nextCounts = chartCollections.reduce((counts, [ticker, tickerCharts]) => {
+          counts[ticker] = tickerCharts.filter((chart) =>
+            selectedLibraryChecklistFilterKeys.every((key) => chartHasFlag(chart, key))
+          ).length;
+          return counts;
+        }, {});
+
+        setLibraryFilteredChartCounts(nextCounts);
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err.message);
+          setLibraryFilteredChartCounts({});
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingLibraryFilters(false);
+        }
+      }
+    };
+
+    loadLibraryFilteredCounts();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedLibraryChecklistFilterKeys, tickers]);
+
+  useEffect(() => {
+    if (!selectedTicker && visibleTickers.length > 0) {
+      setSelectedTicker(visibleTickers[0]);
+      return;
+    }
+
+    if (selectedTicker && visibleTickers.length > 0 && !visibleTickers.includes(selectedTicker)) {
+      setSelectedTicker(visibleTickers[0]);
+    }
+  }, [selectedTicker, visibleTickers]);
 
   const handleUpload = async (event) => {
     event.preventDefault();
@@ -561,6 +653,29 @@ export default function App() {
             </div>
           </div>
 
+          <fieldset className="library-checklist-filters">
+            <legend>Library checklist filters</legend>
+            {checklistRows.map((row, rowIndex) => (
+              <div key={`library-checklist-row-${rowIndex + 1}`} className="checklist-row">
+                {row.map((field) => (
+                  <label key={field.key} className="checklist-option">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(libraryChecklistFilters[field.key])}
+                      onChange={(event) =>
+                        setLibraryChecklistFilters((prev) => ({
+                          ...prev,
+                          [field.key]: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>{field.label}</span>
+                  </label>
+                ))}
+              </div>
+            ))}
+          </fieldset>
+
           <div className="ticker-table-wrap">
             <table className="ticker-table" aria-label="Stored tickers">
               <thead>
@@ -580,7 +695,9 @@ export default function App() {
                 ) : (
                   visibleTickers.map((ticker) => {
                     const isActive = ticker === selectedTicker;
-                    const tickerChartCount = Number(chartCountsByTicker[ticker] ?? 0);
+                    const tickerChartCount = selectedLibraryChecklistFilterKeys.length
+                      ? Number(libraryFilteredChartCounts[ticker] ?? 0)
+                      : Number(chartCountsByTicker[ticker] ?? 0);
                     return (
                       <tr key={ticker} className={isActive ? "active-row" : ""}>
                         <td>
@@ -610,6 +727,9 @@ export default function App() {
               </tbody>
             </table>
           </div>
+          {isLoadingLibraryFilters ? (
+            <p className="ticker-library-filter-status">Updating ticker matches for checklist filters…</p>
+          ) : null}
         </div>
 
         <form className="upload" onSubmit={handleUpload}>
@@ -737,7 +857,8 @@ export default function App() {
                         <label key={field.key} className="checklist-option">
                           <input
                             type="checkbox"
-                            checked={Boolean(activeChecklistFilters[field.key])}
+                            checked={Boolean(activeChecklistFilters[field.key] || libraryChecklistFilters[field.key])}
+                            disabled={Boolean(libraryChecklistFilters[field.key])}
                             onChange={(event) =>
                               setActiveChecklistFilters((prev) => ({
                                 ...prev,
@@ -755,6 +876,9 @@ export default function App() {
                   <p>
                     Showing {displayedTickerMatchingChartCount} matching {displayedTickerMatchingChartLabel}.
                   </p>
+                ) : null}
+                {selectedLibraryChecklistFilterKeys.length > 0 ? (
+                  <p>Library filters are also applied to this chart grid.</p>
                 ) : null}
               </fieldset>
             ) : null}
