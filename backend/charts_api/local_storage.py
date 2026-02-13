@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 from .checklist import empty_checklist, sanitize_checklist
 
@@ -16,6 +17,43 @@ class LocalStorage:
     @staticmethod
     def checklist_file_path(chart_file: Path) -> Path:
         return chart_file.parent / f"{chart_file.stem}.checklist.json"
+
+    @staticmethod
+    def classification_file_path(chart_file: Path) -> Path:
+        return chart_file.parent / f"{chart_file.stem}.classification.json"
+
+    @staticmethod
+    def sanitize_classification(classification: dict[str, Any] | None) -> dict[str, Any]:
+        payload = classification if isinstance(classification, dict) else {}
+
+        label = payload.get("classification_label")
+        if label is not None:
+            label = str(label).strip() or None
+
+        timestamp = payload.get("classification_timestamp")
+        if timestamp is not None:
+            timestamp = str(timestamp).strip() or None
+
+        config_version = payload.get("classifier_config_version")
+        if config_version is not None:
+            config_version = str(config_version).strip() or None
+
+        def to_int(name: str) -> int | None:
+            raw = payload.get(name)
+            if raw in (None, ""):
+                return None
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                return None
+
+        return {
+            "classification_label": label,
+            "classification_red_pixels": to_int("classification_red_pixels"),
+            "classification_yellow_pixels": to_int("classification_yellow_pixels"),
+            "classifier_config_version": config_version,
+            "classification_timestamp": timestamp,
+        }
 
     def read_checklist(self, chart_file: Path) -> dict[str, bool]:
         metadata_path = self.checklist_file_path(chart_file)
@@ -32,6 +70,22 @@ class LocalStorage:
     def write_checklist(self, chart_file: Path, checklist: dict[str, bool]) -> None:
         metadata_path = self.checklist_file_path(chart_file)
         metadata_path.write_text(json.dumps(sanitize_checklist(checklist)), encoding="utf-8")
+
+    def read_classification(self, chart_file: Path) -> dict[str, Any]:
+        metadata_path = self.classification_file_path(chart_file)
+        if not metadata_path.exists() or not metadata_path.is_file():
+            return self.sanitize_classification({})
+
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except Exception:
+            return self.sanitize_classification({})
+
+        return self.sanitize_classification(payload if isinstance(payload, dict) else {})
+
+    def write_classification(self, chart_file: Path, classification: dict[str, Any] | None) -> None:
+        metadata_path = self.classification_file_path(chart_file)
+        metadata_path.write_text(json.dumps(self.sanitize_classification(classification)), encoding="utf-8")
 
     def list_tickers(self) -> list[str]:
         self.ensure_storage()
@@ -58,12 +112,22 @@ class LocalStorage:
                         "url": f"/api/chart-file/{ticker}/{date_dir.name}/{chart_file.name}",
                         "notes": notes,
                         "checklist": self.read_checklist(chart_file),
+                        **self.read_classification(chart_file),
                     }
                 )
 
         return charts
 
-    def save_chart(self, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool], chart_file) -> None:
+    def save_chart(
+        self,
+        ticker: str,
+        date_label: str,
+        filename: str,
+        notes: str,
+        checklist: dict[str, bool],
+        classification: dict[str, Any] | None,
+        chart_file,
+    ) -> None:
         target_dir = self.storage_dir / ticker / date_label
         target_dir.mkdir(parents=True, exist_ok=True)
         target_path = target_dir / filename
@@ -76,6 +140,7 @@ class LocalStorage:
             notes_path.unlink()
 
         self.write_checklist(target_path, checklist)
+        self.write_classification(target_path, classification)
 
     def delete_chart(self, ticker: str, date_label: str, filename: str) -> bool:
         chart_path = self.storage_dir / ticker / date_label / filename
@@ -90,6 +155,10 @@ class LocalStorage:
         checklist_path = self.checklist_file_path(chart_path)
         if checklist_path.exists() and checklist_path.is_file():
             checklist_path.unlink()
+
+        classification_path = self.classification_file_path(chart_path)
+        if classification_path.exists() and classification_path.is_file():
+            classification_path.unlink()
 
         date_dir = chart_path.parent
         ticker_dir = date_dir.parent
