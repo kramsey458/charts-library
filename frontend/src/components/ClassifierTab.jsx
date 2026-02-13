@@ -8,8 +8,10 @@ import {
   shouldUploadByPolicy,
 } from "../lib/classifierHelpers";
 
+const defaultRoi = { x: 2695, y: 23, width: 177, height: 440 };
+
 const defaultConfig = {
-  roi: { x: 0, y: 0, width: 200, height: 120 },
+  roi: defaultRoi,
   red_range_1: { lower: [0, 80, 80], upper: [10, 255, 255] },
   red_range_2: { lower: [170, 80, 80], upper: [180, 255, 255] },
   yellow_range: { lower: [18, 80, 80], upper: [40, 255, 255] },
@@ -50,7 +52,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     fetchJson("/api/classifier/config")
       .then((payload) => {
         if (payload?.config) {
-          setConfig(payload.config);
+          setConfig({ ...payload.config, roi: defaultRoi });
         }
       })
       .catch((err) => setError(err.message));
