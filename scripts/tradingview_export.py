@@ -142,6 +142,60 @@ def _first_visible(page: Page, selectors: list[str], timeout_ms: int = 500) -> L
     return None
 
 
+def _normalize_symbol_text(value: str) -> str:
+    return re.sub(r"[^A-Z0-9:._-]", "", value.upper())
+
+
+def _read_active_symbol_text(page: Page) -> str | None:
+    symbol_text_selectors = [
+        '[data-name="header-toolbar-symbol-search"]',
+        '[data-name="legend-source-title"]',
+        '[data-name="legend-source-item"] [data-name="symbol-source"]',
+    ]
+
+    for selector in symbol_text_selectors:
+        locator = page.locator(selector).first
+        try:
+            locator.wait_for(state="visible", timeout=250)
+            text = (locator.inner_text(timeout=250) or "").strip()
+            if text:
+                return text
+        except Exception:  # noqa: BLE001
+            continue
+
+    return None
+
+
+def _active_symbol_matches(page: Page, expected_ticker: str) -> bool:
+    active_symbol = _read_active_symbol_text(page)
+    if not active_symbol:
+        return False
+
+    normalized_active = _normalize_symbol_text(active_symbol)
+    normalized_expected = _normalize_symbol_text(expected_ticker)
+
+    return (
+        normalized_active == normalized_expected
+        or normalized_active.endswith(f":{normalized_expected}")
+        or normalized_active.startswith(f"{normalized_expected}:")
+        or f"{normalized_expected}." in normalized_active
+    )
+
+
+def _wait_for_symbol_update(page: Page, expected_ticker: str, timeout_ms: int) -> None:
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        if _active_symbol_matches(page, expected_ticker):
+            return
+        page.wait_for_timeout(120)
+
+    observed = _read_active_symbol_text(page) or "<unavailable>"
+    raise RuntimeError(
+        "Symbol selection did not update to "
+        f"'{expected_ticker}'. Current symbol appears to be '{observed}'."
+    )
+
+
 def _open_symbol_search(page: Page) -> None:
     # Click only symbol-entry points from your layout (top-left symbol region).
     open_symbol_selectors = [
@@ -256,7 +310,7 @@ def select_ticker(page: Page, ticker: str, symbol_wait_ms: int) -> None:
         # Fallback to Enter when rows are not directly clickable in this UI variant.
         page.keyboard.press("Enter")
 
-    page.wait_for_timeout(symbol_wait_ms)
+    _wait_for_symbol_update(page, ticker, max(symbol_wait_ms, 1200))
 
 
 def download_image_for_ticker(page: Page, ticker: str, output_dir: Path) -> Path:
