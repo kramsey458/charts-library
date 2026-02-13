@@ -25,11 +25,15 @@ st.set_page_config(page_title="Candle Classifier", layout="wide")
 st.title("Candle Color Classifier")
 
 mode = st.sidebar.radio("Mode", ["Calibration", "Batch"])
-config_path = Path(st.sidebar.text_input("Config file", str(DEFAULT_CONFIG_PATH))).expanduser()
-config = load_config(config_path)
 
 
-def _pick_path_dialog(select_directory: bool, initial_path: Path, save_default_name: str | None = None) -> str | None:
+def _pick_path_dialog(
+    select_directory: bool,
+    initial_path: Path,
+    save_default_name: str | None = None,
+    pick_mode: str = "save",
+    filetypes: list[tuple[str, str]] | None = None,
+) -> str | None:
     """Open a native file/folder picker (Windows Explorer on Windows) via tkinter."""
     try:
         import tkinter as tk
@@ -45,12 +49,18 @@ def _pick_path_dialog(select_directory: bool, initial_path: Path, save_default_n
 
         if select_directory:
             selected = filedialog.askdirectory(initialdir=str(initial_path))
+        elif pick_mode == "open":
+            selected = filedialog.askopenfilename(
+                initialdir=str(initial_path.parent),
+                initialfile=initial_path.name,
+                filetypes=filetypes or [("All files", "*.*")],
+            )
         else:
             selected = filedialog.asksaveasfilename(
                 initialdir=str(initial_path.parent),
                 initialfile=save_default_name or initial_path.name,
                 defaultextension=".csv",
-                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                filetypes=filetypes or [("CSV files", "*.csv"), ("All files", "*.*")],
             )
         root.destroy()
         return selected or None
@@ -58,6 +68,24 @@ def _pick_path_dialog(select_directory: bool, initial_path: Path, save_default_n
         st.warning(f"Native path picker failed: {exc}")
         return None
 
+
+
+if "config_path" not in st.session_state:
+    st.session_state.config_path = str(DEFAULT_CONFIG_PATH)
+
+st.sidebar.text_input("Config file", key="config_path")
+if st.sidebar.button("Browse config file"):
+    selected_config = _pick_path_dialog(
+        select_directory=False,
+        initial_path=Path(st.session_state.config_path).expanduser(),
+        pick_mode="open",
+        filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+    )
+    if selected_config:
+        st.session_state.config_path = selected_config
+
+config_path = Path(st.session_state.config_path).expanduser()
+config = load_config(config_path)
 
 def _image_with_roi_box(image_bgr: np.ndarray, roi: ROI) -> np.ndarray:
     preview = image_bgr.copy()
@@ -107,14 +135,16 @@ if mode == "Calibration":
         red1 = hsv_range_editor("Red #1", config.red_range_1)
         red2 = hsv_range_editor("Red #2", config.red_range_2)
         yellow = hsv_range_editor("Yellow", config.yellow_range)
-        threshold = st.number_input("Red-vs-yellow label threshold", value=int(config.label_threshold), step=1)
+        min_pixels = st.number_input("Minimum pixels for color decision", value=int(config.min_pixels), step=1, min_value=0)
+        dominance_ratio = st.number_input("Dominance ratio", value=float(config.dominance_ratio), step=0.05, min_value=1.0)
 
         live_config = ClassifierConfig(
             red_range_1=red1,
             red_range_2=red2,
             yellow_range=yellow,
             roi=ROI(roi_x, roi_y, roi_w, roi_h),
-            label_threshold=int(threshold),
+            min_pixels=int(min_pixels),
+            dominance_ratio=float(dominance_ratio),
         )
         result = classify_image(image_bgr, live_config)
         overlay = build_overlay(result["roi_image"], result["red_mask"], result["yellow_mask"])
@@ -173,6 +203,7 @@ if mode == "Batch":
                 select_directory=False,
                 initial_path=Path(st.session_state.batch_output_csv).expanduser(),
                 save_default_name="classification_report.csv",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
             )
             if selected_csv:
                 st.session_state.batch_output_csv = selected_csv

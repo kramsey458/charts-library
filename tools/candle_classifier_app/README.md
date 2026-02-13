@@ -1,6 +1,6 @@
 # Candle Classifier App
 
-Standalone utility for calibrating HSV thresholds/ROI and classifying chart PNG files by red-vs-yellow candle dominance.
+Standalone utility for calibrating HSV thresholds/ROI and classifying chart PNG files by red/yellow/none candle state.
 
 ## Features
 
@@ -18,8 +18,18 @@ Standalone utility for calibrating HSV thresholds/ROI and classifying chart PNG 
 
 ## Requirements
 
+Standalone app dependencies:
+
 ```bash
 pip install streamlit opencv-python numpy requests
+```
+
+> `flask` is **not** required to run the standalone Streamlit app.
+
+If you also want to run the backend API locally, install backend deps separately:
+
+```bash
+pip install -r ../../backend/requirements.txt
 ```
 
 ## Files
@@ -51,7 +61,8 @@ Workflow:
 2. Upload a sample `.png` chart.
 3. Adjust ROI sliders and HSV ranges.
 4. Check mask overlay + `Red pixels` / `Yellow pixels` metrics.
-5. Click **Save classifier_config.json**.
+5. Use **Browse config file** in the sidebar (optional) to load/save a different config path.
+6. Click **Save classifier_config.json**.
 
 Expected output (UI): success message similar to:
 
@@ -83,7 +94,7 @@ Expected output (UI):
 Processed N image(s). CSV saved to /.../classification_report.csv
 ```
 
-> Note: Browse buttons use a native dialog (Windows Explorer on Windows) via `tkinter`.
+> Note: Browse buttons (including **Browse config file**) use a native dialog (Windows Explorer on Windows) via `tkinter`.
 > On headless/Linux environments where GUI dialogs are unavailable, enter paths manually.
 
 ## 3) Batch mode (CLI fallback)
@@ -126,6 +137,6 @@ Generated CSV (`classification_report.csv`):
 
 ```csv
 filename,label,red_pixels,yellow_pixels
-chart_001.png,red_dominant,1243,932
-chart_002.png,yellow_dominant,421,1102
+chart_001.png,red,1243,932
+chart_002.png,yellow,421,1102
 ```

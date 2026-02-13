@@ -31,6 +31,7 @@ class CandleClassifierConfig:
     roi: ROI
     min_pixels: int = 100
     dominance_ratio: float = 1.25
+    legacy_label_threshold: int = 0
 
     @classmethod
     def default(cls) -> "CandleClassifierConfig":
@@ -42,11 +43,17 @@ class CandleClassifierConfig:
             roi=ROI(x=0, y=0, width=1200, height=300),
             min_pixels=100,
             dominance_ratio=1.25,
+            legacy_label_threshold=0,
         )
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "CandleClassifierConfig":
         defaults = cls.default()
+        has_new_thresholds = "min_pixels" in payload or "dominance_ratio" in payload
+        legacy_label_threshold = int(payload.get("label_threshold", 0)) if not has_new_thresholds else 0
+        min_pixels = int(payload.get("min_pixels", defaults.min_pixels if has_new_thresholds else 0))
+        dominance_ratio = float(payload.get("dominance_ratio", defaults.dominance_ratio if has_new_thresholds else 1.0))
+
         return cls(
             red_range_1=HSVRange(
                 tuple(payload.get("red_range_1", {}).get("lower", defaults.red_range_1.lower)),
@@ -61,12 +68,15 @@ class CandleClassifierConfig:
                 tuple(payload.get("yellow_range", {}).get("upper", defaults.yellow_range.upper)),
             ),
             roi=ROI(**payload.get("roi", asdict(defaults.roi))),
-            min_pixels=int(payload.get("min_pixels", defaults.min_pixels)),
-            dominance_ratio=float(payload.get("dominance_ratio", defaults.dominance_ratio)),
+            min_pixels=min_pixels,
+            dominance_ratio=dominance_ratio,
+            legacy_label_threshold=legacy_label_threshold,
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        payload = asdict(self)
+        payload.pop("legacy_label_threshold", None)
+        return payload
 
 
 def load_classifier_config(config_path: str | Path | None = None) -> CandleClassifierConfig:
@@ -126,11 +136,18 @@ def classify_candle(
     red_pixels = int(np.count_nonzero(red_mask))
     yellow_pixels = int(np.count_nonzero(yellow_mask))
 
-    label = "ignore"
-    if red_pixels >= cfg.min_pixels and red_pixels > yellow_pixels * cfg.dominance_ratio:
-        label = "red"
-    elif yellow_pixels >= cfg.min_pixels and yellow_pixels > red_pixels * cfg.dominance_ratio:
-        label = "yellow"
+    label = "none"
+    if cfg.legacy_label_threshold > 0:
+        score = red_pixels - yellow_pixels
+        if score > cfg.legacy_label_threshold:
+            label = "red"
+        elif score < -cfg.legacy_label_threshold:
+            label = "yellow"
+    else:
+        if red_pixels >= cfg.min_pixels and red_pixels > yellow_pixels * cfg.dominance_ratio:
+            label = "red"
+        elif yellow_pixels >= cfg.min_pixels and yellow_pixels > red_pixels * cfg.dominance_ratio:
+            label = "yellow"
 
     return {
         "label": label,
@@ -139,6 +156,7 @@ def classify_candle(
             "yellow_pixels": yellow_pixels,
             "min_pixels": cfg.min_pixels,
             "dominance_ratio": cfg.dominance_ratio,
+            "legacy_label_threshold": cfg.legacy_label_threshold,
             "roi_area": int(roi_image.shape[0] * roi_image.shape[1]),
         },
     }

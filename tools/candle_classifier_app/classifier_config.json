@@ -14,8 +14,9 @@
   "roi": {
     "x": 0,
     "y": 0,
-    "width": 1000,
-    "height": 1000
+    "width": 1200,
+    "height": 300
   },
-  "label_threshold": 0
+  "min_pixels": 100,
+  "dominance_ratio": 1.25
 }
