@@ -1530,8 +1530,7 @@ button:disabled {
 
 .classifier-queue {
   flex: 1;
-  min-height: 460px;
-  max-height: 460px;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 4px;
 }
