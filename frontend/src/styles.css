@@ -588,6 +588,18 @@ button:disabled {
   overflow: hidden;
 }
 
+.chart-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chart-card-header .chart-checklist-preview {
+  flex: 1;
+  min-width: 0;
+}
+
 .chart-preview-trigger img {
   border-radius: 14px;
   aspect-ratio: 4 / 3;
@@ -753,7 +765,23 @@ button:disabled {
 }
 
 .delete-button {
-  background: linear-gradient(120deg, #ff6a88, #ff6c6c);
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1;
+  background: rgba(255, 88, 108, 0.22);
+  border: 1px solid rgba(255, 124, 141, 0.5);
+  box-shadow: none;
+}
+
+.delete-button:hover:not(:disabled) {
+  background: rgba(255, 88, 108, 0.35);
 }
 
 .chart-modal-overlay {
