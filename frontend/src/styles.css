@@ -1513,6 +1513,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  margin-left: auto;
 }
 
 .queue-delete-button {
@@ -1586,11 +1587,6 @@ button:disabled {
   gap: 6px;
 }
 
-.queue-side-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .queue-status-pill {
   font-size: 0.74rem;
