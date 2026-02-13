@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildChecklistFieldsForLabel,
   filterQueueByPolicy,
+  policyToApiPayload,
   shouldUploadByPolicy,
 } from "../src/lib/classifierHelpers.js";
 
@@ -18,19 +19,24 @@ describe("classifier policy helpers", () => {
     const filtered = filterQueueByPolicy(queue, {
       uploadRed: true,
       uploadYellow: false,
-      skipNone: false,
+      uploadNone: true,
     });
 
     expect(filtered.map((item) => item.filename)).toEqual(["a.png", "c.png"]);
   });
 
   it("gates upload behavior for each predicted label", () => {
-    const policy = { uploadRed: false, uploadYellow: true, skipNone: true };
+    const policy = { uploadRed: false, uploadYellow: true, uploadNone: false };
 
     expect(shouldUploadByPolicy("red", policy)).toBe(false);
     expect(shouldUploadByPolicy("yellow", policy)).toBe(true);
     expect(shouldUploadByPolicy("none", policy)).toBe(false);
     expect(shouldUploadByPolicy("unknown", policy)).toBe(false);
+  });
+
+  it("builds API policy payload", () => {
+    const payload = policyToApiPayload({ uploadRed: true, uploadYellow: false, uploadNone: true });
+    expect(payload).toEqual({ policy_red: "upload", policy_yellow: "skip", policy_none: "upload" });
   });
 
   it("maps classifier result to checklist candle fields", () => {

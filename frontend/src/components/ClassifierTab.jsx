@@ -6,6 +6,8 @@ import {
   buildChecklistFieldsForLabel,
   filterQueueByPolicy,
   shouldUploadByPolicy,
+  policyToApiPayload,
+  rowSkipReason,
 } from "../lib/classifierHelpers";
 
 const defaultConfig = {
@@ -44,7 +46,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   const [batchQueue, setBatchQueue] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
-  const [policy, setPolicy] = useState({ uploadRed: false, uploadYellow: true, skipNone: true });
+  const [policy, setPolicy] = useState({ uploadRed: false, uploadYellow: true, uploadNone: false });
 
   useEffect(() => {
     fetchJson("/api/classifier/config")
@@ -117,6 +119,28 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     [batchQueue, policy]
   );
 
+  useEffect(() => {
+    const state = {
+      policy,
+      batchQueue: batchQueue.map(({ file, ...rest }) => rest),
+    };
+    window.localStorage.setItem("classifier_batch_session", JSON.stringify(state));
+  }, [batchQueue, policy]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("classifier_batch_session");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.policy) setPolicy(parsed.policy);
+      if (Array.isArray(parsed?.batchQueue)) {
+        setBatchQueue(parsed.batchQueue.map((item) => ({ ...item, file: null })));
+      }
+    } catch (_err) {
+      // ignore restore issues
+    }
+  }, []);
+
   const updateHsv = (rangeName, bound, index, value) => {
     setConfig((prev) => {
       const nextRange = { ...prev[rangeName], [bound]: [...prev[rangeName][bound]] };
@@ -170,6 +194,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("charts", file));
+      Object.entries(policyToApiPayload(policy)).forEach(([k, v]) => formData.append(k, v));
       formData.append("metadata", JSON.stringify(parsedMetadata));
       const payload = await fetchJson("/api/classifier/batch/plan", {
         method: "POST",
@@ -188,6 +213,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             parseReason: parsed.reason,
             requiresConfirmation: parsed.requiresConfirmation,
             isConfirmed: !parsed.requiresConfirmation,
+            status: item.status || "planned",
           };
         })
       );
@@ -204,8 +230,21 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     planBatch(files);
   };
 
-  const uploadAllowed = async () => {
-    if (!allowedUploads.length) {
+  const buildIdempotencyKey = async (item) => {
+    if (!item.file) {
+      return `${item.filename}:${item.label}:${item.ticker}:${item.date}`;
+    }
+    const data = await item.file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    const hex = Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return `${item.filename}:${item.file.size}:${item.file.lastModified}:${hex}`;
+  };
+
+  const uploadAllowed = async (failedOnly = false) => {
+    const candidates = (failedOnly ? allowedUploads.filter((item) => item.uploadState === "failed") : allowedUploads);
+    if (!candidates.length) {
       return;
     }
 
@@ -214,7 +253,16 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     const nextQueue = [...batchQueue];
     const uploadedTickers = new Set();
 
-    for (const item of allowedUploads) {
+    for (const item of nextQueue) {
+      if (item.error) {
+        item.uploadState = "failed";
+      } else if (!shouldUploadByPolicy(item.label, policy)) {
+        item.uploadState = "skipped_by_policy";
+        item.uploadError = rowSkipReason(item, policy);
+      }
+    }
+
+    for (const item of candidates) {
       try {
         const checklist = buildChecklistFieldsForLabel(item.label);
         const formData = new FormData();
@@ -227,15 +275,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         formData.append("classification_yellow_pixels", String(item.yellow_pixels || 0));
         formData.append("red_candle", checklist.red_candle ? "true" : "false");
         formData.append("yellow_candle", checklist.yellow_candle ? "true" : "false");
-        formData.append(
-          "parsed_metadata",
-          JSON.stringify({
-            filename: item.filename,
-            ticker: item.ticker,
-            date: item.date,
-            parseConfidence: item.parseConfidence,
-          })
-        );
+        formData.append("idempotency_key", await buildIdempotencyKey(item));
 
         await fetchJson("/api/charts", { method: "POST", body: formData });
         uploadedTickers.add(item.ticker.trim().toUpperCase());
@@ -258,6 +298,39 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     if (uploadedTickers.size > 0 && onBatchUploadComplete) {
       await onBatchUploadComplete(Array.from(uploadedTickers));
     }
+  };
+
+  const exportDryRunCsv = () => {
+    const headers = [
+      "filename",
+      "parsed_ticker",
+      "parsed_date",
+      "label",
+      "red_pixels",
+      "yellow_pixels",
+      "will_upload",
+      "reason",
+    ];
+    const rows = batchQueue.map((item) => [
+      item.filename,
+      item.ticker || "",
+      item.date || "",
+      item.label || "",
+      item.red_pixels ?? "",
+      item.yellow_pixels ?? "",
+      shouldUploadByPolicy(item.label, policy) ? "true" : "false",
+      rowSkipReason(item, policy),
+    ]);
+    const csv = [headers, ...rows]
+      .map((line) => line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `batch-dry-run-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -348,7 +421,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         <article className="classifier-card batch-card">
           <div className="batch-header">
             <h2>Batch</h2>
-            <p>Auto-parse metadata, confirm low-confidence matches, then upload.</p>
+            <p>Phase A classifies and builds a review table. Phase B uploads rows matching policy.</p>
           </div>
 
           <label className="batch-file-picker">
@@ -382,18 +455,18 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             <label className="policy-check">
               <input
                 type="checkbox"
-                checked={policy.skipNone}
+                checked={policy.uploadNone}
                 onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, skipNone: event.target.checked }))
+                  setPolicy((prev) => ({ ...prev, uploadNone: event.target.checked }))
                 }
               />
               <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Skip none</span>
+              <span>Upload none</span>
             </label>
           </div>
 
           <p className="batch-summary">
-            {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
+            {batchQueue.length} reviewed • {allowedUploads.length} ready • {batchStatus === "planning" ? "Phase A classifying…" : "Ready"}
           </p>
           <ul className="classifier-queue">
             {batchQueue.map((item) => {
@@ -466,9 +539,10 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                     ) : null}
 
                     {item.uploadState === "failed" ? (
-                      <p className="status-message">Upload failed: {item.uploadError}</p>
+                      <p className="status-message">Status: failed — {item.uploadError}</p>
                     ) : null}
-                    {item.uploadState === "uploaded" ? <p>Uploaded ✅</p> : null}
+                    {item.uploadState === "uploaded" ? <p>Status: uploaded ✅</p> : null}
+                    {item.uploadState === "skipped_by_policy" ? <p>Status: skipped_by_policy</p> : null}
                   </div>
 
                   <div className="queue-side-actions">
@@ -502,7 +576,18 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             onClick={uploadAllowed}
             disabled={batchStatus === "uploading" || allowedUploads.length === 0}
           >
-            {batchStatus === "uploading" ? "Uploading..." : "Upload ready items"}
+            {batchStatus === "uploading" ? "Uploading..." : "Phase B: Upload ready items"}
+          </button>
+          <button
+            type="button"
+            className="classifier-primary-button"
+            onClick={() => uploadAllowed(true)}
+            disabled={batchStatus === "uploading" || !allowedUploads.some((item) => item.uploadState === "failed")}
+          >
+            Retry failed only
+          </button>
+          <button type="button" className="classifier-primary-button" onClick={exportDryRunCsv}>
+            Export dry-run CSV
           </button>
         </article>
       </div>

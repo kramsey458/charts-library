@@ -78,7 +78,8 @@ def test_classifier_batch_plan_and_upload(client):
     assert plan_response.status_code == 200
     plan_results = plan_response.get_json()['results']
     assert len(plan_results) == 2
-    assert {item['decision'] for item in plan_results} == {'accept', 'reject'}
+    assert {item['label'] for item in plan_results} == {'yellow', 'red'}
+    assert all('will_upload' in item for item in plan_results)
     assert all('ticker' in item and 'date' in item for item in plan_results)
 
     upload_response = client.post(
@@ -92,7 +93,7 @@ def test_classifier_batch_plan_and_upload(client):
     )
     assert upload_response.status_code == 200
     upload_result = upload_response.get_json()['results'][0]
-    assert upload_result['decision'] == 'accept'
+    assert upload_result['status'] == 'uploaded'
     assert upload_result['upload_result']['status'] == 201
 
     charts = client.get('/api/charts/MSFT').get_json()['charts']
@@ -115,3 +116,28 @@ def test_classifier_batch_upload_reports_per_file_errors(client):
     results = response.get_json()['results']
     assert results[0]['error'] == 'Malformed PNG image.'
     assert results[1]['error'] == 'Only PNG files are supported.'
+
+
+def test_upload_chart_idempotency_key_replay(client):
+    key = 'same-upload-attempt'
+    payload = {
+        'ticker': 'AAPL',
+        'date': '2026-02-14',
+        'idempotency_key': key,
+        'chart': (io.BytesIO(_png_bytes_with_color((0, 255, 255))), 'aapl_20260214_signal.png'),
+    }
+    first = client.post('/api/charts', data=payload, content_type='multipart/form-data')
+    assert first.status_code == 201
+
+    second = client.post(
+        '/api/charts',
+        data={
+            'ticker': 'AAPL',
+            'date': '2026-02-14',
+            'idempotency_key': key,
+            'chart': (io.BytesIO(_png_bytes_with_color((0, 255, 255))), 'aapl_20260214_signal.png'),
+        },
+        content_type='multipart/form-data',
+    )
+    assert second.status_code == 201
+    assert second.get_json().get('idempotent_replay') is True

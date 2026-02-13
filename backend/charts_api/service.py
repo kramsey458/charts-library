@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import datetime
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -29,6 +30,7 @@ class ChartService:
             api_secret=settings.cloudinary_api_secret,
             folder=settings.cloudinary_folder,
         )
+        self._idempotency_results: dict[str, tuple[dict[str, Any], int]] = {}
 
     @property
     def is_external(self) -> bool:
@@ -156,6 +158,11 @@ class ChartService:
         if not self.allowed_file(chart_file.filename):
             return {"error": "Only PNG files are supported."}, 400
 
+        idempotency_key = self._extract_idempotency_key(form)
+        if idempotency_key and idempotency_key in self._idempotency_results:
+            payload, status = self._idempotency_results[idempotency_key]
+            return {**payload, "idempotent_replay": True}, status
+
         safe_ticker = secure_filename(ticker)
         safe_date = secure_filename(date_label)
         filename = secure_filename(chart_file.filename)
@@ -165,7 +172,7 @@ class ChartService:
         else:
             self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, classification, chart_file)
 
-        return {
+        response_payload = {
             "message": "Chart uploaded.",
             "chart": {
                 "ticker": safe_ticker,
@@ -176,7 +183,10 @@ class ChartService:
                 "checklist": checklist,
                 **classification,
             },
-        }, 201
+        }
+        if idempotency_key:
+            self._idempotency_results[idempotency_key] = (response_payload, 201)
+        return response_payload, 201
 
     def delete_chart(self, ticker: str, date_label: str, filename: str) -> tuple[dict, int]:
         normalized_ticker = ticker.strip().upper()
@@ -376,56 +386,111 @@ class ChartService:
         if not incoming:
             return {"error": "At least one chart image is required."}, 400
 
-        decisions = {"red": "reject", "yellow": "accept", "none": "skip"}
+        policy = {
+            "red": str(form.get("policy_red", "upload")).strip().lower() or "skip",
+            "yellow": str(form.get("policy_yellow", "upload")).strip().lower() or "skip",
+            "none": str(form.get("policy_none", "skip")).strip().lower() or "skip",
+        }
         metadata_default_ticker = form.get("ticker", "").strip().upper()
         metadata_default_date = form.get("date", "").strip() or datetime.date.today().isoformat()
 
-        results: list[dict[str, Any]] = []
+        review_rows: list[dict[str, Any]] = []
         for chart_file in incoming:
             if not chart_file or not chart_file.filename:
-                results.append({"filename": "", "error": "Missing filename."})
+                review_rows.append({"filename": "", "error": "Missing filename."})
                 continue
             if not self.allowed_file(chart_file.filename):
-                results.append({"filename": chart_file.filename, "error": "Only PNG files are supported."})
+                review_rows.append({"filename": chart_file.filename, "error": "Only PNG files are supported."})
                 continue
 
             image_bytes = chart_file.read()
             if self._decode_png_bytes(image_bytes) is None:
-                results.append({"filename": chart_file.filename, "error": "Malformed PNG image."})
+                review_rows.append({"filename": chart_file.filename, "error": "Malformed PNG image."})
                 continue
 
             classify_result = classify_candle(image_bytes, config_path=self.classifier_config_path)
             label = classify_result["label"]
-            decision = decisions[label]
+            action = policy.get(label, "skip")
+            will_upload = action == "upload"
             meta = self._parse_metadata(chart_file.filename, metadata_default_ticker, metadata_default_date)
-            per_file: dict[str, Any] = {
-                "filename": secure_filename(chart_file.filename),
-                "label": label,
-                "red_pixels": classify_result["scores"]["red_pixels"],
-                "yellow_pixels": classify_result["scores"]["yellow_pixels"],
-                "decision_reason": self._decision_reason(classify_result),
-                "decision": decision,
-                "ticker": meta["ticker"],
-                "date": meta["date"],
-            }
-
-            if do_upload and decision == "accept":
-                upload_form = {
+            idempotency_key = self._build_batch_idempotency_key(chart_file.filename, image_bytes)
+            review_rows.append(
+                {
+                    "filename": secure_filename(chart_file.filename),
+                    "parsed_ticker": meta["ticker"],
+                    "parsed_date": meta["date"],
                     "ticker": meta["ticker"],
                     "date": meta["date"],
-                    "notes": "Auto-uploaded by classifier",
-                    "classification_label": label,
-                    "classification_red_pixels": classify_result["scores"]["red_pixels"],
-                    "classification_yellow_pixels": classify_result["scores"]["yellow_pixels"],
-                    "classifier_config_version": "batch-default",
-                    "classification_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "label": label,
+                    "red_pixels": classify_result["scores"]["red_pixels"],
+                    "yellow_pixels": classify_result["scores"]["yellow_pixels"],
+                    "decision_reason": self._decision_reason(classify_result),
+                    "policy_action": action,
+                    "will_upload": will_upload,
+                    "status": "pending_upload" if will_upload and do_upload else "skipped_by_policy",
+                    "idempotency_key": idempotency_key,
                 }
-                chart_file.stream.seek(0)
-                payload, status = self.upload_chart(upload_form, {"chart": chart_file})
-                per_file["upload_result"] = {"status": status, "payload": payload}
-            elif do_upload:
-                per_file["upload_result"] = {"status": 200, "payload": {"message": "Skipped upload by decision."}}
+            )
 
-            results.append(per_file)
+        if not do_upload:
+            return {"results": review_rows}, 200
 
-        return {"results": results}, 200
+        only_failed = str(form.get("retry_failed_only", "")).strip().lower() in {"1", "true", "yes"}
+        failed_keys = {
+            key.strip()
+            for key in str(form.get("failed_keys", "")).split(",")
+            if key.strip()
+        }
+
+        for row in review_rows:
+            if row.get("error"):
+                row["status"] = "failed"
+                continue
+            if not row.get("will_upload"):
+                row["status"] = "skipped_by_policy"
+                continue
+            if only_failed and row.get("idempotency_key") not in failed_keys:
+                row["status"] = "skipped_by_policy"
+                row["reason"] = "Skipped because retry_failed_only is enabled."
+                continue
+
+            chart_file = next((f for f in incoming if secure_filename(f.filename) == row["filename"]), None)
+            if chart_file is None:
+                row["status"] = "failed"
+                row["reason"] = "File missing from upload batch."
+                continue
+
+            upload_form = {
+                "ticker": row["ticker"],
+                "date": row["date"],
+                "notes": "Auto-uploaded by classifier",
+                "classification_label": row["label"],
+                "classification_red_pixels": row["red_pixels"],
+                "classification_yellow_pixels": row["yellow_pixels"],
+                "classifier_config_version": "batch-default",
+                "classification_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "idempotency_key": row["idempotency_key"],
+            }
+            chart_file.stream.seek(0)
+            payload, status = self.upload_chart(upload_form, {"chart": chart_file})
+            row["upload_result"] = {"status": status, "payload": payload}
+            row["status"] = "uploaded" if status < 400 else "failed"
+            if status >= 400:
+                row["reason"] = payload.get("error", "Upload failed.")
+
+        return {"results": review_rows}, 200
+
+    def _build_batch_idempotency_key(self, filename: str, image_bytes: bytes) -> str:
+        digest = hashlib.sha256()
+        digest.update(filename.encode("utf-8"))
+        digest.update(str(len(image_bytes)).encode("utf-8"))
+        digest.update(image_bytes)
+        return digest.hexdigest()
+
+    def _extract_idempotency_key(self, form) -> str:
+        raw_key = str(form.get("idempotency_key", "")).strip()
+        if not raw_key:
+            return ""
+        if len(raw_key) > 512:
+            raw_key = raw_key[:512]
+        return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
