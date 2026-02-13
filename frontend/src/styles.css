@@ -1371,6 +1371,27 @@ button:disabled {
   gap: 12px;
 }
 
+
+.calibration-file-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.calibration-file-row input[type="file"] {
+  flex: 1 1 auto;
+}
+
+.calibration-clear-button {
+  margin-top: 0;
+  flex: 0 0 auto;
+}
+
+.calibration-clear-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .classifier-roi-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
