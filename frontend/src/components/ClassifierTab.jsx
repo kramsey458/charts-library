@@ -462,7 +462,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                 }
               />
               <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Upload red only</span>
+              <span>Upload red</span>
             </label>
             <label className="policy-check">
               <input
@@ -473,7 +473,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                 }
               />
               <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Upload yellow only</span>
+              <span>Upload yellow</span>
             </label>
             <label className="policy-check">
               <input
