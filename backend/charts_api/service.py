@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import base64
 import datetime
+import json
+import re
 from pathlib import Path
+from typing import Any
 
+import cv2
+import numpy as np
 from werkzeug.utils import secure_filename
 
+from .candle_classifier import CandleClassifierConfig, classify_candle, load_classifier_config
 from .checklist import CHECKLIST_KEYS, sanitize_checklist
 from .cloudinary_storage import CloudinaryStorage
 from .config import Settings
@@ -15,6 +22,7 @@ class ChartService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
         self.local = LocalStorage(settings.storage_dir)
+        self.classifier_config_path = Path(__file__).with_name("classifier_config.json")
         self.external = CloudinaryStorage(
             cloud_name=settings.cloudinary_cloud_name,
             api_key=settings.cloudinary_api_key,
@@ -43,6 +51,62 @@ class ChartService:
 
     def allowed_file(self, filename: str) -> bool:
         return "." in filename and filename.rsplit(".", 1)[1].lower() in self.settings.allowed_extensions
+
+    def get_classifier_config(self) -> dict[str, Any]:
+        return load_classifier_config(self.classifier_config_path).to_dict()
+
+    def update_classifier_config(self, payload: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        if not isinstance(payload, dict):
+            return {"error": "Config payload must be a JSON object."}, 400
+
+        try:
+            config = CandleClassifierConfig.from_dict(payload)
+            self._validate_classifier_config(config)
+        except ValueError as exc:
+            return {"error": str(exc)}, 400
+
+        self.classifier_config_path.write_text(json.dumps(config.to_dict(), indent=2) + "\n")
+        return {"message": "Classifier config updated.", "config": config.to_dict()}, 200
+
+    def classifier_preview(self, form, files) -> tuple[dict[str, Any], int]:
+        chart_file = files.get("image") or files.get("chart")
+        if not chart_file or chart_file.filename == "":
+            return {"error": "Chart image is required."}, 400
+        if not self.allowed_file(chart_file.filename):
+            return {"error": "Only PNG files are supported."}, 400
+
+        image_bytes = chart_file.read()
+        if self._decode_png_bytes(image_bytes) is None:
+            return {"error": "Malformed PNG image."}, 400
+
+        try:
+            cfg_payload = self._extract_override_payload(form)
+            config = CandleClassifierConfig.from_dict(cfg_payload) if cfg_payload else load_classifier_config(self.classifier_config_path)
+            self._validate_classifier_config(config)
+        except ValueError as exc:
+            return {"error": str(exc)}, 400
+
+        result = classify_candle(image_bytes, config=config)
+        decision_reason = self._decision_reason(result)
+
+        response: dict[str, Any] = {
+            "label": result["label"],
+            "red_pixels": result["scores"]["red_pixels"],
+            "yellow_pixels": result["scores"]["yellow_pixels"],
+            "decision_reason": decision_reason,
+        }
+
+        include_overlay = str(form.get("include_overlay", "")).strip().lower() in {"1", "true", "yes"}
+        if include_overlay:
+            response["overlay_image_base64"] = self._render_overlay_base64(image_bytes, config)
+
+        return response, 200
+
+    def classifier_batch_plan(self, form, files) -> tuple[dict[str, Any], int]:
+        return self._classifier_batch_process(form, files, do_upload=False)
+
+    def classifier_batch_upload(self, form, files) -> tuple[dict[str, Any], int]:
+        return self._classifier_batch_process(form, files, do_upload=True)
 
     def build_ticker_stats(self) -> tuple[list[str], dict[str, int], int]:
         if self.is_external:
@@ -186,3 +250,132 @@ class ChartService:
             ),
             None,
         )
+
+    def _extract_override_payload(self, form) -> dict[str, Any]:
+        config_field = form.get("config")
+        if not config_field:
+            return {}
+        try:
+            parsed = json.loads(config_field)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid config JSON: {exc.msg}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("Config override must be a JSON object.")
+        return parsed
+
+    def _validate_classifier_config(self, cfg: CandleClassifierConfig) -> None:
+        if cfg.roi.x < 0 or cfg.roi.y < 0 or cfg.roi.width <= 0 or cfg.roi.height <= 0:
+            raise ValueError("ROI bounds must have x/y >= 0 and width/height > 0.")
+        if cfg.min_pixels < 0:
+            raise ValueError("min_pixels must be >= 0.")
+        if cfg.dominance_ratio <= 0:
+            raise ValueError("dominance_ratio must be > 0.")
+
+        for name, hsv_range in {
+            "red_range_1": cfg.red_range_1,
+            "red_range_2": cfg.red_range_2,
+            "yellow_range": cfg.yellow_range,
+        }.items():
+            self._validate_hsv_triplet(f"{name}.lower", hsv_range.lower)
+            self._validate_hsv_triplet(f"{name}.upper", hsv_range.upper)
+            if any(lower > upper for lower, upper in zip(hsv_range.lower, hsv_range.upper, strict=True)):
+                raise ValueError(f"{name} lower bounds must be <= upper bounds.")
+
+    def _validate_hsv_triplet(self, field_name: str, values: tuple[int, int, int]) -> None:
+        if len(values) != 3:
+            raise ValueError(f"{field_name} must contain exactly 3 integers.")
+        h, s, v = values
+        if not (0 <= int(h) <= 180 and 0 <= int(s) <= 255 and 0 <= int(v) <= 255):
+            raise ValueError(f"{field_name} values must be within HSV ranges: H 0-180, S/V 0-255.")
+
+    def _decode_png_bytes(self, image_bytes: bytes) -> np.ndarray | None:
+        arr = np.frombuffer(image_bytes, dtype=np.uint8)
+        if arr.size == 0:
+            return None
+        return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+    def _render_overlay_base64(self, image_bytes: bytes, config: CandleClassifierConfig) -> str:
+        image = self._decode_png_bytes(image_bytes)
+        if image is None:
+            return ""
+        x, y, width, height = config.roi.x, config.roi.y, config.roi.width, config.roi.height
+        end_x = min(image.shape[1], x + width)
+        end_y = min(image.shape[0], y + height)
+        cv2.rectangle(image, (x, y), (end_x, end_y), (255, 0, 255), 2)
+        ok, encoded = cv2.imencode(".png", image)
+        if not ok:
+            return ""
+        return base64.b64encode(encoded.tobytes()).decode("ascii")
+
+    def _decision_reason(self, classify_result: dict[str, Any]) -> str:
+        label = classify_result["label"]
+        red = classify_result["scores"]["red_pixels"]
+        yellow = classify_result["scores"]["yellow_pixels"]
+        if label == "red":
+            return f"Red dominant ({red} vs {yellow})."
+        if label == "yellow":
+            return f"Yellow dominant ({yellow} vs {red})."
+        return f"No dominant color ({red} red, {yellow} yellow)."
+
+    def _parse_metadata(self, filename: str, fallback_ticker: str, fallback_date: str) -> dict[str, str]:
+        stem = Path(filename).stem
+        match = re.search(r"(?P<ticker>[A-Za-z]{1,10})[_-](?P<date>\d{4}-\d{2}-\d{2}|\d{8})", stem)
+        if not match:
+            return {"ticker": fallback_ticker, "date": fallback_date}
+
+        ticker = match.group("ticker").upper()
+        date_raw = match.group("date")
+        parsed_date = date_raw
+        if len(date_raw) == 8 and "-" not in date_raw:
+            parsed_date = f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:8]}"
+        return {"ticker": ticker, "date": parsed_date}
+
+    def _classifier_batch_process(self, form, files, *, do_upload: bool) -> tuple[dict[str, Any], int]:
+        incoming = files.getlist("charts") or files.getlist("files")
+        if not incoming:
+            return {"error": "At least one chart image is required."}, 400
+
+        decisions = {"red": "reject", "yellow": "accept", "none": "skip"}
+        metadata_default_ticker = form.get("ticker", "").strip().upper()
+        metadata_default_date = form.get("date", "").strip() or datetime.date.today().isoformat()
+
+        results: list[dict[str, Any]] = []
+        for chart_file in incoming:
+            if not chart_file or not chart_file.filename:
+                results.append({"filename": "", "error": "Missing filename."})
+                continue
+            if not self.allowed_file(chart_file.filename):
+                results.append({"filename": chart_file.filename, "error": "Only PNG files are supported."})
+                continue
+
+            image_bytes = chart_file.read()
+            if self._decode_png_bytes(image_bytes) is None:
+                results.append({"filename": chart_file.filename, "error": "Malformed PNG image."})
+                continue
+
+            classify_result = classify_candle(image_bytes, config_path=self.classifier_config_path)
+            label = classify_result["label"]
+            decision = decisions[label]
+            meta = self._parse_metadata(chart_file.filename, metadata_default_ticker, metadata_default_date)
+            per_file: dict[str, Any] = {
+                "filename": secure_filename(chart_file.filename),
+                "label": label,
+                "red_pixels": classify_result["scores"]["red_pixels"],
+                "yellow_pixels": classify_result["scores"]["yellow_pixels"],
+                "decision_reason": self._decision_reason(classify_result),
+                "decision": decision,
+                "ticker": meta["ticker"],
+                "date": meta["date"],
+            }
+
+            if do_upload and decision == "accept":
+                upload_form = {"ticker": meta["ticker"], "date": meta["date"], "notes": "Auto-uploaded by classifier"}
+                chart_file.stream.seek(0)
+                payload, status = self.upload_chart(upload_form, {"chart": chart_file})
+                per_file["upload_result"] = {"status": status, "payload": payload}
+            elif do_upload:
+                per_file["upload_result"] = {"status": 200, "payload": {"message": "Skipped upload by decision."}}
+
+            results.append(per_file)
+
+        return {"results": results}, 200
