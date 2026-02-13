@@ -18,8 +18,18 @@ Standalone utility for calibrating HSV thresholds/ROI and classifying chart PNG 
 
 ## Requirements
 
+Standalone app dependencies:
+
 ```bash
 pip install streamlit opencv-python numpy requests
+```
+
+> `flask` is **not** required to run the standalone Streamlit app.
+
+If you also want to run the backend API locally, install backend deps separately:
+
+```bash
+pip install -r ../../backend/requirements.txt
 ```
 
 ## Files
