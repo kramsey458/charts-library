@@ -861,6 +861,12 @@ export default function App() {
         return;
       }
 
+      if (event.key === "f" || event.key === "F") {
+        event.preventDefault();
+        closeSlideshow();
+        return;
+      }
+
       if (event.key === "ArrowRight") {
         event.preventDefault();
         goToNextSlideshowChart();
