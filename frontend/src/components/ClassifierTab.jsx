@@ -365,7 +365,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         <article className="classifier-card batch-card">
           <div className="batch-header">
             <h2>Batch</h2>
-            <p>Auto-parse metadata, confirm low-confidence matches, then upload.</p>
+            <p>Auto-parse chart candles, confirm low-confidence matches, then upload.</p>
           </div>
 
           <label className="batch-file-picker">
