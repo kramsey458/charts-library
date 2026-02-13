@@ -44,6 +44,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
   const [calibrationPreviewUrl, setCalibrationPreviewUrl] = useState("");
+  const [roiPreviewUrl, setRoiPreviewUrl] = useState("");
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   const [metrics, setMetrics] = useState({ red_pixels: 0, yellow_pixels: 0, label: "none" });
   const [calibrationStatus, setCalibrationStatus] = useState("idle");
@@ -67,12 +68,49 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   useEffect(() => {
     if (!calibrationFile) {
       setCalibrationPreviewUrl("");
+      setRoiPreviewUrl("");
       return;
     }
     const url = URL.createObjectURL(calibrationFile);
     setCalibrationPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [calibrationFile]);
+
+  useEffect(() => {
+    if (!calibrationPreviewUrl) {
+      setRoiPreviewUrl("");
+      return;
+    }
+
+    const source = new Image();
+    source.onload = () => {
+      const w = source.naturalWidth;
+      const h = source.naturalHeight;
+      if (!w || !h) {
+        setRoiPreviewUrl("");
+        return;
+      }
+
+      const x = Math.min(Math.max(0, config.roi.x), Math.max(0, w - 1));
+      const y = Math.min(Math.max(0, config.roi.y), Math.max(0, h - 1));
+      const width = Math.max(1, Math.min(config.roi.width, w - x));
+      const height = Math.max(1, Math.min(config.roi.height, h - y));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        setRoiPreviewUrl("");
+        return;
+      }
+
+      ctx.drawImage(source, x, y, width, height, 0, 0, width, height);
+      setRoiPreviewUrl(canvas.toDataURL("image/png"));
+    };
+    source.onerror = () => setRoiPreviewUrl("");
+    source.src = calibrationPreviewUrl;
+  }, [calibrationPreviewUrl, config.roi]);
 
   useEffect(() => {
     if (!calibrationFile) {
@@ -545,18 +583,25 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
       <div className="classifier-preview-panel">
         {calibrationPreviewUrl ? (
-          <div className="classifier-image-wrap">
-            <img
-              src={calibrationPreviewUrl}
-              alt="Calibration preview"
-              onLoad={(event) =>
-                setImageSize({
-                  width: event.currentTarget.naturalWidth,
-                  height: event.currentTarget.naturalHeight,
-                })
-              }
-            />
-            {roiStyle ? <div className="classifier-roi-rect" style={roiStyle} /> : null}
+          <div className="classifier-preview-content">
+            <div className="classifier-image-wrap">
+              <img
+                src={calibrationPreviewUrl}
+                alt="Calibration preview"
+                onLoad={(event) =>
+                  setImageSize({
+                    width: event.currentTarget.naturalWidth,
+                    height: event.currentTarget.naturalHeight,
+                  })
+                }
+              />
+              {roiStyle ? <div className="classifier-roi-rect" style={roiStyle} /> : null}
+            </div>
+
+            <div className="classifier-roi-preview-card">
+              <h3>ROI preview</h3>
+              {roiPreviewUrl ? <img src={roiPreviewUrl} alt="Zoomed ROI preview" /> : <p>ROI preview unavailable.</p>}
+            </div>
           </div>
         ) : (
           <p>Select a calibration image to preview ROI.</p>
