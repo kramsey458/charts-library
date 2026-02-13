@@ -1579,21 +1579,9 @@ button:disabled {
 }
 
 .confirm-parse-checkbox {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 6px;
-  color: #d9e1ff;
-  font-size: 0.85rem;
+  justify-self: start;
   width: fit-content;
-}
-
-.confirm-parse-checkbox span {
-  text-align: left;
-}
-
-.confirm-parse-checkbox input {
-  margin: 0;
+  margin-top: 2px;
 }
 
 .queue-status-pill {
