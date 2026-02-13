@@ -42,7 +42,7 @@ export const parseBatchFilename = (filename, options = {}) => {
     return { ticker: "", date: "", confidence: "none", requiresConfirmation: true, reason: "Filename is empty." };
   }
 
-  const directTickerDate = stem.match(/^([A-Za-z]{1,10})[_\- ]+(\d{4}-\d{2}-\d{2}|\d{8})(?:[_\- ].*)?$/);
+  const directTickerDate = stem.match(/^([A-Za-z]{1,10})[_\- ]+(\d{4}-\d{2}-\d{2}|\d{8})(?:[T_\- ].*)?$/);
   if (directTickerDate) {
     return {
       ticker: directTickerDate[1].toUpperCase(),

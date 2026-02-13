@@ -85,7 +85,7 @@ def test_classifier_batch_plan_and_upload(client):
         '/api/classifier/batch/upload',
         data={
             'charts': [
-                (io.BytesIO(_png_bytes_with_color((0, 255, 255))), 'msft_20260213_signal.png'),
+                (io.BytesIO(_png_bytes_with_color((0, 255, 255))), 'MSFT_2026-02-13T08-17-38-149473+00-00.png'),
             ]
         },
         content_type='multipart/form-data',

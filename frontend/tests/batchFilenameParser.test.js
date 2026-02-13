@@ -11,6 +11,16 @@ describe("batch filename parser", () => {
     expect(parsed.requiresConfirmation).toBe(false);
   });
 
+
+
+  it("parses TICKER_YYYY-MM-DDThh-mm-ss format", () => {
+    const parsed = parseBatchFilename("VG_2026-02-13T08-17-38-149473+00-00.png");
+    expect(parsed.ticker).toBe("VG");
+    expect(parsed.date).toBe("2026-02-13");
+    expect(parsed.confidence).toBe("high");
+    expect(parsed.requiresConfirmation).toBe(false);
+  });
+
   it("parses YYYY-MM-DD_TICKER format", () => {
     const parsed = parseBatchFilename("2026-02-12_AAPL_signal.png");
     expect(parsed.ticker).toBe("AAPL");
