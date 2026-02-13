@@ -1,12 +1,12 @@
 export const CHECKLIST_FIELDS = [
   { key: "red_candle", label: "Red Candle", row: 1 },
   { key: "trend_bullish", label: "Trend Bullish", row: 1 },
-  { key: "whale_accumulation_plus", label: "+ Whale", row: 1 },
+  { key: "whale_accumulation_plus", label: "Whale +", row: 1 },
   { key: "macd_positive", label: "MACD +", row: 1 },
   { key: "macd_plus_cross", label: "MACD + Cross", row: 1 },
   { key: "yellow_candle", label: "Yellow Candle", row: 2 },
   { key: "trend_bearish", label: "Trend Bearish", row: 2 },
-  { key: "whale_accumulation_minus", label: "- Whale", row: 2 },
+  { key: "whale_accumulation_minus", label: "Whale -", row: 2 },
   { key: "macd_negative", label: "MACD -", row: 2 },
   { key: "macd_minus_cross", label: "MACD - Cross", row: 2 },
 ];
