@@ -46,6 +46,7 @@ export default function App() {
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [hoveredChart, setHoveredChart] = useState(null);
   const [batchFiles, setBatchFiles] = useState([]);
   const [batchIndex, setBatchIndex] = useState(0);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -425,7 +426,7 @@ export default function App() {
         chart.filename === targetChart.filename
     );
 
-  const openSlideshowFromPreview = (chart) => {
+  const openSlideshowFromChart = (chart) => {
     if (!chart) {
       return;
     }
@@ -813,6 +814,32 @@ export default function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isSlideshowOpen, previewChart]);
+
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const isPresentationShortcut = event.key === "f" || event.key === "F";
+      if (!isPresentationShortcut || !hoveredChart || isSlideshowOpen) {
+        return;
+      }
+
+      const targetTagName = event.target?.tagName;
+      const isTypingTarget =
+        event.target?.isContentEditable ||
+        targetTagName === "INPUT" ||
+        targetTagName === "TEXTAREA" ||
+        targetTagName === "SELECT";
+
+      if (isTypingTarget) {
+        return;
+      }
+
+      event.preventDefault();
+      openSlideshowFromChart(hoveredChart);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [hoveredChart, isSlideshowOpen, filteredCharts]);
 
   useEffect(() => {
     if (!isSlideshowOpen || !slideshowRef.current) {
@@ -1374,6 +1401,18 @@ export default function App() {
                         type="button"
                         className="chart-preview-trigger"
                         onClick={() => openChartPreview(chart)}
+                        onMouseEnter={() => setHoveredChart(chart)}
+                        onMouseLeave={() =>
+                          setHoveredChart((prev) =>
+                            prev && getChartKey(prev) === getChartKey(chart) ? null : prev
+                          )
+                        }
+                        onFocus={() => setHoveredChart(chart)}
+                        onBlur={() =>
+                          setHoveredChart((prev) =>
+                            prev && getChartKey(prev) === getChartKey(chart) ? null : prev
+                          )
+                        }
                         aria-label={`Open full image for ${chart.filename}`}
                       >
                         <img src={buildChartPath(chart)} alt={`${chart.ticker} chart`} />
@@ -1451,7 +1490,7 @@ export default function App() {
                 <button
                   type="button"
                   className="fullscreen-toggle"
-                  onClick={() => openSlideshowFromPreview(previewChart)}
+                  onClick={() => openSlideshowFromChart(previewChart)}
                   aria-label="Open fullscreen slideshow"
                 >
                   Full Screen
