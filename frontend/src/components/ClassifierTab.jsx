@@ -9,7 +9,7 @@ import {
 } from "../lib/classifierHelpers";
 
 const defaultConfig = {
-  roi: { x: 0, y: 0, width: 200, height: 120 },
+  roi: { x: 0, y: 0, width: 1200, height: 300 },
   red_range_1: { lower: [0, 80, 80], upper: [10, 255, 255] },
   red_range_2: { lower: [170, 80, 80], upper: [180, 255, 255] },
   yellow_range: { lower: [18, 80, 80], upper: [40, 255, 255] },
