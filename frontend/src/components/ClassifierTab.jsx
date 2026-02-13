@@ -32,6 +32,12 @@ const classificationStatusLabel = {
   none: "None",
 };
 
+const getCurrentDateValue = () => {
+  const today = new Date();
+  const local = new Date(today.getTime() - today.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
 export default function ClassifierTab({ onBatchUploadComplete }) {
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
@@ -133,6 +139,17 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   const removeQueueItem = (filename) => {
     setBatchQueue((prev) => prev.filter((item) => item.filename !== filename));
+  };
+
+  const openQueueDatePicker = (inputId) => {
+    const dateInput = document.getElementById(inputId);
+    if (!dateInput) {
+      return;
+    }
+    dateInput.focus();
+    if (typeof dateInput.showPicker === "function") {
+      dateInput.showPicker();
+    }
   };
 
 
@@ -396,10 +413,11 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
           </p>
           <ul className="classifier-queue">
-            {batchQueue.map((item) => {
+            {batchQueue.map((item, index) => {
               const canUploadByLabel = shouldUploadByPolicy(item.label, policy);
               const hasMetadata = Boolean(item.ticker && item.date);
               const needsConfirm = item.requiresConfirmation && !item.isConfirmed;
+              const dateInputId = `queue-date-${index}`;
 
               return (
                 <li key={item.filename}>
@@ -439,21 +457,38 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                       </label>
                       <label>
                         Date
-                        <input
-                          type="date"
-                          value={item.date || ""}
-                          onChange={(event) =>
-                            updateQueueItem(item.filename, {
-                              date: event.target.value,
-                              isConfirmed: false,
-                            })
-                          }
-                        />
+                        <div className="date-input-wrap">
+                          <input
+                            id={dateInputId}
+                            type="date"
+                            value={item.date || ""}
+                            onChange={(event) =>
+                              updateQueueItem(item.filename, {
+                                date: event.target.value,
+                                isConfirmed: false,
+                              })
+                            }
+                            onDoubleClick={() =>
+                              updateQueueItem(item.filename, {
+                                date: getCurrentDateValue(),
+                                isConfirmed: false,
+                              })
+                            }
+                          />
+                          <button
+                            type="button"
+                            className="date-picker-trigger"
+                            aria-label="Open date picker"
+                            onClick={() => openQueueDatePicker(dateInputId)}
+                          >
+                            📅
+                          </button>
+                        </div>
                       </label>
                     </div>
 
                     {item.requiresConfirmation ? (
-                      <label className="confirm-parse-checkbox">
+                      <label className="policy-check confirm-parse-checkbox">
                         <input
                           type="checkbox"
                           checked={Boolean(item.isConfirmed)}
@@ -461,7 +496,8 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                             updateQueueItem(item.filename, { isConfirmed: event.target.checked })
                           }
                         />
-                        Confirm parsed/edited metadata
+                        <span className="policy-check-indicator" aria-hidden="true" />
+                        <span>Confirm parsed/edited metadata</span>
                       </label>
                     ) : null}
 

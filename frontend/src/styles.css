@@ -1564,16 +1564,26 @@ button:disabled {
 
 .queue-meta-fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, min(260px, 100%)));
+  justify-content: start;
+  gap: 10px;
+}
+
+.queue-meta-fields label {
+  display: grid;
+  gap: 6px;
+}
+
+.queue-meta-fields input {
+  width: 100%;
 }
 
 .confirm-parse-checkbox {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  color: #d9e1ff;
-  font-size: 0.85rem;
+  justify-self: start;
+  width: fit-content;
+  margin-top: 2px;
+  white-space: nowrap;
+  gap: 6px;
 }
 
 .queue-side-actions {
@@ -1595,4 +1605,5 @@ button:disabled {
   .batch-policy-controls {
     grid-template-columns: 1fr;
   }
+
 }
