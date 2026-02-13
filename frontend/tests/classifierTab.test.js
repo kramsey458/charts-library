@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { filterQueueByPolicy, shouldUploadByPolicy } from "../src/lib/classifierHelpers.js";
+import {
+  buildChecklistFieldsForLabel,
+  filterQueueByPolicy,
+  shouldUploadByPolicy,
+} from "../src/lib/classifierHelpers.js";
 
 describe("classifier policy helpers", () => {
   it("filters queue items by label policy", () => {
@@ -27,5 +31,11 @@ describe("classifier policy helpers", () => {
     expect(shouldUploadByPolicy("yellow", policy)).toBe(true);
     expect(shouldUploadByPolicy("none", policy)).toBe(false);
     expect(shouldUploadByPolicy("unknown", policy)).toBe(false);
+  });
+
+  it("maps classifier result to checklist candle fields", () => {
+    expect(buildChecklistFieldsForLabel("red")).toEqual({ red_candle: true, yellow_candle: false });
+    expect(buildChecklistFieldsForLabel("yellow")).toEqual({ red_candle: false, yellow_candle: true });
+    expect(buildChecklistFieldsForLabel("none")).toEqual({ red_candle: false, yellow_candle: false });
   });
 });

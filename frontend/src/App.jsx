@@ -565,6 +565,16 @@ export default function App() {
     }
   }, [selectedTicker]);
 
+  const handleClassifierBatchUploadComplete = async (uploadedTickers = []) => {
+    await loadTickers();
+    const preferredTicker = uploadedTickers.find((ticker) => ticker)?.trim().toUpperCase();
+    const targetTicker = preferredTicker || selectedTicker;
+    if (targetTicker) {
+      setSelectedTicker(targetTicker);
+      await loadCharts(targetTicker);
+    }
+  };
+
   useEffect(() => {
     if (selectedLibraryChecklistFilterKeys.length === 0 || tickers.length === 0) {
       setLibraryFilteredChartCounts({});
@@ -1733,7 +1743,7 @@ export default function App() {
       ) : null}
         </>
       ) : (
-        <ClassifierTab />
+        <ClassifierTab onBatchUploadComplete={handleClassifierBatchUploadComplete} />
       )}
     </div>
   );

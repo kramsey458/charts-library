@@ -13,3 +13,8 @@ export const shouldUploadByPolicy = (label, policy) => {
 
 export const filterQueueByPolicy = (queue, policy) =>
   queue.filter((item) => !item.error && shouldUploadByPolicy(item.label, policy));
+
+export const buildChecklistFieldsForLabel = (label) => ({
+  red_candle: label === "red",
+  yellow_candle: label === "yellow",
+});
