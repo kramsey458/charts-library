@@ -47,10 +47,21 @@ class LocalStorage:
             except (TypeError, ValueError):
                 return None
 
+        marked_misclassified_raw = payload.get("classification_marked_misclassified")
+        if isinstance(marked_misclassified_raw, str):
+            marked_misclassified = marked_misclassified_raw.strip().lower() in {"1", "true", "yes", "on"}
+        else:
+            marked_misclassified = bool(marked_misclassified_raw) if marked_misclassified_raw is not None else False
+
+        feedback_note = str(payload.get("classification_feedback_note", "")).strip() or None
+
         return {
             "classification_label": label,
             "classification_red_pixels": to_int("classification_red_pixels"),
             "classification_yellow_pixels": to_int("classification_yellow_pixels"),
+            "classification_decision_reason": str(payload.get("classification_decision_reason", "")).strip() or None,
+            "classification_marked_misclassified": marked_misclassified,
+            "classification_feedback_note": feedback_note,
             "classifier_config_version": config_version,
             "classification_timestamp": timestamp,
         }

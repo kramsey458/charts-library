@@ -1596,3 +1596,39 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.classifier-review-controls {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+}
+
+.classifier-review-table-wrap {
+  max-height: 460px;
+  overflow: auto;
+}
+
+.classifier-review-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.classifier-review-table th,
+.classifier-review-table td {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px;
+  vertical-align: top;
+}
+
+.table-sort-button {
+  all: unset;
+  cursor: pointer;
+  color: #dce3ff;
+}
+
+.classifier-review-table input,
+.classifier-review-table select {
+  width: 100%;
+  min-height: 30px;
+}

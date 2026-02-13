@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import datetime
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,7 @@ class ChartService:
         self.settings = settings
         self.local = LocalStorage(settings.storage_dir)
         self.classifier_config_path = Path(__file__).with_name("classifier_config.json")
+        self.logger = logging.getLogger(__name__)
         self.external = CloudinaryStorage(
             cloud_name=settings.cloudinary_cloud_name,
             api_key=settings.cloudinary_api_key,
@@ -88,6 +90,18 @@ class ChartService:
 
         result = classify_candle(image_bytes, config=config)
         decision_reason = self._decision_reason(result)
+
+        self._log_structured(
+            "classification_decision",
+            file_identifier=secure_filename(chart_file.filename),
+            ticker=str(form.get("ticker", "")).strip().upper(),
+            date=str(form.get("date", "")).strip(),
+            label=result["label"],
+            red_pixels=result["scores"]["red_pixels"],
+            yellow_pixels=result["scores"]["yellow_pixels"],
+            decision_reason=decision_reason,
+            route="preview",
+        )
 
         response: dict[str, Any] = {
             "label": result["label"],
@@ -164,6 +178,18 @@ class ChartService:
             self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, classification, chart_file)
         else:
             self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, classification, chart_file)
+
+        self._log_structured(
+            "upload_action",
+            file_identifier=filename,
+            ticker=safe_ticker,
+            date=safe_date,
+            label=classification.get("classification_label"),
+            red_pixels=classification.get("classification_red_pixels"),
+            yellow_pixels=classification.get("classification_yellow_pixels"),
+            decision_reason=classification.get("classification_decision_reason"),
+            marked_misclassified=classification.get("classification_marked_misclassified"),
+        )
 
         return {
             "message": "Chart uploaded.",
@@ -261,6 +287,9 @@ class ChartService:
             "classification_label": form.get("classification_label"),
             "classification_red_pixels": form.get("classification_red_pixels"),
             "classification_yellow_pixels": form.get("classification_yellow_pixels"),
+            "classification_decision_reason": form.get("classification_decision_reason"),
+            "classification_marked_misclassified": form.get("classification_marked_misclassified"),
+            "classification_feedback_note": form.get("classification_feedback_note"),
             "classifier_config_version": form.get("classifier_config_version"),
             "classification_timestamp": form.get("classification_timestamp"),
         }
@@ -282,6 +311,9 @@ class ChartService:
             "classification_label": parsed.get("classification_label"),
             "classification_red_pixels": parsed.get("classification_red_pixels"),
             "classification_yellow_pixels": parsed.get("classification_yellow_pixels"),
+            "classification_decision_reason": parsed.get("classification_decision_reason"),
+            "classification_marked_misclassified": parsed.get("classification_marked_misclassified"),
+            "classification_feedback_note": parsed.get("classification_feedback_note"),
             "classifier_config_version": parsed.get("classifier_config_version"),
             "classification_timestamp": parsed.get("classification_timestamp"),
         }
@@ -352,11 +384,24 @@ class ChartService:
         label = classify_result["label"]
         red = classify_result["scores"]["red_pixels"]
         yellow = classify_result["scores"]["yellow_pixels"]
+        min_pixels = classify_result["scores"].get("min_pixels", 0)
+
+        if red < min_pixels and yellow < min_pixels:
+            return "below_min_pixels_none"
         if label == "red":
-            return f"Red dominant ({red} vs {yellow})."
+            return "red_dominant_by_ratio"
         if label == "yellow":
-            return f"Yellow dominant ({yellow} vs {red})."
-        return f"No dominant color ({red} red, {yellow} yellow)."
+            return "yellow_dominant_by_ratio"
+        if red >= min_pixels and yellow >= min_pixels:
+            return "below_dominance_ratio_none"
+        if red >= min_pixels:
+            return "red_not_dominant_none"
+        if yellow >= min_pixels:
+            return "yellow_not_dominant_none"
+        return "no_signal_none"
+
+    def _log_structured(self, event: str, **fields: Any) -> None:
+        self.logger.info("%s %s", event, json.dumps(fields, sort_keys=True, default=str))
 
     def _parse_metadata(self, filename: str, fallback_ticker: str, fallback_date: str) -> dict[str, str]:
         stem = Path(filename).stem
@@ -408,6 +453,18 @@ class ChartService:
                 "ticker": meta["ticker"],
                 "date": meta["date"],
             }
+            self._log_structured(
+                "classification_decision",
+                file_identifier=per_file["filename"],
+                ticker=per_file["ticker"],
+                date=per_file["date"],
+                label=per_file["label"],
+                red_pixels=per_file["red_pixels"],
+                yellow_pixels=per_file["yellow_pixels"],
+                decision_reason=per_file["decision_reason"],
+                decision=per_file["decision"],
+                route="batch",
+            )
 
             if do_upload and decision == "accept":
                 upload_form = {
@@ -417,6 +474,7 @@ class ChartService:
                     "classification_label": label,
                     "classification_red_pixels": classify_result["scores"]["red_pixels"],
                     "classification_yellow_pixels": classify_result["scores"]["yellow_pixels"],
+                    "classification_decision_reason": per_file["decision_reason"],
                     "classifier_config_version": "batch-default",
                     "classification_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 }

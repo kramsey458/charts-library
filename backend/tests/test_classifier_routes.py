@@ -33,7 +33,7 @@ def test_classifier_config_and_preview_happy_path(client):
     payload = preview_response.get_json()
     assert payload['label'] == 'red'
     assert payload['red_pixels'] > payload['yellow_pixels']
-    assert 'decision_reason' in payload
+    assert payload['decision_reason'] == 'red_dominant_by_ratio'
     assert payload['overlay_image_base64']
 
 
@@ -115,3 +115,43 @@ def test_classifier_batch_upload_reports_per_file_errors(client):
     results = response.get_json()['results']
     assert results[0]['error'] == 'Malformed PNG image.'
     assert results[1]['error'] == 'Only PNG files are supported.'
+
+
+def test_upload_chart_persists_decision_reason_and_feedback(client):
+    response = client.post(
+        '/api/charts',
+        data={
+            'ticker': 'AAPL',
+            'date': '2026-02-15',
+            'classification_label': 'yellow',
+            'classification_red_pixels': '10',
+            'classification_yellow_pixels': '123',
+            'classification_decision_reason': 'yellow_dominant_by_ratio',
+            'classification_marked_misclassified': 'true',
+            'classification_feedback_note': 'overlay covered body',
+            'chart': (io.BytesIO(_png_bytes_with_color((0, 255, 255))), 'aapl_20260215.png'),
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert response.status_code == 201
+    chart = response.get_json()['chart']
+    assert chart['classification_decision_reason'] == 'yellow_dominant_by_ratio'
+    assert chart['classification_marked_misclassified'] is True
+    assert chart['classification_feedback_note'] == 'overlay covered body'
+
+    charts = client.get('/api/charts/AAPL').get_json()['charts']
+    assert charts[0]['classification_decision_reason'] == 'yellow_dominant_by_ratio'
+
+
+def test_classifier_preview_reason_below_min_pixels(client):
+    tiny = np.zeros((20, 20, 3), dtype=np.uint8)
+    ok, encoded = cv2.imencode('.png', tiny)
+    assert ok
+    response = client.post(
+        '/api/classifier/preview',
+        data={'image': (io.BytesIO(encoded.tobytes()), 'tiny.png')},
+        content_type='multipart/form-data',
+    )
+    assert response.status_code == 200
+    assert response.get_json()['decision_reason'] == 'below_min_pixels_none'

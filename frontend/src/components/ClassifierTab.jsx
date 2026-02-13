@@ -32,6 +32,8 @@ const classificationStatusLabel = {
   none: "None",
 };
 
+const SORTABLE_COLUMNS = new Set(["filename", "ticker", "date", "label", "red_pixels", "yellow_pixels", "decision_reason"]);
+
 export default function ClassifierTab({ onBatchUploadComplete }) {
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
@@ -45,6 +47,10 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [batchQueue, setBatchQueue] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: false, uploadYellow: true, skipNone: true });
+  const [filterText, setFilterText] = useState("");
+  const [reasonFilter, setReasonFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("date");
+  const [sortDirection, setSortDirection] = useState("desc");
 
   useEffect(() => {
     fetchJson("/api/classifier/config")
@@ -108,14 +114,41 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const allowedUploads = useMemo(
     () =>
       filterQueueByPolicy(batchQueue, policy).filter(
-        (item) =>
-          item.file &&
-          item.ticker &&
-          item.date &&
-          (!item.requiresConfirmation || item.isConfirmed)
+        (item) => item.file && item.ticker && item.date && (!item.requiresConfirmation || item.isConfirmed)
       ),
     [batchQueue, policy]
   );
+
+  const reasonOptions = useMemo(
+    () => Array.from(new Set(batchQueue.map((item) => item.decision_reason).filter(Boolean))),
+    [batchQueue]
+  );
+
+  const visibleQueue = useMemo(() => {
+    const query = filterText.trim().toLowerCase();
+    const filtered = batchQueue.filter((item) => {
+      if (query) {
+        const haystack = `${item.filename} ${item.ticker || ""} ${item.date || ""} ${item.label || ""} ${item.decision_reason || ""}`.toLowerCase();
+        if (!haystack.includes(query)) {
+          return false;
+        }
+      }
+      if (reasonFilter !== "all" && item.decision_reason !== reasonFilter) {
+        return false;
+      }
+      return true;
+    });
+
+    return [...filtered].sort((a, b) => {
+      const left = a[sortBy] ?? "";
+      const right = b[sortBy] ?? "";
+      const direction = sortDirection === "asc" ? 1 : -1;
+      if (typeof left === "number" || typeof right === "number") {
+        return ((Number(left) || 0) - (Number(right) || 0)) * direction;
+      }
+      return String(left).localeCompare(String(right)) * direction;
+    });
+  }, [batchQueue, filterText, reasonFilter, sortBy, sortDirection]);
 
   const updateHsv = (rangeName, bound, index, value) => {
     setConfig((prev) => {
@@ -126,15 +159,20 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   };
 
   const updateQueueItem = (filename, updates) => {
-    setBatchQueue((prev) =>
-      prev.map((item) => (item.filename === filename ? { ...item, ...updates } : item))
-    );
+    setBatchQueue((prev) => prev.map((item) => (item.filename === filename ? { ...item, ...updates } : item)));
   };
 
-  const removeQueueItem = (filename) => {
-    setBatchQueue((prev) => prev.filter((item) => item.filename !== filename));
-  };
+  const removeQueueItem = (filename) => setBatchQueue((prev) => prev.filter((item) => item.filename !== filename));
 
+  const toggleSort = (column) => {
+    if (!SORTABLE_COLUMNS.has(column)) return;
+    if (sortBy === column) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(column);
+    setSortDirection(column === "date" ? "desc" : "asc");
+  };
 
   const saveConfig = async () => {
     setSaveStatus("saving");
@@ -159,22 +197,14 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
       return;
     }
 
-    const parsedMetadata = files.map((file) => ({
-      filename: file.name,
-      ...parseBatchFilename(file.name),
-    }));
-
+    const parsedMetadata = files.map((file) => ({ filename: file.name, ...parseBatchFilename(file.name) }));
     setBatchStatus("planning");
     setError("");
 
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("charts", file));
-      formData.append("metadata", JSON.stringify(parsedMetadata));
-      const payload = await fetchJson("/api/classifier/batch/plan", {
-        method: "POST",
-        body: formData,
-      });
+      const payload = await fetchJson("/api/classifier/batch/plan", { method: "POST", body: formData });
 
       setBatchQueue(
         (payload.results || []).map((item, index) => {
@@ -188,6 +218,8 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             parseReason: parsed.reason,
             requiresConfirmation: parsed.requiresConfirmation,
             isConfirmed: !parsed.requiresConfirmation,
+            markedMisclassified: false,
+            feedbackNote: "",
           };
         })
       );
@@ -205,10 +237,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   };
 
   const uploadAllowed = async () => {
-    if (!allowedUploads.length) {
-      return;
-    }
-
+    if (!allowedUploads.length) return;
     setBatchStatus("uploading");
     setError("");
     const nextQueue = [...batchQueue];
@@ -225,36 +254,25 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         formData.append("classification_label", item.label);
         formData.append("classification_red_pixels", String(item.red_pixels || 0));
         formData.append("classification_yellow_pixels", String(item.yellow_pixels || 0));
+        formData.append("classification_decision_reason", item.decision_reason || "");
+        formData.append("classification_marked_misclassified", item.markedMisclassified ? "true" : "false");
+        formData.append("classification_feedback_note", item.feedbackNote || "");
         formData.append("red_candle", checklist.red_candle ? "true" : "false");
         formData.append("yellow_candle", checklist.yellow_candle ? "true" : "false");
-        formData.append(
-          "parsed_metadata",
-          JSON.stringify({
-            filename: item.filename,
-            ticker: item.ticker,
-            date: item.date,
-            parseConfidence: item.parseConfidence,
-          })
-        );
 
         await fetchJson("/api/charts", { method: "POST", body: formData });
         uploadedTickers.add(item.ticker.trim().toUpperCase());
 
         const idx = nextQueue.findIndex((q) => q.filename === item.filename);
-        if (idx >= 0) {
-          nextQueue[idx] = { ...nextQueue[idx], uploadState: "uploaded", uploadError: "" };
-        }
+        if (idx >= 0) nextQueue[idx] = { ...nextQueue[idx], uploadState: "uploaded", uploadError: "" };
       } catch (err) {
         const idx = nextQueue.findIndex((q) => q.filename === item.filename);
-        if (idx >= 0) {
-          nextQueue[idx] = { ...nextQueue[idx], uploadState: "failed", uploadError: err.message };
-        }
+        if (idx >= 0) nextQueue[idx] = { ...nextQueue[idx], uploadState: "failed", uploadError: err.message };
       }
     }
 
     setBatchQueue(nextQueue);
     setBatchStatus("idle");
-
     if (uploadedTickers.size > 0 && onBatchUploadComplete) {
       await onBatchUploadComplete(Array.from(uploadedTickers));
     }
@@ -267,11 +285,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
           <h2>Calibration</h2>
           <label>
             Calibration image
-            <input
-              type="file"
-              accept="image/png,image/*"
-              onChange={(event) => setCalibrationFile(event.target.files?.[0] || null)}
-            />
+            <input type="file" accept="image/png,image/*" onChange={(event) => setCalibrationFile(event.target.files?.[0] || null)} />
           </label>
 
           <div className="classifier-roi-controls">
@@ -283,13 +297,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                   min={0}
                   value={config.roi[key]}
                   onChange={(event) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      roi: {
-                        ...prev.roi,
-                        [key]: Math.max(0, Number(event.target.value) || 0),
-                      },
-                    }))
+                    setConfig((prev) => ({ ...prev, roi: { ...prev.roi, [key]: Math.max(0, Number(event.target.value) || 0) } }))
                   }
                 />
               </label>
@@ -311,9 +319,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                           min={0}
                           max={index === 0 ? 180 : 255}
                           value={config[rangeName][bound][index]}
-                          onChange={(event) =>
-                            updateHsv(rangeName, bound, index, event.target.value)
-                          }
+                          onChange={(event) => updateHsv(rangeName, bound, index, event.target.value)}
                         />
                       </label>
                     ))}
@@ -324,31 +330,21 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
           </div>
 
           <div className="classifier-metrics">
-            <p>
-              Red pixels: <strong>{metrics.red_pixels}</strong>
-            </p>
-            <p>
-              Yellow pixels: <strong>{metrics.yellow_pixels}</strong>
-            </p>
-            <p>
-              Predicted: <strong>{metrics.label}</strong>
-            </p>
+            <p>Red pixels: <strong>{metrics.red_pixels}</strong></p>
+            <p>Yellow pixels: <strong>{metrics.yellow_pixels}</strong></p>
+            <p>Predicted: <strong>{metrics.label}</strong></p>
             {calibrationStatus === "loading" ? <p>Refreshing preview…</p> : null}
           </div>
 
           <button type="button" className="classifier-primary-button" onClick={saveConfig}>
-            {saveStatus === "saving"
-              ? "Saving config..."
-              : saveStatus === "saved"
-                ? "Saved"
-                : "Save config"}
+            {saveStatus === "saving" ? "Saving config..." : saveStatus === "saved" ? "Saved" : "Save config"}
           </button>
         </article>
 
         <article className="classifier-card batch-card">
           <div className="batch-header">
-            <h2>Batch</h2>
-            <p>Auto-parse metadata, confirm low-confidence matches, then upload.</p>
+            <h2>Batch review</h2>
+            <p>Review classifier outputs, pixel counts, and reason codes before upload.</p>
           </div>
 
           <label className="batch-file-picker">
@@ -357,151 +353,80 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
           </label>
 
           <div className="batch-policy-controls" role="group" aria-label="Batch upload policy">
-            <label className="policy-check">
-              <input
-                type="checkbox"
-                checked={policy.uploadRed}
-                onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, uploadRed: event.target.checked }))
-                }
-              />
-              <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Upload red only</span>
-            </label>
-            <label className="policy-check">
-              <input
-                type="checkbox"
-                checked={policy.uploadYellow}
-                onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, uploadYellow: event.target.checked }))
-                }
-              />
-              <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Upload yellow only</span>
-            </label>
-            <label className="policy-check">
-              <input
-                type="checkbox"
-                checked={policy.skipNone}
-                onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, skipNone: event.target.checked }))
-                }
-              />
-              <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Skip none</span>
-            </label>
+            <label className="policy-check"><input type="checkbox" checked={policy.uploadRed} onChange={(event) => setPolicy((prev) => ({ ...prev, uploadRed: event.target.checked }))} /><span className="policy-check-indicator" aria-hidden="true" /><span>Upload red only</span></label>
+            <label className="policy-check"><input type="checkbox" checked={policy.uploadYellow} onChange={(event) => setPolicy((prev) => ({ ...prev, uploadYellow: event.target.checked }))} /><span className="policy-check-indicator" aria-hidden="true" /><span>Upload yellow only</span></label>
+            <label className="policy-check"><input type="checkbox" checked={policy.skipNone} onChange={(event) => setPolicy((prev) => ({ ...prev, skipNone: event.target.checked }))} /><span className="policy-check-indicator" aria-hidden="true" /><span>Skip none</span></label>
           </div>
 
-          <p className="batch-summary">
-            {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
-          </p>
-          <ul className="classifier-queue">
-            {batchQueue.map((item) => {
-              const canUploadByLabel = shouldUploadByPolicy(item.label, policy);
-              const hasMetadata = Boolean(item.ticker && item.date);
-              const needsConfirm = item.requiresConfirmation && !item.isConfirmed;
+          <div className="classifier-review-controls">
+            <input value={filterText} onChange={(event) => setFilterText(event.target.value)} placeholder="Filter filename/ticker/date/reason" />
+            <select value={reasonFilter} onChange={(event) => setReasonFilter(event.target.value)}>
+              <option value="all">All reasons</option>
+              {reasonOptions.map((reason) => <option key={reason} value={reason}>{reason}</option>)}
+            </select>
+          </div>
 
-              return (
-                <li key={item.filename}>
-                  <div className="classifier-queue-main">
-                    <div className="queue-row-top">
-                      <strong>{item.filename}</strong>
-                      <div className="queue-row-actions">
-                        <span className={`parse-badge ${item.parseConfidence || "none"}`}>
-                          {confidenceBadge[item.parseConfidence || "none"]}
-                        </span>
-                      </div>
-                    </div>
+          <p className="batch-summary">{batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}</p>
 
-                    {item.error ? (
-                      <p>{item.error}</p>
-                    ) : (
-                      <p className="queue-metrics">
-                        Classification: {classificationStatusLabel[item.label] || "None"} ({item.label}) • red: {item.red_pixels} • yellow: {item.yellow_pixels}
-                      </p>
-                    )}
+          <div className="classifier-review-table-wrap">
+            <table className="classifier-review-table" aria-label="Batch review table">
+              <thead>
+                <tr>
+                  {["filename", "ticker", "date", "label", "red_pixels", "yellow_pixels", "decision_reason"].map((column) => (
+                    <th key={column}><button type="button" className="table-sort-button" onClick={() => toggleSort(column)}>{column}{sortBy === column ? (sortDirection === "asc" ? " ↑" : " ↓") : ""}</button></th>
+                  ))}
+                  <th>metadata</th>
+                  <th>feedback</th>
+                  <th>actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleQueue.map((item) => {
+                  const canUploadByLabel = shouldUploadByPolicy(item.label, policy);
+                  const hasMetadata = Boolean(item.ticker && item.date);
+                  const needsConfirm = item.requiresConfirmation && !item.isConfirmed;
+                  return (
+                    <tr key={item.filename}>
+                      <td>{item.filename}</td>
+                      <td><input value={item.ticker || ""} onChange={(event) => updateQueueItem(item.filename, { ticker: event.target.value.toUpperCase(), isConfirmed: false })} /></td>
+                      <td><input type="date" value={item.date || ""} onChange={(event) => updateQueueItem(item.filename, { date: event.target.value, isConfirmed: false })} /></td>
+                      <td>{classificationStatusLabel[item.label] || "None"}</td>
+                      <td>{item.red_pixels}</td>
+                      <td>{item.yellow_pixels}</td>
+                      <td>{item.decision_reason || "-"}</td>
+                      <td>
+                        <span className={`parse-badge ${item.parseConfidence || "none"}`}>{confidenceBadge[item.parseConfidence || "none"]}</span>
+                        <div className="parse-reason">{item.parseReason}</div>
+                        {item.requiresConfirmation ? (
+                          <label className="confirm-parse-checkbox">
+                            <input type="checkbox" checked={Boolean(item.isConfirmed)} onChange={(event) => updateQueueItem(item.filename, { isConfirmed: event.target.checked })} />
+                            confirm
+                          </label>
+                        ) : null}
+                      </td>
+                      <td>
+                        <label className="confirm-parse-checkbox">
+                          <input type="checkbox" checked={Boolean(item.markedMisclassified)} onChange={(event) => updateQueueItem(item.filename, { markedMisclassified: event.target.checked })} />
+                          mark misclassified
+                        </label>
+                        {item.markedMisclassified ? (
+                          <input placeholder="Optional feedback note" value={item.feedbackNote || ""} onChange={(event) => updateQueueItem(item.filename, { feedbackNote: event.target.value })} />
+                        ) : null}
+                      </td>
+                      <td>
+                        <span className="queue-status-pill">{item.error ? "error" : !canUploadByLabel ? "blocked" : !hasMetadata ? "missing metadata" : needsConfirm ? "confirm" : "ready"}</span>
+                        <button type="button" className="queue-delete-button" onClick={() => removeQueueItem(item.filename)}>Remove</button>
+                        {item.uploadState === "failed" ? <p className="status-message">Upload failed: {item.uploadError}</p> : null}
+                        {item.uploadState === "uploaded" ? <p>Uploaded ✅</p> : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                    <p className="parse-reason">{item.parseReason}</p>
-
-                    <div className="queue-meta-fields">
-                      <label>
-                        Ticker
-                        <input
-                          value={item.ticker || ""}
-                          onChange={(event) =>
-                            updateQueueItem(item.filename, {
-                              ticker: event.target.value.toUpperCase(),
-                              isConfirmed: false,
-                            })
-                          }
-                          placeholder="VG"
-                        />
-                      </label>
-                      <label>
-                        Date
-                        <input
-                          type="date"
-                          value={item.date || ""}
-                          onChange={(event) =>
-                            updateQueueItem(item.filename, {
-                              date: event.target.value,
-                              isConfirmed: false,
-                            })
-                          }
-                        />
-                      </label>
-                    </div>
-
-                    {item.requiresConfirmation ? (
-                      <label className="confirm-parse-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(item.isConfirmed)}
-                          onChange={(event) =>
-                            updateQueueItem(item.filename, { isConfirmed: event.target.checked })
-                          }
-                        />
-                        Confirm parsed/edited metadata
-                      </label>
-                    ) : null}
-
-                    {item.uploadState === "failed" ? (
-                      <p className="status-message">Upload failed: {item.uploadError}</p>
-                    ) : null}
-                    {item.uploadState === "uploaded" ? <p>Uploaded ✅</p> : null}
-                  </div>
-
-                  <div className="queue-side-actions">
-                    <span className="queue-status-pill">
-                      {item.error
-                        ? "error"
-                        : !canUploadByLabel
-                          ? "blocked"
-                          : !hasMetadata
-                            ? "missing metadata"
-                            : needsConfirm
-                              ? "confirm"
-                              : "ready"}
-                    </span>
-                    <button
-                      type="button"
-                      className="queue-delete-button"
-                      onClick={() => removeQueueItem(item.filename)}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-
-          <button
-            type="button"
-            className="classifier-primary-button"
-            onClick={uploadAllowed}
-            disabled={batchStatus === "uploading" || allowedUploads.length === 0}
-          >
+          <button type="button" className="classifier-primary-button" onClick={uploadAllowed} disabled={batchStatus === "uploading" || allowedUploads.length === 0}>
             {batchStatus === "uploading" ? "Uploading..." : "Upload ready items"}
           </button>
         </article>
@@ -510,16 +435,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
       <div className="classifier-preview-panel">
         {calibrationPreviewUrl ? (
           <div className="classifier-image-wrap">
-            <img
-              src={calibrationPreviewUrl}
-              alt="Calibration preview"
-              onLoad={(event) =>
-                setImageSize({
-                  width: event.currentTarget.naturalWidth,
-                  height: event.currentTarget.naturalHeight,
-                })
-              }
-            />
+            <img src={calibrationPreviewUrl} alt="Calibration preview" onLoad={(event) => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} />
             {roiStyle ? <div className="classifier-roi-rect" style={roiStyle} /> : null}
           </div>
         ) : (

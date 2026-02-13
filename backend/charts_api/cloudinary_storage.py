@@ -40,6 +40,9 @@ class CloudinaryStorage:
             f"classification_label={quote(str(safe_classification.get('classification_label') or ''))}|"
             f"classification_red_pixels={safe_classification.get('classification_red_pixels') or ''}|"
             f"classification_yellow_pixels={safe_classification.get('classification_yellow_pixels') or ''}|"
+            f"classification_decision_reason={quote(str(safe_classification.get('classification_decision_reason') or ''))}|"
+            f"classification_marked_misclassified={str(bool(safe_classification.get('classification_marked_misclassified', False))).lower()}|"
+            f"classification_feedback_note={quote(str(safe_classification.get('classification_feedback_note') or ''))}|"
             f"classifier_config_version={quote(str(safe_classification.get('classifier_config_version') or ''))}|"
             f"classification_timestamp={quote(str(safe_classification.get('classification_timestamp') or ''))}"
         )
@@ -113,6 +116,9 @@ class CloudinaryStorage:
                             "classification_label": unquote(str(context.get("classification_label", ""))),
                             "classification_red_pixels": context.get("classification_red_pixels"),
                             "classification_yellow_pixels": context.get("classification_yellow_pixels"),
+                            "classification_decision_reason": unquote(str(context.get("classification_decision_reason", ""))),
+                            "classification_marked_misclassified": str(context.get("classification_marked_misclassified", "")).strip().lower() in {"1", "true", "yes", "on"},
+                            "classification_feedback_note": unquote(str(context.get("classification_feedback_note", ""))),
                             "classifier_config_version": unquote(str(context.get("classifier_config_version", ""))),
                             "classification_timestamp": unquote(str(context.get("classification_timestamp", ""))),
                         }
@@ -243,6 +249,9 @@ class CloudinaryStorage:
             "classification_label": chart.get("classification_label"),
             "classification_red_pixels": chart.get("classification_red_pixels"),
             "classification_yellow_pixels": chart.get("classification_yellow_pixels"),
+            "classification_decision_reason": chart.get("classification_decision_reason"),
+            "classification_marked_misclassified": chart.get("classification_marked_misclassified", False),
+            "classification_feedback_note": chart.get("classification_feedback_note"),
             "classifier_config_version": chart.get("classifier_config_version"),
             "classification_timestamp": chart.get("classification_timestamp"),
         }

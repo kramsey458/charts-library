@@ -106,6 +106,20 @@ curl -X POST http://localhost:5000/api/uploads/charts \
   -F image=@./chart.png
 ```
 
+
+## Classifier troubleshooting
+
+If classifier outcomes look unstable, use this runbook before changing thresholds:
+
+- **Lighting and screenshot capture differences**: Different monitor brightness, theme, or screenshot compression can shift HSV values. Re-calibrate using fresh captures from the same machine/session and verify ROI preview before batch runs.
+- **ROI mismatch**: If the ROI box no longer covers the candle header/body area (layout changes, zoom differences), red/yellow pixel counts will collapse and often return `below_min_pixels_none`. Adjust ROI and validate with `/api/classifier/preview`.
+- **Symbol overlays / badges / watermarks**: Broker badges, watchlist chips, or drawing overlays can inject extra yellow/red pixels and skew ratio decisions. Crop/disable overlays or tune HSV ranges to ignore them.
+- **Reason-code debugging**: Inspect `decision_reason` values in the batch review table and API payloads. Typical causes:
+  - `red_dominant_by_ratio` / `yellow_dominant_by_ratio`: one class passed min pixels and dominance ratio.
+  - `below_min_pixels_none`: both classes are under threshold (usually ROI or color-range mismatch).
+  - `below_dominance_ratio_none`: both classes visible but neither dominates enough (tight ratio threshold or mixed overlays).
+- **Feedback loop for threshold tuning**: Use **Mark misclassified** in the batch review UI to attach optional notes. These are stored with classification metadata so you can sample false positives/negatives later and tune `min_pixels`, `dominance_ratio`, and HSV ranges with real examples.
+
 ## TradingView batch screenshot script
 
 For `scripts/tradingview_batch_screenshots.py`, install browser automation dependencies in your Python environment:
