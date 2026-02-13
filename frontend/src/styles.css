@@ -1327,10 +1327,44 @@ button:disabled {
   gap: 18px;
 }
 
+
+.classifier-pane-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.classifier-pane-tab {
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: none;
+  font-size: 0.8rem;
+}
+
+.classifier-pane-tab.is-active {
+  background: rgba(103, 126, 255, 0.8);
+  border-color: rgba(154, 171, 245, 0.8);
+}
+
+.classifier-pane-tab-hidden {
+  opacity: 0.55;
+}
+
 .classifier-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
+}
+
+
+.classifier-grid.batch-focus .batch-card {
+  min-height: 560px;
+}
+
+.classifier-grid.calibration-focus .classifier-card {
+  max-width: 920px;
 }
 
 .classifier-card {
@@ -1485,7 +1519,7 @@ button:disabled {
 }
 
 .classifier-queue {
-  max-height: 460px;
+  max-height: 620px;
   overflow-y: auto;
   padding-right: 4px;
 }

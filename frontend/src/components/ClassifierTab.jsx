@@ -41,6 +41,7 @@ const getCurrentDateValue = () => {
 };
 
 export default function ClassifierTab({ onBatchUploadComplete }) {
+  const [activePane, setActivePane] = useState("batch");
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
   const [calibrationPreviewUrl, setCalibrationPreviewUrl] = useState("");
@@ -281,90 +282,29 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   return (
     <section className="classifier-tab">
-      <div className="classifier-grid">
-        <article className="classifier-card">
-          <h2>Calibration</h2>
-          <label>
-            Calibration image
-            <input
-              type="file"
-              accept="image/png,image/*"
-              onChange={(event) => setCalibrationFile(event.target.files?.[0] || null)}
-            />
-          </label>
+      <div className="classifier-pane-tabs" role="tablist" aria-label="Classifier panes">
+        <button
+          type="button"
+          className={`classifier-pane-tab ${activePane === "batch" ? "is-active" : ""}`}
+          role="tab"
+          aria-selected={activePane === "batch"}
+          onClick={() => setActivePane("batch")}
+        >
+          Batch
+        </button>
+        <button
+          type="button"
+          className={`classifier-pane-tab classifier-pane-tab-hidden ${activePane === "calibration" ? "is-active" : ""}`}
+          role="tab"
+          aria-selected={activePane === "calibration"}
+          onClick={() => setActivePane("calibration")}
+        >
+          Calibration (hidden)
+        </button>
+      </div>
 
-          <div className="classifier-roi-controls">
-            {["x", "y", "width", "height"].map((key) => (
-              <label key={key}>
-                ROI {key}
-                <input
-                  type="number"
-                  min={0}
-                  value={config.roi[key]}
-                  onChange={(event) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      roi: {
-                        ...prev.roi,
-                        [key]: Math.max(0, Number(event.target.value) || 0),
-                      },
-                    }))
-                  }
-                />
-              </label>
-            ))}
-          </div>
-
-          <div className="classifier-hsv-controls">
-            {rangeFields.map((rangeName) => (
-              <div key={rangeName} className="hsv-range-block">
-                <h4>{rangeName}</h4>
-                {["lower", "upper"].map((bound) => (
-                  <div key={`${rangeName}-${bound}`} className="hsv-bound-row">
-                    <span>{bound}</span>
-                    {hsvKeys.map((label, index) => (
-                      <label key={`${rangeName}-${bound}-${label}`}>
-                        {label}
-                        <input
-                          type="number"
-                          min={0}
-                          max={index === 0 ? 180 : 255}
-                          value={config[rangeName][bound][index]}
-                          onChange={(event) =>
-                            updateHsv(rangeName, bound, index, event.target.value)
-                          }
-                        />
-                      </label>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div className="classifier-metrics">
-            <p>
-              Red pixels: <strong>{metrics.red_pixels}</strong>
-            </p>
-            <p>
-              Yellow pixels: <strong>{metrics.yellow_pixels}</strong>
-            </p>
-            <p>
-              Predicted: <strong>{metrics.label}</strong>
-            </p>
-            {calibrationStatus === "loading" ? <p>Refreshing preview…</p> : null}
-          </div>
-
-          <button type="button" className="classifier-primary-button" onClick={saveConfig}>
-            {saveStatus === "saving"
-              ? "Saving config..."
-              : saveStatus === "saved"
-                ? "Saved"
-                : "Save config"}
-          </button>
-        </article>
-
-        <article className="classifier-card batch-card">
+      <div className={`classifier-grid ${activePane === "batch" ? "batch-focus" : "calibration-focus"}`}>
+        <article className="classifier-card batch-card" hidden={activePane !== "batch"}>
           <div className="batch-header">
             <h2>Batch</h2>
             <p>Auto-parse chart candles, confirm low-confidence matches, then upload.</p>
@@ -541,9 +481,91 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             {batchStatus === "uploading" ? "Uploading..." : "Upload ready items"}
           </button>
         </article>
+
+        <article className="classifier-card" hidden={activePane !== "calibration"}>
+          <h2>Calibration</h2>
+          <label>
+            Calibration image
+            <input
+              type="file"
+              accept="image/png,image/*"
+              onChange={(event) => setCalibrationFile(event.target.files?.[0] || null)}
+            />
+          </label>
+
+          <div className="classifier-roi-controls">
+            {["x", "y", "width", "height"].map((key) => (
+              <label key={key}>
+                ROI {key}
+                <input
+                  type="number"
+                  min={0}
+                  value={config.roi[key]}
+                  onChange={(event) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      roi: {
+                        ...prev.roi,
+                        [key]: Math.max(0, Number(event.target.value) || 0),
+                      },
+                    }))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="classifier-hsv-controls">
+            {rangeFields.map((rangeName) => (
+              <div key={rangeName} className="hsv-range-block">
+                <h4>{rangeName}</h4>
+                {["lower", "upper"].map((bound) => (
+                  <div key={`${rangeName}-${bound}`} className="hsv-bound-row">
+                    <span>{bound}</span>
+                    {hsvKeys.map((label, index) => (
+                      <label key={`${rangeName}-${bound}-${label}`}>
+                        {label}
+                        <input
+                          type="number"
+                          min={0}
+                          max={index === 0 ? 180 : 255}
+                          value={config[rangeName][bound][index]}
+                          onChange={(event) =>
+                            updateHsv(rangeName, bound, index, event.target.value)
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <div className="classifier-metrics">
+            <p>
+              Red pixels: <strong>{metrics.red_pixels}</strong>
+            </p>
+            <p>
+              Yellow pixels: <strong>{metrics.yellow_pixels}</strong>
+            </p>
+            <p>
+              Predicted: <strong>{metrics.label}</strong>
+            </p>
+            {calibrationStatus === "loading" ? <p>Refreshing preview…</p> : null}
+          </div>
+
+          <button type="button" className="classifier-primary-button" onClick={saveConfig}>
+            {saveStatus === "saving"
+              ? "Saving config..."
+              : saveStatus === "saved"
+                ? "Saved"
+                : "Save config"}
+          </button>
+        </article>
       </div>
 
-      <div className="classifier-preview-panel">
+      <div className="classifier-preview-panel" hidden={activePane !== "calibration"}>
         {calibrationPreviewUrl ? (
           <div className="classifier-image-wrap">
             <img
