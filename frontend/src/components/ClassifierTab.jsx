@@ -52,9 +52,12 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [error, setError] = useState("");
 
   const [batchQueue, setBatchQueue] = useState([]);
+  const [batchFiles, setBatchFiles] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: true, uploadYellow: true, skipNone: false });
   const calibrationInputRef = useRef(null);
+  const calibrationRequestRef = useRef(0);
+  const batchPlanRequestRef = useRef(0);
 
   useEffect(() => {
     fetchJson("/api/classifier/config")
@@ -115,8 +118,12 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   useEffect(() => {
     if (!calibrationFile) {
+      calibrationRequestRef.current += 1;
       return;
     }
+    const requestId = calibrationRequestRef.current + 1;
+    calibrationRequestRef.current = requestId;
+
     const timer = setTimeout(async () => {
       setCalibrationStatus("loading");
       setError("");
@@ -125,15 +132,23 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         formData.append("image", calibrationFile);
         formData.append("config", JSON.stringify(config));
         const result = await fetchJson("/api/classifier/preview", { method: "POST", body: formData });
+        if (requestId !== calibrationRequestRef.current) {
+          return;
+        }
         setMetrics({
           red_pixels: result.red_pixels ?? 0,
           yellow_pixels: result.yellow_pixels ?? 0,
           label: result.label ?? "none",
         });
       } catch (err) {
+        if (requestId !== calibrationRequestRef.current) {
+          return;
+        }
         setError(err.message);
       } finally {
-        setCalibrationStatus("idle");
+        if (requestId === calibrationRequestRef.current) {
+          setCalibrationStatus("idle");
+        }
       }
     }, 250);
 
@@ -230,9 +245,13 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   const planBatch = async (files) => {
     if (!files.length) {
+      batchPlanRequestRef.current += 1;
       setBatchQueue([]);
       return;
     }
+
+    const requestId = batchPlanRequestRef.current + 1;
+    batchPlanRequestRef.current = requestId;
 
     const parsedMetadata = files.map((file) => ({
       filename: file.name,
@@ -246,10 +265,15 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
       const formData = new FormData();
       files.forEach((file) => formData.append("charts", file));
       formData.append("metadata", JSON.stringify(parsedMetadata));
+      formData.append("config", JSON.stringify(config));
       const payload = await fetchJson("/api/classifier/batch/plan", {
         method: "POST",
         body: formData,
       });
+
+      if (requestId !== batchPlanRequestRef.current) {
+        return;
+      }
 
       setBatchQueue(
         (payload.results || []).map((item, index) => {
@@ -267,19 +291,35 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         })
       );
     } catch (err) {
+      if (requestId !== batchPlanRequestRef.current) {
+        return;
+      }
       setError(err.message);
       setBatchQueue([]);
     } finally {
-      setBatchStatus("idle");
+      if (requestId === batchPlanRequestRef.current) {
+        setBatchStatus("idle");
+      }
     }
   };
 
+
+  useEffect(() => {
+    if (!batchFiles.length) {
+      setBatchQueue([]);
+      return;
+    }
+
+    planBatch(batchFiles);
+  }, [batchFiles, config]);
+
   const handleBatchFiles = (event) => {
     const files = Array.from(event.target.files || []);
-    planBatch(files);
+    setBatchFiles(files);
   };
 
   const clearCalibrationFile = () => {
+    calibrationRequestRef.current += 1;
     setCalibrationFile(null);
     setMetrics({ red_pixels: 0, yellow_pixels: 0, label: "none" });
     setCalibrationStatus("idle");

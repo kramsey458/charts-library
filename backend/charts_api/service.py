@@ -380,6 +380,13 @@ class ChartService:
         metadata_default_ticker = form.get("ticker", "").strip().upper()
         metadata_default_date = form.get("date", "").strip() or datetime.date.today().isoformat()
 
+        try:
+            cfg_payload = self._extract_override_payload(form)
+            config = CandleClassifierConfig.from_dict(cfg_payload) if cfg_payload else load_classifier_config(self.classifier_config_path)
+            self._validate_classifier_config(config)
+        except ValueError as exc:
+            return {"error": str(exc)}, 400
+
         results: list[dict[str, Any]] = []
         for chart_file in incoming:
             if not chart_file or not chart_file.filename:
@@ -394,7 +401,7 @@ class ChartService:
                 results.append({"filename": chart_file.filename, "error": "Malformed PNG image."})
                 continue
 
-            classify_result = classify_candle(image_bytes, config_path=self.classifier_config_path)
+            classify_result = classify_candle(image_bytes, config=config)
             label = classify_result["label"]
             decision = decisions[label]
             meta = self._parse_metadata(chart_file.filename, metadata_default_ticker, metadata_default_date)
