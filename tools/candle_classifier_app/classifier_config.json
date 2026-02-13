@@ -12,10 +12,10 @@
     "upper": [40, 255, 255]
   },
   "roi": {
-    "x": 2695,
-    "y": 23,
-    "width": 177,
-    "height": 440
+    "x": 0,
+    "y": 0,
+    "width": 1200,
+    "height": 300
   },
   "min_pixels": 100,
   "dominance_ratio": 1.25
