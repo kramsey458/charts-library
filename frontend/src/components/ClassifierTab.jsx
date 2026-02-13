@@ -246,6 +246,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
       const formData = new FormData();
       files.forEach((file) => formData.append("charts", file));
       formData.append("metadata", JSON.stringify(parsedMetadata));
+      formData.append("config", JSON.stringify(config));
       const payload = await fetchJson("/api/classifier/batch/plan", {
         method: "POST",
         body: formData,

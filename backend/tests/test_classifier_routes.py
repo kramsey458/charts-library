@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import json
 
 import cv2
 import numpy as np
@@ -115,3 +116,37 @@ def test_classifier_batch_upload_reports_per_file_errors(client):
     results = response.get_json()['results']
     assert results[0]['error'] == 'Malformed PNG image.'
     assert results[1]['error'] == 'Only PNG files are supported.'
+
+
+def test_classifier_batch_plan_uses_same_config_override_as_preview(client):
+    image_bytes = _png_bytes_with_color((0, 0, 255))
+    override_config = {
+        'roi': {'x': 319, 'y': 239, 'width': 1, 'height': 1},
+        'red_range_1': {'lower': [0, 80, 80], 'upper': [10, 255, 255]},
+        'red_range_2': {'lower': [170, 80, 80], 'upper': [180, 255, 255]},
+        'yellow_range': {'lower': [18, 80, 80], 'upper': [40, 255, 255]},
+        'min_pixels': 50,
+        'dominance_ratio': 1.2,
+    }
+
+    preview_response = client.post(
+        '/api/classifier/preview',
+        data={
+            'config': json.dumps(override_config),
+            'image': (io.BytesIO(image_bytes), 'red.png'),
+        },
+        content_type='multipart/form-data',
+    )
+    assert preview_response.status_code == 200
+    assert preview_response.get_json()['label'] == 'none'
+
+    plan_response = client.post(
+        '/api/classifier/batch/plan',
+        data={
+            'config': json.dumps(override_config),
+            'charts': [(io.BytesIO(image_bytes), 'red.png')],
+        },
+        content_type='multipart/form-data',
+    )
+    assert plan_response.status_code == 200
+    assert plan_response.get_json()['results'][0]['label'] == 'none'
