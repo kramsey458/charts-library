@@ -556,7 +556,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
           <button
             type="button"
-            className="classifier-primary-button"
+            className="classifier-primary-button batch-upload-action"
             onClick={uploadAllowed}
             disabled={batchStatus === "uploading" || allowedUploads.length === 0}
           >

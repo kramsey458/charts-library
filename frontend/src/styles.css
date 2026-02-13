@@ -1431,8 +1431,13 @@ button:disabled {
   align-items: center;
   justify-content: center;
   box-shadow: none;
+  margin-top: auto;
 }
 
+
+.batch-upload-action {
+  margin-top: 0;
+}
 
 .batch-card {
   gap: 14px;
