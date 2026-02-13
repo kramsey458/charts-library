@@ -811,6 +811,58 @@ export default function App() {
     }
   };
 
+  const handleDeleteAllCharts = async () => {
+    if (tickers.length === 0) {
+      return;
+    }
+
+    const shouldDeleteAll = window.confirm(
+      "Delete ALL charts across the ticker library? This is intended for testing and cannot be undone."
+    );
+
+    if (!shouldDeleteAll) {
+      return;
+    }
+
+    setError("");
+    try {
+      setStatus("deleting");
+
+      const chartCollections = await Promise.all(
+        tickers.map(async (ticker) => {
+          const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
+          return data.charts || [];
+        })
+      );
+
+      const allCharts = chartCollections.flat();
+      await Promise.all(
+        allCharts.map((chart) =>
+          fetchJson(
+            `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+              chart.date
+            )}/${encodeURIComponent(chart.filename)}`,
+            { method: "DELETE" }
+          )
+        )
+      );
+
+      setCharts([]);
+      setTickers([]);
+      setChartCountsByTicker({});
+      setTotalCharts(0);
+      setSelectedTicker("");
+      setPreviewChart(null);
+      setLibraryFilteredChartCounts({});
+      setTickerSearch("");
+      await loadTickers();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setStatus("idle");
+    }
+  };
+
 
   useEffect(() => {
     if (!previewChart || isSlideshowOpen) {
@@ -953,7 +1005,17 @@ export default function App() {
         <>
       <section className="controls">
         <div className="selector">
-          <label htmlFor="ticker-search">Ticker library</label>
+          <div className="ticker-library-header">
+            <label htmlFor="ticker-search">Ticker library</label>
+            <button
+              type="button"
+              className="clear-library-button"
+              onClick={handleDeleteAllCharts}
+              disabled={status === "deleting" || tickers.length === 0}
+            >
+              {status === "deleting" ? "Clearing..." : "Delete all charts"}
+            </button>
+          </div>
           <p className="ticker-library-summary">
             {tickers.length} ticker{tickers.length === 1 ? "" : "s"} tracked • {totalCharts} chart
             {totalCharts === 1 ? "" : "s"} stored
