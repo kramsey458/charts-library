@@ -1306,3 +1306,93 @@ button:disabled {
   color: #cad5fb;
   font-size: 0.9rem;
 }
+
+.top-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.top-tab {
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.top-tab.is-active {
+  background: rgba(103, 126, 255, 0.8);
+}
+
+.classifier-tab {
+  display: grid;
+  gap: 18px;
+}
+
+.classifier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.classifier-card {
+  background: rgba(15, 20, 40, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+}
+
+.classifier-roi-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.classifier-hsv-controls {
+  display: grid;
+  gap: 10px;
+}
+
+.hsv-range-block {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.hsv-bound-row {
+  display: grid;
+  grid-template-columns: 52px repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: center;
+}
+
+.classifier-queue {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+}
+
+.classifier-queue li {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.classifier-image-wrap {
+  position: relative;
+  max-width: 700px;
+}
+
+.classifier-roi-rect {
+  position: absolute;
+  border: 2px solid #ff4cf2;
+  pointer-events: none;
+}
+
+.batch-policy-controls {
+  display: grid;
+  gap: 6px;
+}
