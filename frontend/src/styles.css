@@ -1458,7 +1458,9 @@ button:disabled {
 }
 
 .classifier-roi-preview-card img {
-  width: 100%;
+  width: auto;
+  max-width: 100%;
+  justify-self: center;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(0, 0, 0, 0.35);
