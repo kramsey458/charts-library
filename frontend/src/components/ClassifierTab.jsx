@@ -53,7 +53,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   const [batchQueue, setBatchQueue] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
-  const [policy, setPolicy] = useState({ uploadRed: false, uploadYellow: true, skipNone: true });
+  const [policy, setPolicy] = useState({ uploadRed: true, uploadYellow: true, skipNone: false });
   const calibrationInputRef = useRef(null);
 
   useEffect(() => {
