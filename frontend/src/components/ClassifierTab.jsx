@@ -125,6 +125,10 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     );
   };
 
+  const togglePolicy = (key) => {
+    setPolicy((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const saveConfig = async () => {
     setSaveStatus("saving");
     setError("");
@@ -345,37 +349,31 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             <input type="file" accept="image/png,image/*" multiple onChange={handleBatchFiles} />
           </label>
 
-          <div className="batch-policy-controls">
-            <label>
-              <input
-                type="checkbox"
-                checked={policy.uploadRed}
-                onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, uploadRed: event.target.checked }))
-                }
-              />
+          <div className="batch-policy-controls" role="group" aria-label="Batch upload policy">
+            <button
+              type="button"
+              className={`policy-toggle ${policy.uploadRed ? "is-active" : ""}`.trim()}
+              onClick={() => togglePolicy("uploadRed")}
+              aria-pressed={policy.uploadRed}
+            >
               Upload red
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={policy.uploadYellow}
-                onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, uploadYellow: event.target.checked }))
-                }
-              />
+            </button>
+            <button
+              type="button"
+              className={`policy-toggle ${policy.uploadYellow ? "is-active" : ""}`.trim()}
+              onClick={() => togglePolicy("uploadYellow")}
+              aria-pressed={policy.uploadYellow}
+            >
               Upload yellow
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={policy.skipNone}
-                onChange={(event) =>
-                  setPolicy((prev) => ({ ...prev, skipNone: event.target.checked }))
-                }
-              />
+            </button>
+            <button
+              type="button"
+              className={`policy-toggle ${policy.skipNone ? "is-active" : ""}`.trim()}
+              onClick={() => togglePolicy("skipNone")}
+              aria-pressed={policy.skipNone}
+            >
               Skip none
-            </label>
+            </button>
           </div>
 
           <p className="batch-summary">
