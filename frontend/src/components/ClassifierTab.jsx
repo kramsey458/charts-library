@@ -125,6 +125,10 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     );
   };
 
+  const removeQueueItem = (filename) => {
+    setBatchQueue((prev) => prev.filter((item) => item.filename !== filename));
+  };
+
 
   const saveConfig = async () => {
     setSaveStatus("saving");
@@ -397,9 +401,18 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                   <div className="classifier-queue-main">
                     <div className="queue-row-top">
                       <strong>{item.filename}</strong>
-                      <span className={`parse-badge ${item.parseConfidence || "none"}`}>
-                        {confidenceBadge[item.parseConfidence || "none"]}
-                      </span>
+                      <div className="queue-row-actions">
+                        <span className={`parse-badge ${item.parseConfidence || "none"}`}>
+                          {confidenceBadge[item.parseConfidence || "none"]}
+                        </span>
+                        <button
+                          type="button"
+                          className="queue-delete-button"
+                          onClick={() => removeQueueItem(item.filename)}
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
 
                     {item.error ? (
