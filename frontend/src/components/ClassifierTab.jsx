@@ -26,6 +26,12 @@ const confidenceBadge = {
   none: "Parse failed",
 };
 
+const classificationStatusLabel = {
+  red: "Red Candle",
+  yellow: "Yellow Candle",
+  none: "None",
+};
+
 export default function ClassifierTab({ onBatchUploadComplete }) {
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
@@ -360,7 +366,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                 }
               />
               <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Upload red</span>
+              <span>Upload red only</span>
             </label>
             <label className="policy-check">
               <input
@@ -371,7 +377,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                 }
               />
               <span className="policy-check-indicator" aria-hidden="true" />
-              <span>Upload yellow</span>
+              <span>Upload yellow only</span>
             </label>
             <label className="policy-check">
               <input
@@ -388,6 +394,9 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
           <p className="batch-summary">
             {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
+          </p>
+          <p className="batch-confidence-help">
+            High confidence = exact filename match (`TICKER_DATE` or `DATE_TICKER`) • Needs confirmation = heuristic parse • Parse failed = required metadata missing.
           </p>
 
           <ul className="classifier-queue">
@@ -419,7 +428,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                       <p>{item.error}</p>
                     ) : (
                       <p className="queue-metrics">
-                        {item.label} • red: {item.red_pixels} • yellow: {item.yellow_pixels}
+                        Classification: {classificationStatusLabel[item.label] || "None"} ({item.label}) • red: {item.red_pixels} • yellow: {item.yellow_pixels}
                       </p>
                     )}
 

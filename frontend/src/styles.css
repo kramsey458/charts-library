@@ -1478,6 +1478,12 @@ button:disabled {
   font-size: 0.86rem;
 }
 
+.batch-confidence-help {
+  color: #98a8db;
+  font-size: 0.77rem;
+  line-height: 1.35;
+}
+
 .classifier-queue {
   max-height: 460px;
   overflow-y: auto;
