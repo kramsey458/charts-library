@@ -8,7 +8,7 @@ import {
   shouldUploadByPolicy,
 } from "../lib/classifierHelpers";
 
-const defaultRoi = { x: 0, y: 0, width: 1200, height: 300 };
+const defaultRoi = { x: 2695, y: 23, width: 177, height: 440 };
 
 const defaultConfig = {
   roi: defaultRoi,
