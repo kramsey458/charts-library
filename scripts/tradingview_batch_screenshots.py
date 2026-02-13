@@ -20,9 +20,6 @@ Optional env vars:
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
-  FAST_MODE=true|false (default: true)
-  TYPE_DELAY_MS=<int> (default: 0 in FAST_MODE, else 60)
-  DOWNLOAD_TIMEOUT_MS=<int> (default: 20000)
 """
 
 from __future__ import annotations
@@ -80,16 +77,7 @@ def human_pause(page, low_ms: int = 120, high_ms: int = 420) -> None:
     page.wait_for_timeout(random.randint(low_ms, high_ms))
 
 
-def maybe_pause(page, low_ms: int, high_ms: int, fast_mode: bool) -> None:
-    """Pause only when running in humanized mode."""
-    if fast_mode:
-        return
-    human_pause(page, low_ms, high_ms)
-
-
-def jitter_mouse(page, fast_mode: bool) -> None:
-    if fast_mode:
-        return
+def jitter_mouse(page) -> None:
     viewport = page.viewport_size or {"width": 1280, "height": 720}
     width = viewport["width"]
     height = viewport["height"]
@@ -109,8 +97,8 @@ def jitter_mouse(page, fast_mode: bool) -> None:
         page.wait_for_timeout(random.randint(5, 16))
 
 
-def focus_chart(page, fast_mode: bool) -> None:
-    jitter_mouse(page, fast_mode=fast_mode)
+def focus_chart(page) -> None:
+    jitter_mouse(page)
     try:
         page.keyboard.press("Escape")
     except PlaywrightError:
@@ -118,53 +106,27 @@ def focus_chart(page, fast_mode: bool) -> None:
 
     viewport = page.viewport_size or {"width": 1280, "height": 720}
     page.mouse.click(int(viewport["width"] * 0.5), int(viewport["height"] * 0.5))
-    maybe_pause(page, 120, 420, fast_mode=fast_mode)
+    human_pause(page)
 
 
-def open_symbol_search(page, fast_mode: bool) -> bool:
-    """Open symbol search quickly via shortcut and focus an input if possible."""
-    is_mac = platform.system().lower() == "darwin"
-    shortcut = "Meta+K" if is_mac else "Control+K"
-    page.keyboard.press(shortcut)
+def select_first_symbol_result(page, ticker: str) -> None:
+    focus_chart(page)
 
-    try:
-        page.locator("dialog input, [role='dialog'] input, input[type='text']").first.wait_for(
-            state="visible", timeout=800 if fast_mode else 2500
-        )
-        return True
-    except PlaywrightTimeoutError:
-        return False
+    # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
+    page.keyboard.type(ticker, delay=random.randint(45, 95))
 
-
-def wait_for_chart_settle(page, fast_mode: bool) -> None:
-    try:
-        page.wait_for_load_state("networkidle", timeout=2500 if fast_mode else 7000)
-    except PlaywrightTimeoutError:
-        pass
-
-
-def select_first_symbol_result(page, ticker: str, fast_mode: bool, type_delay_ms: int) -> None:
-    focus_chart(page, fast_mode=fast_mode)
-
-    # Most deterministic path: open symbol search via shortcut, then type ticker.
-    opened_dialog = open_symbol_search(page, fast_mode=fast_mode)
-    page.keyboard.type(ticker, delay=type_delay_ms)
-
-    # Keep waiting short in FAST_MODE, longer in humanized mode.
-    if not opened_dialog:
-        maybe_pause(page, 80, 220, fast_mode=fast_mode)
-    else:
-        maybe_pause(page, 120, 320, fast_mode=fast_mode)
-
+    # Give the search window/results time to populate, then select first result.
+    human_pause(page, 320, 780)
     page.keyboard.press("Enter")
-    wait_for_chart_settle(page, fast_mode=fast_mode)
-    maybe_pause(page, 180, 420, fast_mode=fast_mode)
+
+    # Allow chart to switch symbol.
+    human_pause(page, 800, 1550)
 
 
-def trigger_save_shortcut(page, fast_mode: bool) -> None:
+def trigger_save_shortcut(page) -> None:
     is_mac = platform.system().lower() == "darwin"
     shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
-    maybe_pause(page, 120, 360, fast_mode=fast_mode)
+    human_pause(page, 120, 360)
     page.keyboard.press(shortcut)
 
 
@@ -215,12 +177,10 @@ def apply_stealth(page) -> None:
     Stealth().apply_stealth_sync(page)
 
 
-def save_chart_image(
-    page, output_dir: Path, ticker: str, fast_mode: bool, download_timeout_ms: int
-) -> Path | None:
+def save_chart_image(page, output_dir: Path, ticker: str) -> Path | None:
     try:
-        with page.expect_download(timeout=download_timeout_ms) as download_info:
-            trigger_save_shortcut(page, fast_mode=fast_mode)
+        with page.expect_download(timeout=20000) as download_info:
+            trigger_save_shortcut(page)
         download = download_info.value
     except PlaywrightTimeoutError:
         print(
@@ -341,14 +301,6 @@ def main() -> int:
 
     url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
     headless = parse_bool_env("HEADLESS", False)
-    fast_mode = parse_bool_env("FAST_MODE", True)
-    type_delay_ms = int(os.getenv("TYPE_DELAY_MS", "0" if fast_mode else "60"))
-    download_timeout_ms = int(os.getenv("DOWNLOAD_TIMEOUT_MS", "20000"))
-
-    print(
-        f"Runtime profile: FAST_MODE={fast_mode}, TYPE_DELAY_MS={type_delay_ms}, "
-        f"DOWNLOAD_TIMEOUT_MS={download_timeout_ms}"
-    )
 
     with sync_playwright() as p:
         launch_args = build_launch_args(headless=headless)
@@ -385,25 +337,14 @@ def main() -> int:
 
             for i, ticker in enumerate(tickers):
                 print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
-                select_first_symbol_result(
-                    page,
-                    ticker,
-                    fast_mode=fast_mode,
-                    type_delay_ms=type_delay_ms,
-                )
-                out_path = save_chart_image(
-                    page,
-                    output_dir,
-                    ticker,
-                    fast_mode=fast_mode,
-                    download_timeout_ms=download_timeout_ms,
-                )
+                select_first_symbol_result(page, ticker)
+                out_path = save_chart_image(page, output_dir, ticker)
 
                 if out_path:
                     saved_paths.append(out_path)
                     print(f"Saved: {out_path}")
 
-                maybe_pause(page, 220, 680, fast_mode=fast_mode)
+                human_pause(page, 220, 680)
 
             print("\nDone.")
             if saved_paths:
