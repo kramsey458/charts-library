@@ -41,6 +41,7 @@ const getCurrentDateValue = () => {
 };
 
 export default function ClassifierTab({ onBatchUploadComplete }) {
+  const [activeSection, setActiveSection] = useState("upload");
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
   const [calibrationPreviewUrl, setCalibrationPreviewUrl] = useState("");
@@ -281,9 +282,27 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   return (
     <section className="classifier-tab">
-      <div className="classifier-grid">
-        <article className="classifier-card">
-          <h2>Calibration</h2>
+      <nav className="classifier-subtabs" aria-label="Classifier sections">
+        <button
+          type="button"
+          className={`classifier-subtab ${activeSection === "upload" ? "is-active" : ""}`.trim()}
+          onClick={() => setActiveSection("upload")}
+        >
+          Upload
+        </button>
+        <button
+          type="button"
+          className={`classifier-subtab ${activeSection === "calibration" ? "is-active" : ""}`.trim()}
+          onClick={() => setActiveSection("calibration")}
+        >
+          Calibration
+        </button>
+      </nav>
+
+      {activeSection === "calibration" ? (
+        <div className="classifier-grid">
+          <article className="classifier-card">
+            <h2>Calibration</h2>
           <label>
             Calibration image
             <input
@@ -360,10 +379,31 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
               ? "Saving config..."
               : saveStatus === "saved"
                 ? "Saved"
-                : "Save config"}
+              : "Save config"}
           </button>
-        </article>
+          </article>
 
+          <div className="classifier-preview-panel">
+            {calibrationPreviewUrl ? (
+              <div className="classifier-image-wrap">
+                <img
+                  src={calibrationPreviewUrl}
+                  alt="Calibration preview"
+                  onLoad={(event) =>
+                    setImageSize({
+                      width: event.currentTarget.naturalWidth,
+                      height: event.currentTarget.naturalHeight,
+                    })
+                  }
+                />
+                {roiStyle ? <div className="classifier-roi-rect" style={roiStyle} /> : null}
+              </div>
+            ) : (
+              <p>Select a calibration image to preview ROI.</p>
+            )}
+          </div>
+        </div>
+      ) : (
         <article className="classifier-card batch-card">
           <div className="batch-header">
             <h2>Batch</h2>
@@ -541,27 +581,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             {batchStatus === "uploading" ? "Uploading..." : "Upload ready items"}
           </button>
         </article>
-      </div>
-
-      <div className="classifier-preview-panel">
-        {calibrationPreviewUrl ? (
-          <div className="classifier-image-wrap">
-            <img
-              src={calibrationPreviewUrl}
-              alt="Calibration preview"
-              onLoad={(event) =>
-                setImageSize({
-                  width: event.currentTarget.naturalWidth,
-                  height: event.currentTarget.naturalHeight,
-                })
-              }
-            />
-            {roiStyle ? <div className="classifier-roi-rect" style={roiStyle} /> : null}
-          </div>
-        ) : (
-          <p>Select a calibration image to preview ROI.</p>
-        )}
-      </div>
+      )}
       {error ? <p className="status-message">{error}</p> : null}
     </section>
   );
