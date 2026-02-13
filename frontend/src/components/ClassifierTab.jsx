@@ -300,8 +300,8 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
       </nav>
 
       {activeSection === "calibration" ? (
-        <div className="classifier-grid">
-          <article className="classifier-card">
+        <div className="classifier-panel">
+          <article className="classifier-card classifier-form-card">
             <h2>Calibration</h2>
           <label>
             Calibration image
@@ -398,13 +398,11 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                 />
                 {roiStyle ? <div className="classifier-roi-rect" style={roiStyle} /> : null}
               </div>
-            ) : (
-              <p>Select a calibration image to preview ROI.</p>
-            )}
+            ) : null}
           </div>
         </div>
       ) : (
-        <article className="classifier-card batch-card">
+        <article className="classifier-card batch-card classifier-form-card">
           <div className="batch-header">
             <h2>Batch</h2>
             <p>Auto-parse chart candles, confirm low-confidence matches, then upload.</p>

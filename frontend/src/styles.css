@@ -1330,6 +1330,7 @@ button:disabled {
 .classifier-subtabs {
   display: inline-flex;
   gap: 8px;
+  justify-self: center;
 }
 
 .classifier-subtab {
@@ -1346,10 +1347,19 @@ button:disabled {
   border-color: rgba(158, 177, 255, 0.9);
 }
 
-.classifier-grid {
+.classifier-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
+}
+
+.classifier-form-card {
+  width: min(100%, 720px);
+  margin-inline: auto;
+}
+
+.classifier-preview-panel {
+  width: min(100%, 720px);
+  margin-inline: auto;
 }
 
 .classifier-card {
