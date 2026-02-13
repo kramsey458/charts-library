@@ -73,7 +73,7 @@ def timestamp_slug() -> str:
     return datetime.now(timezone.utc).isoformat().replace(":", "-").replace(".", "-")
 
 
-def human_pause(page, low_ms: int = 180, high_ms: int = 750) -> None:
+def human_pause(page, low_ms: int = 120, high_ms: int = 420) -> None:
     page.wait_for_timeout(random.randint(low_ms, high_ms))
 
 
@@ -86,7 +86,7 @@ def jitter_mouse(page) -> None:
     end_x = random.randint(int(width * 0.3), int(width * 0.7))
     end_y = random.randint(int(height * 0.3), int(height * 0.7))
 
-    steps = random.randint(10, 18)
+    steps = random.randint(6, 10)
     for i in range(steps):
         t = i / max(steps - 1, 1)
         wiggle_x = math.sin(t * math.pi * 2) * random.uniform(0.7, 2.2)
@@ -94,7 +94,7 @@ def jitter_mouse(page) -> None:
         x = start_x + (end_x - start_x) * t + wiggle_x
         y = start_y + (end_y - start_y) * t + wiggle_y
         page.mouse.move(x, y)
-        page.wait_for_timeout(random.randint(8, 28))
+        page.wait_for_timeout(random.randint(5, 16))
 
 
 def focus_chart(page) -> None:
@@ -113,20 +113,20 @@ def select_first_symbol_result(page, ticker: str) -> None:
     focus_chart(page)
 
     # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
-    page.keyboard.type(ticker, delay=random.randint(90, 170))
+    page.keyboard.type(ticker, delay=random.randint(45, 95))
 
     # Give the search window/results time to populate, then select first result.
-    human_pause(page, 700, 1300)
+    human_pause(page, 320, 780)
     page.keyboard.press("Enter")
 
     # Allow chart to switch symbol.
-    human_pause(page, 1400, 2500)
+    human_pause(page, 800, 1550)
 
 
 def trigger_save_shortcut(page) -> None:
     is_mac = platform.system().lower() == "darwin"
     shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
-    human_pause(page, 200, 850)
+    human_pause(page, 120, 360)
     page.keyboard.press(shortcut)
 
 
@@ -177,7 +177,7 @@ def apply_stealth(page) -> None:
     Stealth().apply_stealth_sync(page)
 
 
-def save_chart_image(page, output_dir: Path, ticker: str, index: int) -> Path | None:
+def save_chart_image(page, output_dir: Path, ticker: str) -> Path | None:
     try:
         with page.expect_download(timeout=20000) as download_info:
             trigger_save_shortcut(page)
@@ -190,7 +190,7 @@ def save_chart_image(page, output_dir: Path, ticker: str, index: int) -> Path | 
         )
         return None
 
-    filename = f"{index + 1:02d}_{ticker}_{timestamp_slug()}.png"
+    filename = f"{ticker}_{timestamp_slug()}.png"
     out_path = output_dir / filename
     download.save_as(str(out_path))
     return out_path
@@ -338,13 +338,13 @@ def main() -> int:
             for i, ticker in enumerate(tickers):
                 print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
                 select_first_symbol_result(page, ticker)
-                out_path = save_chart_image(page, output_dir, ticker, i)
+                out_path = save_chart_image(page, output_dir, ticker)
 
                 if out_path:
                     saved_paths.append(out_path)
                     print(f"Saved: {out_path}")
 
-                human_pause(page, 450, 1300)
+                human_pause(page, 220, 680)
 
             print("\nDone.")
             if saved_paths:
