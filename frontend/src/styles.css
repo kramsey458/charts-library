@@ -1348,9 +1348,6 @@ button:disabled {
   border-color: rgba(154, 171, 245, 0.8);
 }
 
-.classifier-pane-tab-hidden {
-  opacity: 0.55;
-}
 
 .classifier-grid {
   display: grid;

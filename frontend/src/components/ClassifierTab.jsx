@@ -294,12 +294,12 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         </button>
         <button
           type="button"
-          className={`classifier-pane-tab classifier-pane-tab-hidden ${activePane === "calibration" ? "is-active" : ""}`}
+          className={`classifier-pane-tab ${activePane === "calibration" ? "is-active" : ""}`}
           role="tab"
           aria-selected={activePane === "calibration"}
           onClick={() => setActivePane("calibration")}
         >
-          Calibration (hidden)
+          Calibration
         </button>
       </div>
 
