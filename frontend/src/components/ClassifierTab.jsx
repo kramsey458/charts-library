@@ -428,6 +428,24 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                         <span className={`parse-badge ${item.parseConfidence || "none"}`}>
                           {confidenceBadge[item.parseConfidence || "none"]}
                         </span>
+                        <span className="queue-status-pill">
+                          {item.error
+                            ? "error"
+                            : !canUploadByLabel
+                              ? "blocked"
+                              : !hasMetadata
+                                ? "missing metadata"
+                                : needsConfirm
+                                  ? "confirm"
+                                  : "ready"}
+                        </span>
+                        <button
+                          type="button"
+                          className="queue-delete-button"
+                          onClick={() => removeQueueItem(item.filename)}
+                        >
+                          Remove
+                        </button>
                       </div>
                     </div>
 
@@ -507,26 +525,6 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                     {item.uploadState === "uploaded" ? <p>Uploaded ✅</p> : null}
                   </div>
 
-                  <div className="queue-side-actions">
-                    <span className="queue-status-pill">
-                      {item.error
-                        ? "error"
-                        : !canUploadByLabel
-                          ? "blocked"
-                          : !hasMetadata
-                            ? "missing metadata"
-                            : needsConfirm
-                              ? "confirm"
-                              : "ready"}
-                    </span>
-                    <button
-                      type="button"
-                      className="queue-delete-button"
-                      onClick={() => removeQueueItem(item.filename)}
-                    >
-                      Remove
-                    </button>
-                  </div>
                 </li>
               );
             })}
