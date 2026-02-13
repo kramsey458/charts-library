@@ -146,6 +146,7 @@ class ChartService:
         date_label = form.get("date", "").strip() or datetime.date.today().isoformat()
         notes = form.get("notes", "").strip()
         checklist = sanitize_checklist({key: form.get(key, "") for key in CHECKLIST_KEYS})
+        classification = self.local.sanitize_classification(self._extract_classification_payload(form))
         chart_file = next((files.get(field_name) for field_name in image_field_names if files.get(field_name)), None)
 
         if not ticker:
@@ -160,9 +161,9 @@ class ChartService:
         filename = secure_filename(chart_file.filename)
 
         if self.is_external:
-            self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
+            self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, classification, chart_file)
         else:
-            self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, chart_file)
+            self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, classification, chart_file)
 
         return {
             "message": "Chart uploaded.",
@@ -173,6 +174,7 @@ class ChartService:
                 "url": f"/api/chart-file/{safe_ticker}/{safe_date}/{filename}",
                 "notes": notes,
                 "checklist": checklist,
+                **classification,
             },
         }, 201
 
@@ -216,10 +218,12 @@ class ChartService:
             if not chart:
                 return {"error": "Chart not found."}, 404
             checklist = sanitize_checklist(checklist_payload) if has_checklist_payload else sanitize_checklist(chart.get("checklist"))
-            self.external.update_chart_notes(chart["public_id"], normalized_ticker, date_label, filename, notes, checklist)
+            classification = self.local.sanitize_classification(chart)
+            self.external.update_chart_notes(chart["public_id"], normalized_ticker, date_label, filename, notes, checklist, classification)
         else:
             chart_path = self.settings.storage_dir / normalized_ticker / date_label / filename
             checklist = sanitize_checklist(checklist_payload) if has_checklist_payload else self.local.read_checklist(chart_path)
+            classification = self.local.read_classification(chart_path)
             updated = self.local.update_notes(normalized_ticker, date_label, filename, notes, checklist)
             if not updated:
                 return {"error": "Chart not found."}, 404
@@ -232,6 +236,7 @@ class ChartService:
                 "filename": filename,
                 "notes": notes,
                 "checklist": checklist,
+                **classification,
             },
         }, 200
 
@@ -250,6 +255,42 @@ class ChartService:
             ),
             None,
         )
+
+    def _extract_classification_payload(self, form) -> dict[str, Any]:
+        payload = {
+            "classification_label": form.get("classification_label"),
+            "classification_red_pixels": form.get("classification_red_pixels"),
+            "classification_yellow_pixels": form.get("classification_yellow_pixels"),
+            "classifier_config_version": form.get("classifier_config_version"),
+            "classification_timestamp": form.get("classification_timestamp"),
+        }
+
+        has_embedded_payload = any(value not in (None, "") for value in payload.values())
+        raw_payload = form.get("classification")
+        if not raw_payload:
+            return payload if has_embedded_payload else {}
+
+        try:
+            parsed = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            return payload if has_embedded_payload else {}
+
+        if not isinstance(parsed, dict):
+            return payload if has_embedded_payload else {}
+
+        parsed_payload = {
+            "classification_label": parsed.get("classification_label"),
+            "classification_red_pixels": parsed.get("classification_red_pixels"),
+            "classification_yellow_pixels": parsed.get("classification_yellow_pixels"),
+            "classifier_config_version": parsed.get("classifier_config_version"),
+            "classification_timestamp": parsed.get("classification_timestamp"),
+        }
+
+        for key, value in payload.items():
+            if value not in (None, ""):
+                parsed_payload[key] = value
+
+        return parsed_payload
 
     def _extract_override_payload(self, form) -> dict[str, Any]:
         config_field = form.get("config")
@@ -369,7 +410,16 @@ class ChartService:
             }
 
             if do_upload and decision == "accept":
-                upload_form = {"ticker": meta["ticker"], "date": meta["date"], "notes": "Auto-uploaded by classifier"}
+                upload_form = {
+                    "ticker": meta["ticker"],
+                    "date": meta["date"],
+                    "notes": "Auto-uploaded by classifier",
+                    "classification_label": label,
+                    "classification_red_pixels": classify_result["scores"]["red_pixels"],
+                    "classification_yellow_pixels": classify_result["scores"]["yellow_pixels"],
+                    "classifier_config_version": "batch-default",
+                    "classification_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                }
                 chart_file.stream.seek(0)
                 payload, status = self.upload_chart(upload_form, {"chart": chart_file})
                 per_file["upload_result"] = {"status": status, "payload": payload}

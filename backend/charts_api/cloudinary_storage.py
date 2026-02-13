@@ -10,6 +10,7 @@ import requests
 from werkzeug.utils import secure_filename
 
 from .checklist import empty_checklist, encode_checklist_context, parse_checklist_context
+from .local_storage import LocalStorage
 
 
 class CloudinaryStorage:
@@ -22,10 +23,25 @@ class CloudinaryStorage:
     def has_credentials(self) -> bool:
         return bool(self.cloud_name and self.api_key and self.api_secret)
 
-    def build_context(self, *, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool]) -> str:
+    def build_context(
+        self,
+        *,
+        ticker: str,
+        date_label: str,
+        filename: str,
+        notes: str,
+        checklist: dict[str, bool],
+        classification: dict[str, Any] | None,
+    ) -> str:
+        safe_classification = LocalStorage.sanitize_classification(classification)
         return (
             f"ticker={ticker}|date={date_label}|filename={filename}|"
-            f"notes={quote(notes)}|checklist={encode_checklist_context(checklist)}"
+            f"notes={quote(notes)}|checklist={encode_checklist_context(checklist)}|"
+            f"classification_label={quote(str(safe_classification.get('classification_label') or ''))}|"
+            f"classification_red_pixels={safe_classification.get('classification_red_pixels') or ''}|"
+            f"classification_yellow_pixels={safe_classification.get('classification_yellow_pixels') or ''}|"
+            f"classifier_config_version={quote(str(safe_classification.get('classifier_config_version') or ''))}|"
+            f"classification_timestamp={quote(str(safe_classification.get('classification_timestamp') or ''))}"
         )
 
     def signature(self, params: dict[str, Any]) -> str:
@@ -92,6 +108,15 @@ class CloudinaryStorage:
                     "filename": filename,
                     "notes": notes,
                     "checklist": parse_checklist_context(context.get("checklist", "")),
+                    **LocalStorage.sanitize_classification(
+                        {
+                            "classification_label": unquote(str(context.get("classification_label", ""))),
+                            "classification_red_pixels": context.get("classification_red_pixels"),
+                            "classification_yellow_pixels": context.get("classification_yellow_pixels"),
+                            "classifier_config_version": unquote(str(context.get("classifier_config_version", ""))),
+                            "classification_timestamp": unquote(str(context.get("classification_timestamp", ""))),
+                        }
+                    ),
                     "public_id": resource.get("public_id", ""),
                     "secure_url": resource.get("secure_url", ""),
                     "created_at": resource.get("created_at", ""),
@@ -101,7 +126,16 @@ class CloudinaryStorage:
         charts.sort(key=lambda c: (c["ticker"], c["date"], c["filename"], c["created_at"]))
         return charts
 
-    def upload_chart(self, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool], chart_file) -> None:
+    def upload_chart(
+        self,
+        ticker: str,
+        date_label: str,
+        filename: str,
+        notes: str,
+        checklist: dict[str, bool],
+        classification: dict[str, Any] | None,
+        chart_file,
+    ) -> None:
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         folder = f"{self.folder}/{ticker}/{date_label}"
         safe_base_name = secure_filename(Path(filename).stem) or "chart"
@@ -112,6 +146,7 @@ class CloudinaryStorage:
             filename=filename,
             notes=notes,
             checklist=checklist,
+            classification=classification,
         )
         signature = self.signature({"context": context, "overwrite": "true", "public_id": public_id, "timestamp": timestamp})
         chart_file.stream.seek(0)
@@ -135,7 +170,16 @@ class CloudinaryStorage:
                 message = "Cloudinary upload failed."
             raise RuntimeError(message or "Cloudinary upload failed.")
 
-    def update_chart_notes(self, public_id: str, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool]) -> None:
+    def update_chart_notes(
+        self,
+        public_id: str,
+        ticker: str,
+        date_label: str,
+        filename: str,
+        notes: str,
+        checklist: dict[str, bool],
+        classification: dict[str, Any] | None,
+    ) -> None:
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         context = self.build_context(
             ticker=ticker,
@@ -143,6 +187,7 @@ class CloudinaryStorage:
             filename=filename,
             notes=notes,
             checklist=checklist,
+            classification=classification,
         )
         signature = self.signature(
             {"context": context, "public_id": public_id, "timestamp": timestamp, "type": "upload"}
@@ -195,4 +240,9 @@ class CloudinaryStorage:
             "url": f"/api/chart-file/{chart['ticker']}/{chart['date']}/{chart['filename']}",
             "notes": chart.get("notes", ""),
             "checklist": chart.get("checklist", empty_checklist()),
+            "classification_label": chart.get("classification_label"),
+            "classification_red_pixels": chart.get("classification_red_pixels"),
+            "classification_yellow_pixels": chart.get("classification_yellow_pixels"),
+            "classifier_config_version": chart.get("classifier_config_version"),
+            "classification_timestamp": chart.get("classification_timestamp"),
         }

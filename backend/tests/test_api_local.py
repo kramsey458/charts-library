@@ -3,20 +3,24 @@ from __future__ import annotations
 import io
 
 
-def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", notes="Base case"):
+def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", notes="Base case", classification=None):
+    data = {
+        "ticker": ticker,
+        "date": date,
+        "notes": notes,
+        "red_candle": "true",
+        "yellow_candle": "true",
+        "trend_bullish": "false",
+        "trend_bearish": "true",
+        "macd_minus_cross": "true",
+        "chart": (fileobj, filename),
+    }
+    if classification:
+        data.update(classification)
+
     return client.post(
         "/api/charts",
-        data={
-            "ticker": ticker,
-            "date": date,
-            "notes": notes,
-            "red_candle": "true",
-            "yellow_candle": "true",
-            "trend_bullish": "false",
-            "trend_bearish": "true",
-            "macd_minus_cross": "true",
-            "chart": (fileobj, filename),
-        },
+        data=data,
         content_type="multipart/form-data",
     )
 
@@ -43,6 +47,7 @@ def test_upload_list_patch_and_delete_flow(client, png_file):
     assert uploaded["checklist"]["yellow_candle"] is True
     assert uploaded["checklist"]["trend_bearish"] is True
     assert uploaded["checklist"]["macd_minus_cross"] is True
+    assert uploaded["classification_label"] is None
 
     tickers = client.get("/api/tickers").get_json()
     assert tickers["tickers"] == ["VG"]
@@ -129,3 +134,46 @@ def test_rest_upload_endpoint_requires_an_image_file(client):
 
     assert response.status_code == 400
     assert response.get_json()["error"] == "Chart image is required."
+
+
+def test_upload_persists_and_lists_classification_metadata(client, png_file):
+    fileobj, filename = png_file
+    classification = {
+        "classification_label": "yellow",
+        "classification_red_pixels": "11",
+        "classification_yellow_pixels": "37",
+        "classifier_config_version": "v2026.02.13",
+        "classification_timestamp": "2026-02-13T12:34:56Z",
+    }
+
+    response = upload_chart(client, fileobj, filename, ticker="NVDA", classification=classification)
+    assert response.status_code == 201
+
+    uploaded = response.get_json()["chart"]
+    assert uploaded["classification_label"] == "yellow"
+    assert uploaded["classification_red_pixels"] == 11
+    assert uploaded["classification_yellow_pixels"] == 37
+    assert uploaded["classifier_config_version"] == "v2026.02.13"
+    assert uploaded["classification_timestamp"] == "2026-02-13T12:34:56Z"
+
+    charts = client.get("/api/charts/NVDA")
+    assert charts.status_code == 200
+    listed = charts.get_json()["charts"][0]
+    assert listed["classification_label"] == "yellow"
+    assert listed["classification_red_pixels"] == 11
+    assert listed["classification_yellow_pixels"] == 37
+    assert listed["classifier_config_version"] == "v2026.02.13"
+    assert listed["classification_timestamp"] == "2026-02-13T12:34:56Z"
+
+    patch = client.patch(
+        f"/api/charts/NVDA/{listed['date']}/{listed['filename']}/notes",
+        json={"notes": "preserve classifier metadata"},
+    )
+    assert patch.status_code == 200
+    patched = patch.get_json()["chart"]
+    assert patched["classification_label"] == "yellow"
+    assert patched["classification_red_pixels"] == 11
+    assert patched["classification_yellow_pixels"] == 37
+    assert patched["classifier_config_version"] == "v2026.02.13"
+    assert patched["classification_timestamp"] == "2026-02-13T12:34:56Z"
+
