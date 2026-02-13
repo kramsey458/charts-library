@@ -10,6 +10,7 @@ import {
   fetchJson,
   getChartKey,
 } from "./lib/chartHelpers";
+import ClassifierTab from "./components/ClassifierTab";
 
 const emptyState = {
   tickers: [],
@@ -17,6 +18,7 @@ const emptyState = {
 };
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState("library");
   const [tickers, setTickers] = useState(emptyState.tickers);
   const [selectedTicker, setSelectedTicker] = useState("");
   const [tickerSearch, setTickerSearch] = useState("");
@@ -563,6 +565,16 @@ export default function App() {
     }
   }, [selectedTicker]);
 
+  const handleClassifierBatchUploadComplete = async (uploadedTickers = []) => {
+    await loadTickers();
+    const preferredTicker = uploadedTickers.find((ticker) => ticker)?.trim().toUpperCase();
+    const targetTicker = preferredTicker || selectedTicker;
+    if (targetTicker) {
+      setSelectedTicker(targetTicker);
+      await loadCharts(targetTicker);
+    }
+  };
+
   useEffect(() => {
     if (selectedLibraryChecklistFilterKeys.length === 0 || tickers.length === 0) {
       setLibraryFilteredChartCounts({});
@@ -920,6 +932,25 @@ export default function App() {
         </div>
       </header>
 
+      <nav className="top-tabs" aria-label="Primary tabs">
+        <button
+          type="button"
+          className={`top-tab ${activeTab === "library" ? "is-active" : ""}`.trim()}
+          onClick={() => setActiveTab("library")}
+        >
+          Library
+        </button>
+        <button
+          type="button"
+          className={`top-tab ${activeTab === "classifier" ? "is-active" : ""}`.trim()}
+          onClick={() => setActiveTab("classifier")}
+        >
+          Classifier
+        </button>
+      </nav>
+
+      {activeTab === "library" ? (
+        <>
       <section className="controls">
         <div className="selector">
           <label htmlFor="ticker-search">Ticker library</label>
@@ -1710,6 +1741,10 @@ export default function App() {
           </div>
         </div>
       ) : null}
+        </>
+      ) : (
+        <ClassifierTab onBatchUploadComplete={handleClassifierBatchUploadComplete} />
+      )}
     </div>
   );
 }
