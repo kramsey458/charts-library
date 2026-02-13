@@ -1431,6 +1431,16 @@ export default function App() {
                 <div className="chart-grid">
                   {groupedCharts[date].map((chart) => (
                     <div className="chart-card" key={`${chart.date}-${chart.filename}`}>
+                      <button
+                        type="button"
+                        className="delete-button"
+                        onClick={() => handleDeleteChart(chart)}
+                        disabled={status === "deleting"}
+                        aria-label={`Delete ${chart.filename}`}
+                        title="Delete chart"
+                      >
+                        🗑️
+                      </button>
                       <div className="chart-checklist-preview" title={buildChecklistSummary(chart.checklist)}>
                         {buildChecklistSummary(chart.checklist)}
                       </div>
@@ -1483,14 +1493,6 @@ export default function App() {
                           ✎
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        className="delete-button"
-                        onClick={() => handleDeleteChart(chart)}
-                        disabled={status === "deleting"}
-                      >
-                        Delete
-                      </button>
                     </div>
                   ))}
                 </div>
