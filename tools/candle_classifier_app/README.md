@@ -1,6 +1,6 @@
 # Candle Classifier App
 
-Standalone utility for calibrating HSV thresholds/ROI and classifying chart PNG files by red-vs-yellow candle dominance.
+Standalone utility for calibrating HSV thresholds/ROI and classifying chart PNG files by red/yellow/none candle state.
 
 ## Features
 
@@ -126,6 +126,6 @@ Generated CSV (`classification_report.csv`):
 
 ```csv
 filename,label,red_pixels,yellow_pixels
-chart_001.png,red_dominant,1243,932
-chart_002.png,yellow_dominant,421,1102
+chart_001.png,red,1243,932
+chart_002.png,yellow,421,1102
 ```

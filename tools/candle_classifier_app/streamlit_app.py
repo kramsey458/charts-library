@@ -107,14 +107,16 @@ if mode == "Calibration":
         red1 = hsv_range_editor("Red #1", config.red_range_1)
         red2 = hsv_range_editor("Red #2", config.red_range_2)
         yellow = hsv_range_editor("Yellow", config.yellow_range)
-        threshold = st.number_input("Red-vs-yellow label threshold", value=int(config.label_threshold), step=1)
+        min_pixels = st.number_input("Minimum pixels for color decision", value=int(config.min_pixels), step=1, min_value=0)
+        dominance_ratio = st.number_input("Dominance ratio", value=float(config.dominance_ratio), step=0.05, min_value=1.0)
 
         live_config = ClassifierConfig(
             red_range_1=red1,
             red_range_2=red2,
             yellow_range=yellow,
             roi=ROI(roi_x, roi_y, roi_w, roi_h),
-            label_threshold=int(threshold),
+            min_pixels=int(min_pixels),
+            dominance_ratio=float(dominance_ratio),
         )
         result = classify_image(image_bgr, live_config)
         overlay = build_overlay(result["roi_image"], result["red_mask"], result["yellow_mask"])
