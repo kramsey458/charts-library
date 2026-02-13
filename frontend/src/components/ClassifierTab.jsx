@@ -163,6 +163,23 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     [batchQueue, policy]
   );
 
+  const batchColorCounts = useMemo(
+    () =>
+      batchQueue.reduce(
+        (counts, item) => {
+          if (item.label === "red") {
+            counts.red += 1;
+          }
+          if (item.label === "yellow") {
+            counts.yellow += 1;
+          }
+          return counts;
+        },
+        { red: 0, yellow: 0 }
+      ),
+    [batchQueue]
+  );
+
   const updateHsv = (rangeName, bound, index, value) => {
     setConfig((prev) => {
       const nextRange = { ...prev[rangeName], [bound]: [...prev[rangeName][bound]] };
@@ -449,9 +466,14 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
             </label>
           </div>
 
-          <p className="batch-summary">
-            {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
-          </p>
+          <div className="batch-summary-row">
+            <p className="batch-summary">
+              {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
+            </p>
+            <p className="batch-color-counts">
+              Red: {batchColorCounts.red} • Yellow: {batchColorCounts.yellow}
+            </p>
+          </div>
           <ul className="classifier-queue">
             {batchQueue.map((item, index) => {
               const canUploadByLabel = shouldUploadByPolicy(item.label, policy);
@@ -572,7 +594,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
           <button
             type="button"
-            className="classifier-primary-button"
+            className="classifier-primary-button batch-upload-action"
             onClick={uploadAllowed}
             disabled={batchStatus === "uploading" || allowedUploads.length === 0}
           >

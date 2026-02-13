@@ -1485,9 +1485,14 @@ button:disabled {
 }
 
 
+.batch-upload-action {
+  margin-top: 0;
+}
+
 .batch-card {
   gap: 14px;
   align-content: start;
+  min-height: 100%;
 }
 
 .batch-header p {
@@ -1551,9 +1556,24 @@ button:disabled {
   background: #b9c7ff;
   box-shadow: inset 0 0 0 2px rgba(70, 92, 210, 0.9);
 }
+.batch-summary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .batch-summary {
   color: #aebbeb;
   font-size: 0.86rem;
+}
+
+.batch-color-counts {
+  color: #d6dfff;
+  font-size: 0.86rem;
+  margin-left: auto;
+  text-align: right;
 }
 
 .batch-confidence-help {
@@ -1563,7 +1583,9 @@ button:disabled {
 }
 
 .classifier-queue {
-  max-height: 460px;
+  flex: 1;
+  min-height: 0;
+  max-height: min(72vh, 860px);
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -1680,6 +1702,15 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .batch-summary-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .batch-color-counts {
+    margin-left: 0;
+    text-align: left;
+  }
 }
 
 @media (max-width: 980px) {
