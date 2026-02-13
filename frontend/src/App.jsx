@@ -104,12 +104,15 @@ export default function App() {
       return;
     }
 
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
     setSlideshowIndex(0);
     setIsSlideshowOpen(true);
   };
 
   const closeSlideshow = () => {
-    if (document.fullscreenElement === slideshowRef.current) {
+    if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
     setIsSlideshowOpen(false);
@@ -395,6 +398,9 @@ export default function App() {
     const chartIndex = getChartIndexInList(chart, sortedCharts);
 
     closeChartPreview();
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    }
     setSlideshowSortOrder(defaultOrder);
     setSlideshowStartDate(defaultStartDate);
     setSlideshowEndDate(defaultEndDate);
@@ -580,15 +586,6 @@ export default function App() {
   }, [isSlideshowOpen, previewChart]);
 
   useEffect(() => {
-    if (!isSlideshowOpen || !slideshowRef.current) {
-      return undefined;
-    }
-
-    slideshowRef.current.requestFullscreen().catch(() => {});
-    return undefined;
-  }, [isSlideshowOpen]);
-
-  useEffect(() => {
     if (!isSlideshowOpen) {
       return undefined;
     }
@@ -633,7 +630,7 @@ export default function App() {
     }
 
     const onFullscreenChange = () => {
-      if (document.fullscreenElement !== slideshowRef.current) {
+      if (!document.fullscreenElement) {
         setIsSlideshowOpen(false);
       }
     };
