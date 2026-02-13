@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchJson } from "../lib/chartHelpers";
 import { parseBatchFilename } from "../lib/batchFilenameParser";
@@ -54,6 +54,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [batchQueue, setBatchQueue] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: false, uploadYellow: true, skipNone: true });
+  const calibrationInputRef = useRef(null);
 
   useEffect(() => {
     fetchJson("/api/classifier/config")
@@ -261,6 +262,16 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     planBatch(files);
   };
 
+  const clearCalibrationFile = () => {
+    setCalibrationFile(null);
+    setMetrics({ red_pixels: 0, yellow_pixels: 0, label: "none" });
+    setCalibrationStatus("idle");
+
+    if (calibrationInputRef.current) {
+      calibrationInputRef.current.value = "";
+    }
+  };
+
   const uploadAllowed = async () => {
     if (!allowedUploads.length) {
       return;
@@ -324,11 +335,22 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
           <h2>Calibration</h2>
           <label>
             Calibration image
-            <input
-              type="file"
-              accept="image/png,image/*"
-              onChange={(event) => setCalibrationFile(event.target.files?.[0] || null)}
-            />
+            <div className="calibration-file-row">
+              <input
+                ref={calibrationInputRef}
+                type="file"
+                accept="image/png,image/*"
+                onChange={(event) => setCalibrationFile(event.target.files?.[0] || null)}
+              />
+              <button
+                type="button"
+                className="queue-delete-button calibration-clear-button"
+                onClick={clearCalibrationFile}
+                disabled={!calibrationFile}
+              >
+                Clear
+              </button>
+            </div>
           </label>
 
           <div className="classifier-roi-controls">
