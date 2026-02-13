@@ -496,6 +496,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
                     {item.requiresConfirmation ? (
                       <label className="confirm-parse-checkbox">
+                        <span>Confirm parsed/edited metadata</span>
                         <input
                           type="checkbox"
                           checked={Boolean(item.isConfirmed)}
@@ -503,7 +504,6 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
                             updateQueueItem(item.filename, { isConfirmed: event.target.checked })
                           }
                         />
-                        <span>Confirm parsed/edited metadata</span>
                       </label>
                     ) : null}
 
