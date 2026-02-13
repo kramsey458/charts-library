@@ -395,10 +395,6 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
           <p className="batch-summary">
             {batchQueue.length} queued • {allowedUploads.length} ready • {batchStatus === "planning" ? "Classifying…" : "Ready"}
           </p>
-          <p className="batch-confidence-help">
-            High confidence = exact filename match (`TICKER_DATE` or `DATE_TICKER`) • Needs confirmation = heuristic parse • Parse failed = required metadata missing.
-          </p>
-
           <ul className="classifier-queue">
             {batchQueue.map((item) => {
               const canUploadByLabel = shouldUploadByPolicy(item.label, policy);
