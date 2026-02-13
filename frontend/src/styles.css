@@ -1396,3 +1396,55 @@ button:disabled {
   display: grid;
   gap: 6px;
 }
+
+.classifier-queue-main {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.parse-badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.parse-badge {
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.parse-badge.high {
+  background: rgba(54, 179, 126, 0.22);
+  border-color: rgba(54, 179, 126, 0.6);
+}
+
+.parse-badge.medium {
+  background: rgba(255, 190, 42, 0.2);
+  border-color: rgba(255, 190, 42, 0.6);
+}
+
+.parse-badge.none {
+  background: rgba(255, 95, 95, 0.18);
+  border-color: rgba(255, 95, 95, 0.55);
+}
+
+.parse-reason {
+  color: #bfc9ec;
+  font-size: 0.8rem;
+}
+
+.queue-meta-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.confirm-parse-checkbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchJson } from "../lib/chartHelpers";
+import { parseBatchFilename } from "../lib/batchFilenameParser";
 import { filterQueueByPolicy, shouldUploadByPolicy } from "../lib/classifierHelpers";
 
 const defaultConfig = {
@@ -15,6 +16,12 @@ const defaultConfig = {
 const rangeFields = ["red_range_1", "red_range_2", "yellow_range"];
 const hsvKeys = ["H", "S", "V"];
 
+const confidenceBadge = {
+  high: "High confidence",
+  medium: "Needs confirmation",
+  none: "Parse failed",
+};
+
 export default function ClassifierTab() {
   const [config, setConfig] = useState(defaultConfig);
   const [calibrationFile, setCalibrationFile] = useState(null);
@@ -25,7 +32,6 @@ export default function ClassifierTab() {
   const [saveStatus, setSaveStatus] = useState("idle");
   const [error, setError] = useState("");
 
-  const [batchFiles, setBatchFiles] = useState([]);
   const [batchQueue, setBatchQueue] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: false, uploadYellow: true, skipNone: true });
@@ -62,11 +68,7 @@ export default function ClassifierTab() {
         formData.append("image", calibrationFile);
         formData.append("config", JSON.stringify(config));
         const result = await fetchJson("/api/classifier/preview", { method: "POST", body: formData });
-        setMetrics({
-          red_pixels: result.red_pixels ?? 0,
-          yellow_pixels: result.yellow_pixels ?? 0,
-          label: result.label ?? "none",
-        });
+        setMetrics({ red_pixels: result.red_pixels ?? 0, yellow_pixels: result.yellow_pixels ?? 0, label: result.label ?? "none" });
       } catch (err) {
         setError(err.message);
       } finally {
@@ -89,7 +91,13 @@ export default function ClassifierTab() {
     };
   }, [config.roi, imageSize]);
 
-  const allowedUploads = useMemo(() => filterQueueByPolicy(batchQueue, policy), [batchQueue, policy]);
+  const allowedUploads = useMemo(
+    () =>
+      filterQueueByPolicy(batchQueue, policy).filter(
+        (item) => item.file && item.ticker && item.date && (!item.requiresConfirmation || item.isConfirmed)
+      ),
+    [batchQueue, policy]
+  );
 
   const updateHsv = (rangeName, bound, index, value) => {
     setConfig((prev) => {
@@ -97,6 +105,10 @@ export default function ClassifierTab() {
       nextRange[bound][index] = Number(value);
       return { ...prev, [rangeName]: nextRange };
     });
+  };
+
+  const updateQueueItem = (filename, updates) => {
+    setBatchQueue((prev) => prev.map((item) => (item.filename === filename ? { ...item, ...updates } : item)));
   };
 
   const saveConfig = async () => {
@@ -121,13 +133,34 @@ export default function ClassifierTab() {
       setBatchQueue([]);
       return;
     }
+
+    const parsedMetadata = files.map((file) => ({ filename: file.name, ...parseBatchFilename(file.name) }));
+
     setBatchStatus("planning");
     setError("");
+
     try {
       const formData = new FormData();
       files.forEach((file) => formData.append("charts", file));
+      formData.append("metadata", JSON.stringify(parsedMetadata));
       const payload = await fetchJson("/api/classifier/batch/plan", { method: "POST", body: formData });
-      setBatchQueue((payload.results || []).map((item, index) => ({ ...item, file: files[index] || null })));
+      const results = payload.results || [];
+
+      setBatchQueue(
+        results.map((item, index) => {
+          const parsed = parsedMetadata[index] || parseBatchFilename(item.filename);
+          return {
+            ...item,
+            file: files[index] || null,
+            ticker: parsed.ticker || item.ticker || "",
+            date: parsed.date || item.date || "",
+            parseConfidence: parsed.confidence,
+            parseReason: parsed.reason,
+            requiresConfirmation: parsed.requiresConfirmation,
+            isConfirmed: parsed.requiresConfirmation ? false : true,
+          };
+        })
+      );
     } catch (err) {
       setError(err.message);
       setBatchQueue([]);
@@ -138,13 +171,11 @@ export default function ClassifierTab() {
 
   const handleBatchFiles = (event) => {
     const files = Array.from(event.target.files || []);
-    setBatchFiles(files);
     planBatch(files);
   };
 
   const uploadAllowed = async () => {
-    const queue = filterQueueByPolicy(batchQueue, policy).filter((item) => item.file);
-    if (!queue.length) {
+    if (!allowedUploads.length) {
       return;
     }
 
@@ -152,19 +183,23 @@ export default function ClassifierTab() {
     setError("");
     const nextQueue = [...batchQueue];
 
-    for (const item of queue) {
+    for (const item of allowedUploads) {
       try {
         const formData = new FormData();
-        formData.append("ticker", item.ticker || "UNKNOWN");
-        formData.append("date", item.date || "");
+        formData.append("ticker", item.ticker.trim().toUpperCase());
+        formData.append("date", item.date);
         formData.append("chart", item.file);
         formData.append("notes", "Uploaded by classifier tab");
         formData.append("classification_label", item.label);
         formData.append("classification_red_pixels", String(item.red_pixels || 0));
         formData.append("classification_yellow_pixels", String(item.yellow_pixels || 0));
+        formData.append(
+          "parsed_metadata",
+          JSON.stringify({ filename: item.filename, ticker: item.ticker, date: item.date, parseConfidence: item.parseConfidence })
+        );
         await fetchJson("/api/charts", { method: "POST", body: formData });
         const idx = nextQueue.findIndex((q) => q.filename === item.filename);
-        if (idx >= 0) nextQueue[idx] = { ...nextQueue[idx], uploadState: "uploaded" };
+        if (idx >= 0) nextQueue[idx] = { ...nextQueue[idx], uploadState: "uploaded", uploadError: "" };
       } catch (err) {
         const idx = nextQueue.findIndex((q) => q.filename === item.filename);
         if (idx >= 0) nextQueue[idx] = { ...nextQueue[idx], uploadState: "failed", uploadError: err.message };
@@ -194,10 +229,7 @@ export default function ClassifierTab() {
                   min={0}
                   value={config.roi[key]}
                   onChange={(event) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      roi: { ...prev.roi, [key]: Math.max(0, Number(event.target.value) || 0) },
-                    }))
+                    setConfig((prev) => ({ ...prev, roi: { ...prev.roi, [key]: Math.max(0, Number(event.target.value) || 0) } }))
                   }
                 />
               </label>
@@ -247,29 +279,72 @@ export default function ClassifierTab() {
             Select images
             <input type="file" accept="image/png,image/*" multiple onChange={handleBatchFiles} />
           </label>
+
           <div className="batch-policy-controls">
             <label><input type="checkbox" checked={policy.uploadRed} onChange={(event) => setPolicy((prev) => ({ ...prev, uploadRed: event.target.checked }))} /> Upload red</label>
             <label><input type="checkbox" checked={policy.uploadYellow} onChange={(event) => setPolicy((prev) => ({ ...prev, uploadYellow: event.target.checked }))} /> Upload yellow</label>
             <label><input type="checkbox" checked={policy.skipNone} onChange={(event) => setPolicy((prev) => ({ ...prev, skipNone: event.target.checked }))} /> Skip none</label>
           </div>
 
-          <p>{batchFiles.length} file(s) selected • {allowedUploads.length} allowed by current policy</p>
+          <p>{batchQueue.length} file(s) in queue • {allowedUploads.length} ready to upload</p>
           {batchStatus === "planning" ? <p>Classifying queue…</p> : null}
 
           <ul className="classifier-queue">
-            {batchQueue.map((item) => (
-              <li key={item.filename}>
-                <div>
-                  <strong>{item.filename}</strong>
-                  {item.error ? <p>{item.error}</p> : <p>{item.label} • red: {item.red_pixels} • yellow: {item.yellow_pixels}</p>}
-                </div>
-                <span>{item.error ? "error" : shouldUploadByPolicy(item.label, policy) ? "will upload" : "blocked"}</span>
-              </li>
-            ))}
+            {batchQueue.map((item) => {
+              const canUploadByLabel = shouldUploadByPolicy(item.label, policy);
+              const hasMetadata = Boolean(item.ticker && item.date);
+              const needsConfirm = item.requiresConfirmation && !item.isConfirmed;
+
+              return (
+                <li key={item.filename}>
+                  <div className="classifier-queue-main">
+                    <strong>{item.filename}</strong>
+                    {item.error ? <p>{item.error}</p> : <p>{item.label} • red: {item.red_pixels} • yellow: {item.yellow_pixels}</p>}
+                    <div className="parse-badges">
+                      <span className={`parse-badge ${item.parseConfidence || "none"}`}>{confidenceBadge[item.parseConfidence || "none"]}</span>
+                      <span className="parse-reason">{item.parseReason}</span>
+                    </div>
+                    <div className="queue-meta-fields">
+                      <label>
+                        Ticker
+                        <input
+                          value={item.ticker || ""}
+                          onChange={(event) => updateQueueItem(item.filename, { ticker: event.target.value.toUpperCase(), isConfirmed: false })}
+                          placeholder="VG"
+                        />
+                      </label>
+                      <label>
+                        Date
+                        <input
+                          type="date"
+                          value={item.date || ""}
+                          onChange={(event) => updateQueueItem(item.filename, { date: event.target.value, isConfirmed: false })}
+                        />
+                      </label>
+                    </div>
+                    {item.requiresConfirmation ? (
+                      <label className="confirm-parse-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(item.isConfirmed)}
+                          onChange={(event) => updateQueueItem(item.filename, { isConfirmed: event.target.checked })}
+                        />
+                        Confirm parsed/edited metadata
+                      </label>
+                    ) : null}
+                    {item.uploadState === "failed" ? <p className="status-message">Upload failed: {item.uploadError}</p> : null}
+                    {item.uploadState === "uploaded" ? <p>Uploaded ✅</p> : null}
+                  </div>
+                  <span>
+                    {item.error ? "error" : !canUploadByLabel ? "blocked by policy" : !hasMetadata ? "missing ticker/date" : needsConfirm ? "needs confirmation" : "ready"}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
 
           <button type="button" onClick={uploadAllowed} disabled={batchStatus === "uploading" || allowedUploads.length === 0}>
-            {batchStatus === "uploading" ? "Uploading..." : "Upload allowed"}
+            {batchStatus === "uploading" ? "Uploading..." : "Upload ready items"}
           </button>
         </article>
       </div>
