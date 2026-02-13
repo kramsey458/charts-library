@@ -61,7 +61,8 @@ Workflow:
 2. Upload a sample `.png` chart.
 3. Adjust ROI sliders and HSV ranges.
 4. Check mask overlay + `Red pixels` / `Yellow pixels` metrics.
-5. Click **Save classifier_config.json**.
+5. Use **Browse config file** in the sidebar (optional) to load/save a different config path.
+6. Click **Save classifier_config.json**.
 
 Expected output (UI): success message similar to:
 
@@ -93,7 +94,7 @@ Expected output (UI):
 Processed N image(s). CSV saved to /.../classification_report.csv
 ```
 
-> Note: Browse buttons use a native dialog (Windows Explorer on Windows) via `tkinter`.
+> Note: Browse buttons (including **Browse config file**) use a native dialog (Windows Explorer on Windows) via `tkinter`.
 > On headless/Linux environments where GUI dialogs are unavailable, enter paths manually.
 
 ## 3) Batch mode (CLI fallback)
