@@ -56,6 +56,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: true, uploadYellow: true, skipNone: false });
   const calibrationInputRef = useRef(null);
+  const calibrationRequestRef = useRef(0);
   const batchPlanRequestRef = useRef(0);
 
   useEffect(() => {
@@ -117,8 +118,12 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   useEffect(() => {
     if (!calibrationFile) {
+      calibrationRequestRef.current += 1;
       return;
     }
+    const requestId = calibrationRequestRef.current + 1;
+    calibrationRequestRef.current = requestId;
+
     const timer = setTimeout(async () => {
       setCalibrationStatus("loading");
       setError("");
@@ -127,15 +132,23 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         formData.append("image", calibrationFile);
         formData.append("config", JSON.stringify(config));
         const result = await fetchJson("/api/classifier/preview", { method: "POST", body: formData });
+        if (requestId !== calibrationRequestRef.current) {
+          return;
+        }
         setMetrics({
           red_pixels: result.red_pixels ?? 0,
           yellow_pixels: result.yellow_pixels ?? 0,
           label: result.label ?? "none",
         });
       } catch (err) {
+        if (requestId !== calibrationRequestRef.current) {
+          return;
+        }
         setError(err.message);
       } finally {
-        setCalibrationStatus("idle");
+        if (requestId === calibrationRequestRef.current) {
+          setCalibrationStatus("idle");
+        }
       }
     }, 250);
 
@@ -306,6 +319,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   };
 
   const clearCalibrationFile = () => {
+    calibrationRequestRef.current += 1;
     setCalibrationFile(null);
     setMetrics({ red_pixels: 0, yellow_pixels: 0, label: "none" });
     setCalibrationStatus("idle");

@@ -150,3 +150,33 @@ def test_classifier_batch_plan_uses_same_config_override_as_preview(client):
     )
     assert plan_response.status_code == 200
     assert plan_response.get_json()['results'][0]['label'] == 'none'
+
+
+def test_classifier_batch_upload_uses_config_override(client):
+    image_bytes = _png_bytes_with_color((0, 255, 255))
+    override_config = {
+        'roi': {'x': 319, 'y': 239, 'width': 1, 'height': 1},
+        'red_range_1': {'lower': [0, 80, 80], 'upper': [10, 255, 255]},
+        'red_range_2': {'lower': [170, 80, 80], 'upper': [180, 255, 255]},
+        'yellow_range': {'lower': [18, 80, 80], 'upper': [40, 255, 255]},
+        'min_pixels': 50,
+        'dominance_ratio': 1.2,
+    }
+
+    upload_response = client.post(
+        '/api/classifier/batch/upload',
+        data={
+            'config': json.dumps(override_config),
+            'charts': [(io.BytesIO(image_bytes), 'XME_2026-02-13T18-56-31-179711+00-00.png')],
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert upload_response.status_code == 200
+    result = upload_response.get_json()['results'][0]
+    assert result['label'] == 'none'
+    assert result['decision'] == 'skip'
+    assert result['upload_result']['payload']['message'] == 'Skipped upload by decision.'
+
+    charts = client.get('/api/charts/XME').get_json()['charts']
+    assert charts == []
