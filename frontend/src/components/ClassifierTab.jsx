@@ -125,9 +125,6 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     );
   };
 
-  const togglePolicy = (key) => {
-    setPolicy((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const saveConfig = async () => {
     setSaveStatus("saving");
@@ -350,30 +347,39 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
           </label>
 
           <div className="batch-policy-controls" role="group" aria-label="Batch upload policy">
-            <button
-              type="button"
-              className={`policy-toggle ${policy.uploadRed ? "is-active" : ""}`.trim()}
-              onClick={() => togglePolicy("uploadRed")}
-              aria-pressed={policy.uploadRed}
-            >
-              Upload red
-            </button>
-            <button
-              type="button"
-              className={`policy-toggle ${policy.uploadYellow ? "is-active" : ""}`.trim()}
-              onClick={() => togglePolicy("uploadYellow")}
-              aria-pressed={policy.uploadYellow}
-            >
-              Upload yellow
-            </button>
-            <button
-              type="button"
-              className={`policy-toggle ${policy.skipNone ? "is-active" : ""}`.trim()}
-              onClick={() => togglePolicy("skipNone")}
-              aria-pressed={policy.skipNone}
-            >
-              Skip none
-            </button>
+            <label className="policy-check">
+              <input
+                type="checkbox"
+                checked={policy.uploadRed}
+                onChange={(event) =>
+                  setPolicy((prev) => ({ ...prev, uploadRed: event.target.checked }))
+                }
+              />
+              <span className="policy-check-indicator" aria-hidden="true" />
+              <span>Upload red</span>
+            </label>
+            <label className="policy-check">
+              <input
+                type="checkbox"
+                checked={policy.uploadYellow}
+                onChange={(event) =>
+                  setPolicy((prev) => ({ ...prev, uploadYellow: event.target.checked }))
+                }
+              />
+              <span className="policy-check-indicator" aria-hidden="true" />
+              <span>Upload yellow</span>
+            </label>
+            <label className="policy-check">
+              <input
+                type="checkbox"
+                checked={policy.skipNone}
+                onChange={(event) =>
+                  setPolicy((prev) => ({ ...prev, skipNone: event.target.checked }))
+                }
+              />
+              <span className="policy-check-indicator" aria-hidden="true" />
+              <span>Skip none</span>
+            </label>
           </div>
 
           <p className="batch-summary">

@@ -1394,15 +1394,20 @@ button:disabled {
 
 .classifier-primary-button {
   width: 100%;
-  min-height: 44px;
+  height: 44px;
+  padding: 0 14px;
   border-radius: 10px;
   justify-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: none;
 }
 
 
 .batch-card {
   gap: 14px;
+  align-content: start;
 }
 
 .batch-header p {
@@ -1414,8 +1419,11 @@ button:disabled {
   border: 1px dashed rgba(156, 171, 245, 0.45);
   border-radius: 12px;
   padding: 12px;
+  min-height: 88px;
   background: rgba(255, 255, 255, 0.03);
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   gap: 8px;
 }
 
@@ -1427,24 +1435,42 @@ button:disabled {
 .batch-policy-controls {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
-.policy-toggle {
-  width: 100%;
-  min-height: 40px;
-  border-radius: 10px;
-  border: 1px solid rgba(146, 165, 240, 0.38);
-  background: rgba(26, 34, 66, 0.72);
-  box-shadow: none;
-  font-size: 0.86rem;
+.policy-check {
+  min-height: 22px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(146, 165, 240, 0.3);
+  background: rgba(26, 34, 66, 0.55);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #dce3ff;
 }
 
-.policy-toggle.is-active {
-  background: linear-gradient(120deg, rgba(91, 116, 255, 0.9), rgba(110, 83, 255, 0.9));
-  border-color: rgba(179, 194, 255, 0.9);
+.policy-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
+.policy-check-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(179, 194, 255, 0.7);
+  background: transparent;
+  flex: 0 0 12px;
+}
+
+.policy-check input:checked + .policy-check-indicator {
+  background: #b9c7ff;
+  box-shadow: inset 0 0 0 2px rgba(70, 92, 210, 0.9);
+}
 .batch-summary {
   color: #aebbeb;
   font-size: 0.86rem;
