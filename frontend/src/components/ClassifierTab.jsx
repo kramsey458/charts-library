@@ -52,6 +52,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [error, setError] = useState("");
 
   const [batchQueue, setBatchQueue] = useState([]);
+  const [batchFiles, setBatchFiles] = useState([]);
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: true, uploadYellow: true, skipNone: false });
   const calibrationInputRef = useRef(null);
@@ -275,9 +276,19 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
     }
   };
 
+
+  useEffect(() => {
+    if (!batchFiles.length) {
+      setBatchQueue([]);
+      return;
+    }
+
+    planBatch(batchFiles);
+  }, [batchFiles, config]);
+
   const handleBatchFiles = (event) => {
     const files = Array.from(event.target.files || []);
-    planBatch(files);
+    setBatchFiles(files);
   };
 
   const clearCalibrationFile = () => {
