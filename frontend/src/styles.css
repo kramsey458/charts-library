@@ -1424,10 +1424,17 @@ button:disabled {
 }
 
 .classifier-preview-content {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 14px;
-  align-items: start;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.classifier-preview-content > * {
+  flex: 0 0 auto;
 }
 
 .classifier-roi-preview-card {
@@ -1437,6 +1444,7 @@ button:disabled {
   padding: 10px;
   display: grid;
   gap: 8px;
+  width: clamp(180px, 18vw, 280px);
 }
 
 .classifier-roi-preview-card h3 {
@@ -1674,7 +1682,7 @@ button:disabled {
 
 @media (max-width: 980px) {
   .classifier-preview-content {
-    grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .classifier-roi-preview-card {
