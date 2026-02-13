@@ -1431,7 +1431,6 @@ button:disabled {
   align-items: center;
   justify-content: center;
   box-shadow: none;
-  margin-top: auto;
 }
 
 
@@ -1531,6 +1530,7 @@ button:disabled {
 .classifier-queue {
   flex: 1;
   min-height: 0;
+  max-height: min(72vh, 860px);
   overflow-y: auto;
   padding-right: 4px;
 }
