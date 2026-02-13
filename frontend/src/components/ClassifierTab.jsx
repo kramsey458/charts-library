@@ -56,6 +56,7 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
   const [batchStatus, setBatchStatus] = useState("idle");
   const [policy, setPolicy] = useState({ uploadRed: true, uploadYellow: true, skipNone: false });
   const calibrationInputRef = useRef(null);
+  const batchPlanRequestRef = useRef(0);
 
   useEffect(() => {
     fetchJson("/api/classifier/config")
@@ -231,9 +232,13 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
 
   const planBatch = async (files) => {
     if (!files.length) {
+      batchPlanRequestRef.current += 1;
       setBatchQueue([]);
       return;
     }
+
+    const requestId = batchPlanRequestRef.current + 1;
+    batchPlanRequestRef.current = requestId;
 
     const parsedMetadata = files.map((file) => ({
       filename: file.name,
@@ -253,6 +258,10 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         body: formData,
       });
 
+      if (requestId !== batchPlanRequestRef.current) {
+        return;
+      }
+
       setBatchQueue(
         (payload.results || []).map((item, index) => {
           const parsed = parsedMetadata[index] || parseBatchFilename(item.filename);
@@ -269,10 +278,15 @@ export default function ClassifierTab({ onBatchUploadComplete }) {
         })
       );
     } catch (err) {
+      if (requestId !== batchPlanRequestRef.current) {
+        return;
+      }
       setError(err.message);
       setBatchQueue([]);
     } finally {
-      setBatchStatus("idle");
+      if (requestId === batchPlanRequestRef.current) {
+        setBatchStatus("idle");
+      }
     }
   };
 
