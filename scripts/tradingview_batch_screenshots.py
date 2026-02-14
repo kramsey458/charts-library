@@ -20,13 +20,16 @@ Optional env vars:
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
+  POST_NAVIGATION_WAIT_MS=900
+  SEARCH_RESULTS_WAIT_MS=180
+  SYMBOL_LOAD_TIMEOUT_MS=12000
+  CHART_RENDER_WAIT_MS=900
+  INTER_TICKER_DELAY_MS=80
 """
 
 from __future__ import annotations
 
 import argparse
-import math
-import random
 import os
 import platform
 import sys
@@ -73,32 +76,11 @@ def timestamp_slug() -> str:
     return datetime.now(timezone.utc).isoformat().replace(":", "-").replace(".", "-")
 
 
-def human_pause(page, low_ms: int = 120, high_ms: int = 420) -> None:
-    page.wait_for_timeout(random.randint(low_ms, high_ms))
-
-
-def jitter_mouse(page) -> None:
-    viewport = page.viewport_size or {"width": 1280, "height": 720}
-    width = viewport["width"]
-    height = viewport["height"]
-    start_x = random.randint(int(width * 0.25), int(width * 0.75))
-    start_y = random.randint(int(height * 0.25), int(height * 0.75))
-    end_x = random.randint(int(width * 0.3), int(width * 0.7))
-    end_y = random.randint(int(height * 0.3), int(height * 0.7))
-
-    steps = random.randint(6, 10)
-    for i in range(steps):
-        t = i / max(steps - 1, 1)
-        wiggle_x = math.sin(t * math.pi * 2) * random.uniform(0.7, 2.2)
-        wiggle_y = math.cos(t * math.pi * 2) * random.uniform(0.7, 2.2)
-        x = start_x + (end_x - start_x) * t + wiggle_x
-        y = start_y + (end_y - start_y) * t + wiggle_y
-        page.mouse.move(x, y)
-        page.wait_for_timeout(random.randint(5, 16))
+def wait_ms(page, duration_ms: int) -> None:
+    page.wait_for_timeout(max(0, duration_ms))
 
 
 def focus_chart(page) -> None:
-    jitter_mouse(page)
     try:
         page.keyboard.press("Escape")
     except PlaywrightError:
@@ -106,27 +88,58 @@ def focus_chart(page) -> None:
 
     viewport = page.viewport_size or {"width": 1280, "height": 720}
     page.mouse.click(int(viewport["width"] * 0.5), int(viewport["height"] * 0.5))
-    human_pause(page)
+    wait_ms(page, 60)
 
 
-def select_first_symbol_result(page, ticker: str) -> None:
+def parse_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+
+    try:
+        value = int(raw.strip())
+    except ValueError as exc:  # pragma: no cover - defensive parsing
+        raise ValueError(f"{name} must be an integer; got {raw!r}") from exc
+
+    return max(0, value)
+
+
+def wait_for_ticker_loaded(page, ticker: str, timeout_ms: int) -> None:
+    uppercase_ticker = ticker.upper()
+    page.wait_for_function(
+        """
+        (symbol) => document.title.toUpperCase().includes(symbol)
+        """,
+        arg=uppercase_ticker,
+        timeout=timeout_ms,
+    )
+
+
+def select_first_symbol_result(
+    page,
+    ticker: str,
+    search_results_wait_ms: int,
+    symbol_load_timeout_ms: int,
+    chart_render_wait_ms: int,
+) -> None:
     focus_chart(page)
 
     # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
-    page.keyboard.type(ticker, delay=random.randint(45, 95))
+    page.keyboard.type(ticker)
 
     # Give the search window/results time to populate, then select first result.
-    human_pause(page, 320, 780)
+    wait_ms(page, search_results_wait_ms)
     page.keyboard.press("Enter")
 
-    # Allow chart to switch symbol.
-    human_pause(page, 800, 1550)
+    # Wait for chart symbol switch, then give TradingView extra time to finish rendering.
+    wait_for_ticker_loaded(page, ticker=ticker, timeout_ms=symbol_load_timeout_ms)
+    wait_ms(page, chart_render_wait_ms)
 
 
 def trigger_save_shortcut(page) -> None:
     is_mac = platform.system().lower() == "darwin"
     shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
-    human_pause(page, 120, 360)
+    wait_ms(page, 40)
     page.keyboard.press(shortcut)
 
 
@@ -228,7 +241,7 @@ def open_login_flow_if_configured(page, chart_url: str) -> None:
 
     print(f"Opening {initial_url}")
     page.goto(initial_url, wait_until="domcontentloaded", timeout=90000)
-    human_pause(page, 900, 2000)
+    wait_ms(page, parse_int_env("POST_NAVIGATION_WAIT_MS", 900))
 
     if start_on_login:
         print("After login/captcha is complete, the script will navigate to the chart page.")
@@ -271,7 +284,7 @@ def enforce_auth_first(page, chart_url: str, headless: bool) -> None:
 
         print(f"Checking chart access: {chart_url}")
         page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
-        human_pause(page, 900, 2000)
+        wait_ms(page, parse_int_env("POST_NAVIGATION_WAIT_MS", 900))
 
         if not looks_like_login_page(page.url):
             print(f"Auth check passed on page: {page.url}")
@@ -301,6 +314,10 @@ def main() -> int:
 
     url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
     headless = parse_bool_env("HEADLESS", False)
+    search_results_wait_ms = parse_int_env("SEARCH_RESULTS_WAIT_MS", 180)
+    symbol_load_timeout_ms = parse_int_env("SYMBOL_LOAD_TIMEOUT_MS", 12000)
+    chart_render_wait_ms = parse_int_env("CHART_RENDER_WAIT_MS", 900)
+    inter_ticker_delay_ms = parse_int_env("INTER_TICKER_DELAY_MS", 80)
 
     with sync_playwright() as p:
         launch_args = build_launch_args(headless=headless)
@@ -329,7 +346,7 @@ def main() -> int:
             if parse_bool_env("START_ON_LOGIN", True):
                 print(f"Navigating to chart page: {url}")
                 page.goto(url, wait_until="domcontentloaded", timeout=90000)
-                human_pause(page, 900, 2000)
+                wait_ms(page, parse_int_env("POST_NAVIGATION_WAIT_MS", 900))
 
             enforce_auth_first(page, chart_url=url, headless=headless)
 
@@ -337,14 +354,20 @@ def main() -> int:
 
             for i, ticker in enumerate(tickers):
                 print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
-                select_first_symbol_result(page, ticker)
+                select_first_symbol_result(
+                    page,
+                    ticker,
+                    search_results_wait_ms=search_results_wait_ms,
+                    symbol_load_timeout_ms=symbol_load_timeout_ms,
+                    chart_render_wait_ms=chart_render_wait_ms,
+                )
                 out_path = save_chart_image(page, output_dir, ticker)
 
                 if out_path:
                     saved_paths.append(out_path)
                     print(f"Saved: {out_path}")
 
-                human_pause(page, 220, 680)
+                wait_ms(page, inter_ticker_delay_ms)
 
             print("\nDone.")
             if saved_paths:
