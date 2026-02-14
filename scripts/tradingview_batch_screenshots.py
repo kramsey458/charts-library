@@ -16,10 +16,11 @@ Optional env vars:
   TRADINGVIEW_LOGIN_URL (default: https://www.tradingview.com/accounts/signin/)
   START_ON_LOGIN=true|false (default: true)
   AUTH_FIRST_MODE=true|false (default: true)
-  APPLY_STEALTH_DURING_LOGIN=true|false (default: false)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
+  PATCHRIGHT_CHANNEL=chrome|chromium (default: chrome)
+  PATCHRIGHT_USER_DATA_DIR=~/.cache/charts-library/patchright (default shown)
 """
 
 from __future__ import annotations
@@ -34,14 +35,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
-
-try:
-    from playwright_stealth import Stealth
-except ImportError:  # pragma: no cover - optional dependency for stealth hardening
-    Stealth = None
+from patchright.sync_api import Error as PlaywrightError
+from patchright.sync_api import TimeoutError as PlaywrightTimeoutError
+from patchright.sync_api import sync_playwright
 
 
 def parse_args() -> argparse.Namespace:
@@ -132,7 +128,6 @@ def trigger_save_shortcut(page) -> None:
 
 def build_launch_args(headless: bool) -> list[str]:
     args = [
-        "--disable-blink-features=AutomationControlled",
         "--lang=en-US,en;q=0.9",
     ]
     if not headless:
@@ -155,26 +150,6 @@ def build_context_options(headless: bool) -> dict:
         # Use the native fullscreen browser window size in headed mode.
         base_options["no_viewport"] = True
     return base_options
-
-
-def apply_stealth(page) -> None:
-    page.add_init_script(
-        """
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        window.chrome = window.chrome || { runtime: {} };
-        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
-        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
-        """
-    )
-
-    if Stealth is None:
-        print(
-            "[WARN] playwright-stealth not installed; using built-in stealth tweaks only.",
-            file=sys.stderr,
-        )
-        return
-
-    Stealth().apply_stealth_sync(page)
 
 
 def save_chart_image(page, output_dir: Path, ticker: str) -> Path | None:
@@ -285,8 +260,22 @@ def parse_bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() == "true"
 
 
-def should_apply_stealth_during_login() -> bool:
-    return parse_bool_env("APPLY_STEALTH_DURING_LOGIN", False)
+def resolve_patchright_user_data_dir() -> Path:
+    raw = os.getenv("PATCHRIGHT_USER_DATA_DIR", "~/.cache/charts-library/patchright")
+    directory = Path(raw).expanduser().resolve()
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def resolve_patchright_channel() -> str:
+    raw = os.getenv("PATCHRIGHT_CHANNEL", "chrome").strip().lower()
+    if raw not in {"chrome", "chromium"}:
+        print(
+            f"[WARN] Unsupported PATCHRIGHT_CHANNEL={raw!r}; falling back to 'chrome'.",
+            file=sys.stderr,
+        )
+        return "chrome"
+    return raw
 
 
 def main() -> int:
@@ -304,27 +293,25 @@ def main() -> int:
 
     with sync_playwright() as p:
         launch_args = build_launch_args(headless=headless)
-        browser = p.chromium.launch(headless=headless, args=launch_args)
+        channel = resolve_patchright_channel()
+        user_data_dir = resolve_patchright_user_data_dir()
 
-        context = browser.new_context(**build_context_options(headless=headless))
-        page = context.new_page()
-
-        stealth_pre_login = should_apply_stealth_during_login()
-        if stealth_pre_login:
-            print("Applying stealth before login (APPLY_STEALTH_DURING_LOGIN=true).")
-            apply_stealth(page)
-        else:
-            print(
-                "Stealth is deferred until after manual login/captcha to avoid reCAPTCHA stalls. "
-                "Set APPLY_STEALTH_DURING_LOGIN=true to override."
-            )
+        print(
+            "Launching Patchright persistent context "
+            f"(channel={channel}, user_data_dir={user_data_dir})"
+        )
+        context = p.chromium.launch_persistent_context(
+            str(user_data_dir),
+            channel=channel,
+            headless=headless,
+            args=launch_args,
+            **build_context_options(headless=headless),
+        )
+        page = context.pages[0] if context.pages else context.new_page()
 
         try:
             open_login_flow_if_configured(page, chart_url=url)
             confirm_logged_in(headless=headless)
-
-            if not stealth_pre_login:
-                apply_stealth(page)
 
             if parse_bool_env("START_ON_LOGIN", True):
                 print(f"Navigating to chart page: {url}")
@@ -355,7 +342,6 @@ def main() -> int:
                 print("No downloadable files were detected.")
         finally:
             context.close()
-            browser.close()
 
     return 0
 

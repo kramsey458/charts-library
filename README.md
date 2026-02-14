@@ -108,20 +108,21 @@ curl -X POST http://localhost:5000/api/uploads/charts \
 
 ## TradingView batch screenshot script
 
-For `scripts/tradingview_batch_screenshots.py`, install browser automation dependencies in your Python environment:
+For `scripts/tradingview_batch_screenshots.py`, install Patchright (an undetected Playwright-compatible driver) in your Python environment:
 
 ```bash
-pip install playwright playwright-stealth
-playwright install chromium
+pip install patchright
+patchright install chrome
 ```
 
-The script now applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks), randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts.
+The script now uses Patchright persistent browser contexts with a real Chrome channel by default, plus randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts.
 
 Behavior flags:
 - `START_ON_LOGIN=true` (default) opens the TradingView sign-in page first; set `START_ON_LOGIN=false` to open charts directly.
-- `APPLY_STEALTH_DURING_LOGIN=false` (default) defers stealth until after manual login to reduce reCAPTCHA/login stalls.
 - `AUTH_FIRST_MODE=true` (default) blocks automation until the script confirms you are no longer on login/captcha pages (or you explicitly skip).
-- In headed mode, Chromium launches fullscreen for easier manual captcha/login interaction.
+- `PATCHRIGHT_CHANNEL=chrome|chromium` (default: `chrome`) chooses browser channel.
+- `PATCHRIGHT_USER_DATA_DIR=...` controls persistent profile directory so auth cookies/session survive across runs.
+- In headed mode, the browser launches fullscreen for easier manual captcha/login interaction.
 
 ## Deployment runbook
 
