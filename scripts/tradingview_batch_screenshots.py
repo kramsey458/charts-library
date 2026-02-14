@@ -2,7 +2,7 @@
 """Batch-download TradingView chart images by typing ticker symbols directly.
 
 Strategy implemented:
-1) Open symbol search (Ctrl+K / Cmd+K), type ticker, and submit first symbol result.
+1) Open symbol search from the header symbol button, type ticker, and submit first result.
 2) Select the first result (Enter).
 3) Trigger Ctrl+Alt+S to save/download image.
 4) Repeat for all tickers.
@@ -118,14 +118,39 @@ def wait_for_ticker_loaded(page, ticker: str, timeout_ms: int) -> None:
 
 
 def open_symbol_search(page) -> None:
-    is_mac = platform.system().lower() == "darwin"
-    open_symbol_shortcut = "Meta+K" if is_mac else "Control+K"
-    clear_shortcut = "Meta+A" if is_mac else "Control+A"
+    symbol_search_selectors = [
+        '[data-name="header-toolbar-symbol-search"]',
+        'button[aria-label*="Symbol Search"]',
+        'button[title*="Symbol Search"]',
+    ]
 
-    page.keyboard.press(open_symbol_shortcut)
-    wait_ms(page, 80)
-    page.keyboard.press(clear_shortcut)
-    page.keyboard.press("Backspace")
+    page.keyboard.press("Escape")
+
+    for selector in symbol_search_selectors:
+        button = page.locator(selector).first
+        if button.count() == 0:
+            continue
+
+        button.click(timeout=1500)
+        wait_ms(page, 80)
+
+        # If TradingView command palette appears, close it and continue trying.
+        command_palette = page.get_by_text("Search tool or function").first
+        if command_palette.count() > 0 and command_palette.is_visible():
+            page.keyboard.press("Escape")
+            wait_ms(page, 40)
+            continue
+
+        is_mac = platform.system().lower() == "darwin"
+        clear_shortcut = "Meta+A" if is_mac else "Control+A"
+        page.keyboard.press(clear_shortcut)
+        page.keyboard.press("Backspace")
+
+        return
+
+    raise RuntimeError(
+        "Unable to open TradingView symbol search from header button selectors."
+    )
 
 
 def select_first_symbol_result(
@@ -137,7 +162,7 @@ def select_first_symbol_result(
 ) -> None:
     focus_chart(page)
 
-    # Open symbol search explicitly so we do not fall into generic/global search.
+    # Open the symbol-search window only (not the generic command search).
     open_symbol_search(page)
     page.keyboard.type(ticker)
 
