@@ -2,7 +2,7 @@
 """Batch-download TradingView chart images by typing ticker symbols directly.
 
 Strategy implemented:
-1) Type ticker characters directly on the chart (auto-opens symbol search).
+1) Open symbol search (Ctrl+K / Cmd+K), type ticker, and submit first symbol result.
 2) Select the first result (Enter).
 3) Trigger Ctrl+Alt+S to save/download image.
 4) Repeat for all tickers.
@@ -115,6 +115,19 @@ def wait_for_ticker_loaded(page, ticker: str, timeout_ms: int) -> None:
     )
 
 
+
+
+def open_symbol_search(page) -> None:
+    is_mac = platform.system().lower() == "darwin"
+    open_symbol_shortcut = "Meta+K" if is_mac else "Control+K"
+    clear_shortcut = "Meta+A" if is_mac else "Control+A"
+
+    page.keyboard.press(open_symbol_shortcut)
+    wait_ms(page, 80)
+    page.keyboard.press(clear_shortcut)
+    page.keyboard.press("Backspace")
+
+
 def select_first_symbol_result(
     page,
     ticker: str,
@@ -124,7 +137,8 @@ def select_first_symbol_result(
 ) -> None:
     focus_chart(page)
 
-    # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
+    # Open symbol search explicitly so we do not fall into generic/global search.
+    open_symbol_search(page)
     page.keyboard.type(ticker)
 
     # Give the search window/results time to populate, then select first result.

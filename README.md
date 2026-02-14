@@ -115,7 +115,7 @@ pip install playwright playwright-stealth
 playwright install chromium
 ```
 
-The script applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks) and uses deterministic timing tuned for faster throughput while still waiting for each chart to finish loading before capture.
+The script applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks), opens TradingView's symbol search explicitly (Ctrl+K / Cmd+K), and uses deterministic timing tuned for faster throughput while still waiting for each chart to finish loading before capture.
 
 Behavior flags:
 - `START_ON_LOGIN=true` (default) opens the TradingView sign-in page first; set `START_ON_LOGIN=false` to open charts directly.
