@@ -121,6 +121,8 @@ Behavior flags:
 - `AUTH_FIRST_MODE=true` (default) blocks ticker automation until authenticated login is verified.
 - `LOGIN_TIMEOUT_SECONDS=900` controls how long headed mode waits for manual auth completion.
 - `AUTO_CONFIRM_LOGIN=true` is intended only for pre-authenticated/headless sessions.
+- Tickers are loaded from `scripts/tickers.txt` by default (or `--tickers-file`).
+- Images are always saved under `./downloads`.
 
 ## Deployment runbook
 

@@ -8,7 +8,7 @@ Flow implemented:
 4) Trigger save shortcut and store downloaded images.
 
 Usage:
-  python scripts/tradingview_batch_screenshots.py --tickers LPTH,AAPL,MSFT
+  python scripts/tradingview_batch_screenshots.py
   python scripts/tradingview_batch_screenshots.py --tickers-file ./tickers.txt
 
 Optional env vars:
@@ -17,7 +17,6 @@ Optional env vars:
   START_ON_LOGIN=true|false (default: true)
   AUTH_FIRST_MODE=true|false (default: true)
   HEADLESS=true|false (default: false)
-  OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
   LOGIN_TIMEOUT_SECONDS=900 (default)
 """
@@ -39,18 +38,17 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Batch-save TradingView chart images for a list of tickers."
+        description="Batch-save TradingView chart images for tickers loaded from a text file."
     )
-    source_group = parser.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("--tickers", help="Comma-separated tickers, e.g. LPTH,AAPL,MSFT")
-    source_group.add_argument("--tickers-file", help="File with one ticker per line")
+    parser.add_argument(
+        "--tickers-file",
+        default="scripts/tickers.txt",
+        help="File with one ticker per line (default: scripts/tickers.txt)",
+    )
     return parser.parse_args()
 
 
 def load_tickers(args: argparse.Namespace) -> List[str]:
-    if args.tickers:
-        return [token.strip().upper() for token in args.tickers.split(",") if token.strip()]
-
     tickers_file = Path(args.tickers_file).expanduser().resolve()
     lines = tickers_file.read_text(encoding="utf-8").splitlines()
     return [
@@ -200,7 +198,7 @@ def main() -> int:
     if not tickers:
         raise ValueError("Ticker list is empty.")
 
-    output_dir = Path(os.getenv("OUTPUT_DIR", "downloads")).expanduser().resolve()
+    output_dir = Path("downloads").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     chart_url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
