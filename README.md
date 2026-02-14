@@ -115,13 +115,14 @@ pip install patchright
 patchright install chrome
 ```
 
-The script now uses Patchright persistent browser contexts with a real Chrome channel by default, plus randomized human-like mouse movement, variable typing cadence, and shorter adaptive waits. After selecting a symbol, it waits for chart-ready signals (canvas visible, title update, and loading indicators cleared) before triggering the download shortcut.
+The script now uses Patchright persistent browser contexts with a real Chrome channel by default, plus randomized human-like mouse movement, variable typing cadence, and shorter adaptive waits. After selecting a symbol, it waits for chart-ready signals (canvas visible, title update, and loading indicators cleared) before triggering the download shortcut. For Google login flows, complete OAuth in the opened browser window, then confirm in terminal to start automation.
 
 Behavior flags:
 - `START_ON_LOGIN=true` (default) opens the TradingView sign-in page first; set `START_ON_LOGIN=false` to open charts directly.
 - `AUTH_FIRST_MODE=true` (default) blocks automation until the script confirms you are no longer on login/captcha pages (or you explicitly skip).
 - `PATCHRIGHT_CHANNEL=chrome|chromium` (default: `chrome`) chooses browser channel.
 - `PATCHRIGHT_USER_DATA_DIR=...` controls persistent profile directory so auth cookies/session survive across runs.
+- `HOLD_AFTER_LOGIN_SECONDS=2` (default) adds a short delay after you confirm login, which helps Google OAuth/session state settle before automation starts.
 - In headed mode, the browser launches fullscreen for easier manual captcha/login interaction.
 
 ## Deployment runbook

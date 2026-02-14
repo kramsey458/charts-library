@@ -21,6 +21,7 @@ Optional env vars:
   AUTO_CONFIRM_LOGIN=true|false (default: false)
   PATCHRIGHT_CHANNEL=chrome|chromium (default: chrome)
   PATCHRIGHT_USER_DATA_DIR=~/.cache/charts-library/patchright (default shown)
+  HOLD_AFTER_LOGIN_SECONDS=2 (default: 2, adds a small settle delay after manual login)
 """
 
 from __future__ import annotations
@@ -190,6 +191,7 @@ def trigger_save_shortcut(page) -> None:
 def build_launch_args(headless: bool) -> list[str]:
     args = [
         "--lang=en-US,en;q=0.9",
+        "--disable-infobars",
     ]
     if not headless:
         # Fullscreen window for interactive login/captcha and chart operation.
@@ -246,6 +248,7 @@ def confirm_logged_in(headless: bool) -> None:
         )
 
     print("\nPlease complete TradingView login/cookie consent in the opened browser window.")
+    print("If you use Google login, finish the full Google OAuth flow in this browser window first.")
     print("When finished, type 'y' and press Enter to continue.")
 
     while True:
@@ -321,6 +324,17 @@ def parse_bool_env(name: str, default: bool) -> bool:
     return raw.strip().lower() == "true"
 
 
+def parse_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        return default
+    return max(value, 0)
+
+
 def resolve_patchright_user_data_dir() -> Path:
     raw = os.getenv("PATCHRIGHT_USER_DATA_DIR", "~/.cache/charts-library/patchright")
     directory = Path(raw).expanduser().resolve()
@@ -366,6 +380,7 @@ def main() -> int:
             channel=channel,
             headless=headless,
             args=launch_args,
+            ignore_default_args=["--enable-automation"],
             **build_context_options(headless=headless),
         )
         page = context.pages[0] if context.pages else context.new_page()
@@ -373,6 +388,12 @@ def main() -> int:
         try:
             open_login_flow_if_configured(page, chart_url=url)
             confirm_logged_in(headless=headless)
+            hold_after_login_seconds = parse_int_env("HOLD_AFTER_LOGIN_SECONDS", 2)
+            if hold_after_login_seconds:
+                print(
+                    f"Waiting {hold_after_login_seconds}s after manual login to let account state settle..."
+                )
+                page.wait_for_timeout(hold_after_login_seconds * 1000)
 
             if parse_bool_env("START_ON_LOGIN", True):
                 print(f"Navigating to chart page: {url}")
