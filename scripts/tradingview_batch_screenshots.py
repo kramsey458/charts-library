@@ -31,9 +31,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
-from camoufox.sync_api import Camoufox
-from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+try:
+    from playwright.sync_api import Error as PlaywrightError
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+except ModuleNotFoundError:  # pragma: no cover - allows --help without runtime deps
+    PlaywrightError = Exception
+    PlaywrightTimeoutError = TimeoutError
+
+
+def project_root() -> Path:
+    return Path(__file__).resolve().parents[1]
 
 
 def parse_args() -> argparse.Namespace:
@@ -42,8 +49,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--tickers-file",
-        default="scripts/tickers.txt",
-        help="File with one ticker per line (default: scripts/tickers.txt)",
+        default=str(project_root() / "scripts" / "tickers.txt"),
+        help="File with one ticker per line (default: <repo>/scripts/tickers.txt)",
     )
     return parser.parse_args()
 
@@ -198,7 +205,7 @@ def main() -> int:
     if not tickers:
         raise ValueError("Ticker list is empty.")
 
-    output_dir = Path("downloads").resolve()
+    output_dir = (project_root() / "downloads").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
     chart_url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
@@ -206,44 +213,50 @@ def main() -> int:
     start_on_login = parse_bool_env("START_ON_LOGIN", True)
     headless = parse_bool_env("HEADLESS", False)
 
-    # Camoufox provides anti-detect hardening by design; we keep config minimal for speed.
+    from camoufox.sync_api import Camoufox
+
+    # Camoufox provides anti-detect hardening by design; keep launch minimal for speed.
+    # Avoid persistent_context=True because it requires a user_data_dir.
     with Camoufox(
         headless=headless,
         humanize=0.35,
         block_webrtc=True,
         geoip=False,
         enable_cache=True,
-        persistent_context=True,
-    ) as context:
-        page = context.new_page()
+    ) as browser:
+        context = browser.new_context(accept_downloads=True)
+        try:
+            page = context.new_page()
 
-        initial_url = login_url if start_on_login else chart_url
-        print(f"Opening {initial_url}")
-        page.goto(initial_url, wait_until="domcontentloaded", timeout=90000)
+            initial_url = login_url if start_on_login else chart_url
+            print(f"Opening {initial_url}")
+            page.goto(initial_url, wait_until="domcontentloaded", timeout=90000)
 
-        wait_for_authenticated_session(page, chart_url=chart_url, headless=headless)
+            wait_for_authenticated_session(page, chart_url=chart_url, headless=headless)
 
-        if start_on_login:
-            page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
-            short_pause(page, 250, 520)
+            if start_on_login:
+                page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
+                short_pause(page, 250, 520)
 
-        saved_paths: List[Path] = []
-        for i, ticker in enumerate(tickers):
-            print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
-            select_first_symbol_result(page, ticker)
-            out_path = save_chart_image(page, output_dir, ticker)
-            if out_path:
-                saved_paths.append(out_path)
-                print(f"Saved: {out_path}")
-            short_pause(page, 90, 220)
+            saved_paths: List[Path] = []
+            for i, ticker in enumerate(tickers):
+                print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
+                select_first_symbol_result(page, ticker)
+                out_path = save_chart_image(page, output_dir, ticker)
+                if out_path:
+                    saved_paths.append(out_path)
+                    print(f"Saved: {out_path}")
+                short_pause(page, 90, 220)
 
-        print("\nDone.")
-        if saved_paths:
-            print("Saved files:")
-            for file_path in saved_paths:
-                print(f" - {file_path}")
-        else:
-            print("No downloadable files were detected.")
+            print("\nDone.")
+            if saved_paths:
+                print("Saved files:")
+                for file_path in saved_paths:
+                    print(f" - {file_path}")
+            else:
+                print("No downloadable files were detected.")
+        finally:
+            context.close()
 
     return 0
 
