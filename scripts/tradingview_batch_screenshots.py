@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Batch-download TradingView chart images by typing ticker symbols directly.
+"""Batch-download TradingView chart images using Camoufox.
 
-Strategy implemented:
-1) Type ticker characters directly on the chart (auto-opens symbol search).
-2) Select the first result (Enter).
-3) Trigger Ctrl+Alt+S to save/download image.
-4) Repeat for all tickers.
+Flow implemented:
+1) Launch a Camoufox browser (anti-detect from startup).
+2) Block all automation until Google/TradingView login is complete.
+3) Navigate to chart and type ticker symbols directly.
+4) Trigger save shortcut and store downloaded images.
 
 Usage:
   python scripts/tradingview_batch_screenshots.py --tickers LPTH,AAPL,MSFT
@@ -16,32 +16,25 @@ Optional env vars:
   TRADINGVIEW_LOGIN_URL (default: https://www.tradingview.com/accounts/signin/)
   START_ON_LOGIN=true|false (default: true)
   AUTH_FIRST_MODE=true|false (default: true)
-  APPLY_STEALTH_DURING_LOGIN=true|false (default: false)
   HEADLESS=true|false (default: false)
   OUTPUT_DIR=./downloads (default: ./downloads)
   AUTO_CONFIRM_LOGIN=true|false (default: false)
+  LOGIN_TIMEOUT_SECONDS=900 (default)
 """
 
 from __future__ import annotations
 
 import argparse
-import math
-import random
 import os
 import platform
-import sys
+import random
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
+from camoufox.sync_api import Camoufox
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import sync_playwright
-
-try:
-    from playwright_stealth import Stealth
-except ImportError:  # pragma: no cover - optional dependency for stealth hardening
-    Stealth = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -51,9 +44,7 @@ def parse_args() -> argparse.Namespace:
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument("--tickers", help="Comma-separated tickers, e.g. LPTH,AAPL,MSFT")
     source_group.add_argument("--tickers-file", help="File with one ticker per line")
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 
 def load_tickers(args: argparse.Namespace) -> List[str]:
@@ -69,124 +60,54 @@ def load_tickers(args: argparse.Namespace) -> List[str]:
     ]
 
 
+def parse_bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() == "true"
+
+
 def timestamp_slug() -> str:
     return datetime.now(timezone.utc).isoformat().replace(":", "-").replace(".", "-")
 
 
-def human_pause(page, low_ms: int = 120, high_ms: int = 420) -> None:
+def short_pause(page, low_ms: int = 60, high_ms: int = 180) -> None:
     page.wait_for_timeout(random.randint(low_ms, high_ms))
 
 
-def jitter_mouse(page) -> None:
-    viewport = page.viewport_size or {"width": 1280, "height": 720}
-    width = viewport["width"]
-    height = viewport["height"]
-    start_x = random.randint(int(width * 0.25), int(width * 0.75))
-    start_y = random.randint(int(height * 0.25), int(height * 0.75))
-    end_x = random.randint(int(width * 0.3), int(width * 0.7))
-    end_y = random.randint(int(height * 0.3), int(height * 0.7))
-
-    steps = random.randint(6, 10)
-    for i in range(steps):
-        t = i / max(steps - 1, 1)
-        wiggle_x = math.sin(t * math.pi * 2) * random.uniform(0.7, 2.2)
-        wiggle_y = math.cos(t * math.pi * 2) * random.uniform(0.7, 2.2)
-        x = start_x + (end_x - start_x) * t + wiggle_x
-        y = start_y + (end_y - start_y) * t + wiggle_y
-        page.mouse.move(x, y)
-        page.wait_for_timeout(random.randint(5, 16))
-
-
 def focus_chart(page) -> None:
-    jitter_mouse(page)
     try:
         page.keyboard.press("Escape")
     except PlaywrightError:
         pass
 
-    viewport = page.viewport_size or {"width": 1280, "height": 720}
+    viewport = page.viewport_size or {"width": 1400, "height": 900}
     page.mouse.click(int(viewport["width"] * 0.5), int(viewport["height"] * 0.5))
-    human_pause(page)
+    short_pause(page)
 
 
 def select_first_symbol_result(page, ticker: str) -> None:
     focus_chart(page)
-
-    # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
-    page.keyboard.type(ticker, delay=random.randint(45, 95))
-
-    # Give the search window/results time to populate, then select first result.
-    human_pause(page, 320, 780)
+    page.keyboard.type(ticker, delay=random.randint(25, 45))
+    short_pause(page, 140, 300)
     page.keyboard.press("Enter")
-
-    # Allow chart to switch symbol.
-    human_pause(page, 800, 1550)
+    short_pause(page, 480, 850)
 
 
 def trigger_save_shortcut(page) -> None:
-    is_mac = platform.system().lower() == "darwin"
-    shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
-    human_pause(page, 120, 360)
+    shortcut = "Alt+Meta+S" if platform.system().lower() == "darwin" else "Control+Alt+S"
+    short_pause(page, 70, 140)
     page.keyboard.press(shortcut)
-
-
-def build_launch_args(headless: bool) -> list[str]:
-    args = [
-        "--disable-blink-features=AutomationControlled",
-        "--lang=en-US,en;q=0.9",
-    ]
-    if not headless:
-        # Fullscreen window for interactive login/captcha and chart operation.
-        args.extend(["--start-maximized", "--start-fullscreen"])
-    return args
-
-
-def build_context_options(headless: bool) -> dict:
-    base_options = {
-        "accept_downloads": True,
-        "locale": "en-US",
-        "timezone_id": "America/New_York",
-        "color_scheme": "dark",
-    }
-    if headless:
-        base_options["viewport"] = {"width": 1920, "height": 1080}
-        base_options["device_scale_factor"] = 1
-    else:
-        # Use the native fullscreen browser window size in headed mode.
-        base_options["no_viewport"] = True
-    return base_options
-
-
-def apply_stealth(page) -> None:
-    page.add_init_script(
-        """
-        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        window.chrome = window.chrome || { runtime: {} };
-        Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 });
-        Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 });
-        """
-    )
-
-    if Stealth is None:
-        print(
-            "[WARN] playwright-stealth not installed; using built-in stealth tweaks only.",
-            file=sys.stderr,
-        )
-        return
-
-    Stealth().apply_stealth_sync(page)
 
 
 def save_chart_image(page, output_dir: Path, ticker: str) -> Path | None:
     try:
-        with page.expect_download(timeout=20000) as download_info:
+        with page.expect_download(timeout=18000) as download_info:
             trigger_save_shortcut(page)
         download = download_info.value
     except PlaywrightTimeoutError:
         print(
-            f"[WARN] No download detected for {ticker}. "
-            "Shortcut may have opened a system dialog or popup.",
-            file=sys.stderr,
+            f"[WARN] No download detected for {ticker}. Shortcut may have opened a dialog.",
         )
         return None
 
@@ -196,166 +117,135 @@ def save_chart_image(page, output_dir: Path, ticker: str) -> Path | None:
     return out_path
 
 
-def confirm_logged_in(headless: bool) -> None:
-    auto_confirm = parse_bool_env("AUTO_CONFIRM_LOGIN", False)
-
-    if headless:
-        if auto_confirm:
-            print("AUTO_CONFIRM_LOGIN=true set; skipping login prompt in headless mode.")
-            return
-        raise RuntimeError(
-            "HEADLESS=true does not allow manual login confirmation prompts. "
-            "Set HEADLESS=false for interactive login or set AUTO_CONFIRM_LOGIN=true "
-            "if you already have persisted auth state."
-        )
-
-    print("\nPlease complete TradingView login/cookie consent in the opened browser window.")
-    print("When finished, type 'y' and press Enter to continue.")
-
-    while True:
-        response = input("Logged in and ready? [y/N]: ").strip().lower()
-        if response in {"y", "yes"}:
-            return
-        print("Waiting for login confirmation. Type 'y' when you are ready.")
-
-
-def open_login_flow_if_configured(page, chart_url: str) -> None:
-    start_on_login = parse_bool_env("START_ON_LOGIN", True)
-    login_url = os.getenv(
-        "TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/"
-    )
-    initial_url = login_url if start_on_login else chart_url
-
-    print(f"Opening {initial_url}")
-    page.goto(initial_url, wait_until="domcontentloaded", timeout=90000)
-    human_pause(page, 900, 2000)
-
-    if start_on_login:
-        print("After login/captcha is complete, the script will navigate to the chart page.")
-
-
 def looks_like_login_page(url: str) -> bool:
     lowered = (url or "").lower()
-    return any(token in lowered for token in ("/accounts/signin", "captcha", "challenge"))
+    return any(token in lowered for token in ("/accounts/signin", "captcha", "challenge", "auth"))
 
 
-def enforce_auth_first(page, chart_url: str, headless: bool) -> None:
+def tradingview_login_confirmed(page) -> bool:
+    # Multiple signals so we are resilient to UI changes.
+    selectors = [
+        "[data-name='header-user-menu-button']",
+        "[data-name='header-user-menu-button-signin']",
+        "button[aria-label*='Profile']",
+        "a[href*='/accounts/profile/']",
+    ]
+
+    for selector in selectors:
+        try:
+            if page.locator(selector).first.is_visible(timeout=300):
+                # We only treat explicit sign-in button as not logged in.
+                if "signin" in selector:
+                    return False
+                return True
+        except PlaywrightError:
+            continue
+
+    if looks_like_login_page(page.url):
+        return False
+
+    return "/chart/" in page.url or "tradingview.com" in page.url
+
+
+def wait_for_authenticated_session(page, chart_url: str, headless: bool) -> None:
     if not parse_bool_env("AUTH_FIRST_MODE", True):
         return
 
-    print("Auth-first mode is enabled. Verifying authenticated session before automation...")
+    login_timeout_seconds = int(os.getenv("LOGIN_TIMEOUT_SECONDS", "900"))
 
-    while True:
-        current_url = page.url
-        if not looks_like_login_page(current_url):
-            print(f"Auth check passed on page: {current_url}")
-            return
-
-        if headless and parse_bool_env("AUTO_CONFIRM_LOGIN", False):
-            print(
-                "[WARN] Could not verify authenticated session in headless mode. "
-                "Proceeding because AUTO_CONFIRM_LOGIN=true."
-            )
-            return
-
-        print(
-            "Still on login/captcha page. Complete challenge, "
-            "then press Enter to retry auth check."
+    if headless and not parse_bool_env("AUTO_CONFIRM_LOGIN", False):
+        raise RuntimeError(
+            "HEADLESS=true with AUTH_FIRST_MODE=true requires AUTO_CONFIRM_LOGIN=true "
+            "or running headed mode for manual Google authentication."
         )
-        response = input(
-            "Press Enter when auth is complete (or type 'skip' to continue anyway): "
-        ).strip().lower()
-        if response == "skip":
-            print("[WARN] Proceeding without confirmed auth because user chose skip.")
-            return
 
-        print(f"Checking chart access: {chart_url}")
+    print("Auth-first mode enabled: waiting for a verified authenticated TradingView session.")
+
+    if headless and parse_bool_env("AUTO_CONFIRM_LOGIN", False):
         page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
-        human_pause(page, 900, 2000)
+        if not tradingview_login_confirmed(page):
+            raise RuntimeError(
+                "AUTO_CONFIRM_LOGIN=true but authentication could not be verified in headless mode."
+            )
+        return
 
-        if not looks_like_login_page(page.url):
-            print(f"Auth check passed on page: {page.url}")
+    print("Complete Google/TradingView login in the opened browser window.")
+    print("The script will not proceed until auth verification succeeds.")
+
+    elapsed = 0
+    while elapsed < login_timeout_seconds:
+        user_input = input("Press Enter to verify login now (or type 'open' to load chart page): ").strip().lower()
+        if user_input == "open":
+            page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
+
+        if tradingview_login_confirmed(page):
+            print(f"Authenticated session confirmed at: {page.url}")
             return
 
+        # Explicitly retry on chart page in case user finished login on popup provider tab.
+        page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
+        if tradingview_login_confirmed(page):
+            print(f"Authenticated session confirmed at: {page.url}")
+            return
 
-def parse_bool_env(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() == "true"
+        print("Auth not confirmed yet. Finish login/captcha/2FA and retry.")
+        elapsed += 5
 
-
-def should_apply_stealth_during_login() -> bool:
-    return parse_bool_env("APPLY_STEALTH_DURING_LOGIN", False)
+    raise TimeoutError("Timed out waiting for authenticated TradingView session.")
 
 
 def main() -> int:
     args = parse_args()
     tickers = load_tickers(args)
-
     if not tickers:
         raise ValueError("Ticker list is empty.")
 
     output_dir = Path(os.getenv("OUTPUT_DIR", "downloads")).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
+    chart_url = os.getenv("TRADINGVIEW_URL", "https://www.tradingview.com/chart/")
+    login_url = os.getenv("TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/")
+    start_on_login = parse_bool_env("START_ON_LOGIN", True)
     headless = parse_bool_env("HEADLESS", False)
 
-    with sync_playwright() as p:
-        launch_args = build_launch_args(headless=headless)
-        browser = p.chromium.launch(headless=headless, args=launch_args)
-
-        context = browser.new_context(**build_context_options(headless=headless))
+    # Camoufox provides anti-detect hardening by design; we keep config minimal for speed.
+    with Camoufox(
+        headless=headless,
+        humanize=0.35,
+        block_webrtc=True,
+        geoip=False,
+        enable_cache=True,
+        persistent_context=True,
+    ) as context:
         page = context.new_page()
 
-        stealth_pre_login = should_apply_stealth_during_login()
-        if stealth_pre_login:
-            print("Applying stealth before login (APPLY_STEALTH_DURING_LOGIN=true).")
-            apply_stealth(page)
+        initial_url = login_url if start_on_login else chart_url
+        print(f"Opening {initial_url}")
+        page.goto(initial_url, wait_until="domcontentloaded", timeout=90000)
+
+        wait_for_authenticated_session(page, chart_url=chart_url, headless=headless)
+
+        if start_on_login:
+            page.goto(chart_url, wait_until="domcontentloaded", timeout=90000)
+            short_pause(page, 250, 520)
+
+        saved_paths: List[Path] = []
+        for i, ticker in enumerate(tickers):
+            print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
+            select_first_symbol_result(page, ticker)
+            out_path = save_chart_image(page, output_dir, ticker)
+            if out_path:
+                saved_paths.append(out_path)
+                print(f"Saved: {out_path}")
+            short_pause(page, 90, 220)
+
+        print("\nDone.")
+        if saved_paths:
+            print("Saved files:")
+            for file_path in saved_paths:
+                print(f" - {file_path}")
         else:
-            print(
-                "Stealth is deferred until after manual login/captcha to avoid reCAPTCHA stalls. "
-                "Set APPLY_STEALTH_DURING_LOGIN=true to override."
-            )
-
-        try:
-            open_login_flow_if_configured(page, chart_url=url)
-            confirm_logged_in(headless=headless)
-
-            if not stealth_pre_login:
-                apply_stealth(page)
-
-            if parse_bool_env("START_ON_LOGIN", True):
-                print(f"Navigating to chart page: {url}")
-                page.goto(url, wait_until="domcontentloaded", timeout=90000)
-                human_pause(page, 900, 2000)
-
-            enforce_auth_first(page, chart_url=url, headless=headless)
-
-            saved_paths: List[Path] = []
-
-            for i, ticker in enumerate(tickers):
-                print(f"\n[{i + 1}/{len(tickers)}] Processing {ticker}")
-                select_first_symbol_result(page, ticker)
-                out_path = save_chart_image(page, output_dir, ticker)
-
-                if out_path:
-                    saved_paths.append(out_path)
-                    print(f"Saved: {out_path}")
-
-                human_pause(page, 220, 680)
-
-            print("\nDone.")
-            if saved_paths:
-                print("Saved files:")
-                for file_path in saved_paths:
-                    print(f" - {file_path}")
-            else:
-                print("No downloadable files were detected.")
-        finally:
-            context.close()
-            browser.close()
+            print("No downloadable files were detected.")
 
     return 0
 

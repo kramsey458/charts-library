@@ -111,17 +111,16 @@ curl -X POST http://localhost:5000/api/uploads/charts \
 For `scripts/tradingview_batch_screenshots.py`, install browser automation dependencies in your Python environment:
 
 ```bash
-pip install playwright playwright-stealth
-playwright install chromium
+pip install camoufox
 ```
 
-The script now applies stealth hardening (`playwright-stealth` when available plus manual browser fingerprint tweaks), randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts.
+The script now uses Camoufox from startup so browser anti-detect protections are active before (and during) Google/TradingView login. It also keeps short randomized delays and fast symbol-entry flow to balance stealth with speed.
 
 Behavior flags:
 - `START_ON_LOGIN=true` (default) opens the TradingView sign-in page first; set `START_ON_LOGIN=false` to open charts directly.
-- `APPLY_STEALTH_DURING_LOGIN=false` (default) defers stealth until after manual login to reduce reCAPTCHA/login stalls.
-- `AUTH_FIRST_MODE=true` (default) blocks automation until the script confirms you are no longer on login/captcha pages (or you explicitly skip).
-- In headed mode, Chromium launches fullscreen for easier manual captcha/login interaction.
+- `AUTH_FIRST_MODE=true` (default) blocks ticker automation until authenticated login is verified.
+- `LOGIN_TIMEOUT_SECONDS=900` controls how long headed mode waits for manual auth completion.
+- `AUTO_CONFIRM_LOGIN=true` is intended only for pre-authenticated/headless sessions.
 
 ## Deployment runbook
 
