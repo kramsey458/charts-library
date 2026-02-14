@@ -70,7 +70,7 @@ def current_utc_date_slug() -> str:
     return datetime.now(timezone.utc).date().isoformat()
 
 
-def human_pause(page, low_ms: int = 70, high_ms: int = 180) -> None:
+def human_pause(page, low_ms: int = 40, high_ms: int = 120) -> None:
     page.wait_for_timeout(random.randint(low_ms, high_ms))
 
 
@@ -83,7 +83,7 @@ def jitter_mouse(page) -> None:
     end_x = random.randint(int(width * 0.3), int(width * 0.7))
     end_y = random.randint(int(height * 0.3), int(height * 0.7))
 
-    steps = random.randint(4, 7)
+    steps = random.randint(2, 4)
     for i in range(steps):
         t = i / max(steps - 1, 1)
         wiggle_x = math.sin(t * math.pi * 2) * random.uniform(0.7, 2.2)
@@ -91,7 +91,7 @@ def jitter_mouse(page) -> None:
         x = start_x + (end_x - start_x) * t + wiggle_x
         y = start_y + (end_y - start_y) * t + wiggle_y
         page.mouse.move(x, y)
-        page.wait_for_timeout(random.randint(5, 16))
+        page.wait_for_timeout(random.randint(2, 8))
 
 
 def focus_chart(page) -> None:
@@ -110,16 +110,16 @@ def select_first_symbol_result(page, ticker: str) -> None:
     focus_chart(page)
 
     # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
-    page.keyboard.type(ticker, delay=random.randint(25, 55))
+    page.keyboard.type(ticker, delay=random.randint(14, 30))
 
     # Give the search window/results time to populate, then select first result.
-    human_pause(page, 130, 340)
+    human_pause(page, 60, 160)
     page.keyboard.press("Enter")
 
     wait_for_chart_ready(page, ticker)
 
 
-def wait_for_chart_ready(page, ticker: str, timeout_ms: int = 9000) -> None:
+def wait_for_chart_ready(page, ticker: str, timeout_ms: int = 8000) -> None:
     # Wait until at least one chart canvas is visible.
     try:
         page.wait_for_selector("canvas", state="visible", timeout=min(timeout_ms, 5000))
@@ -169,7 +169,7 @@ def wait_for_chart_ready(page, ticker: str, timeout_ms: int = 9000) -> None:
                 break
         else:
             stable_checks = 0
-        page.wait_for_timeout(120)
+        page.wait_for_timeout(80)
 
     if stable_checks < 2:
         print(
@@ -177,13 +177,13 @@ def wait_for_chart_ready(page, ticker: str, timeout_ms: int = 9000) -> None:
             file=sys.stderr,
         )
 
-    human_pause(page, 80, 170)
+    human_pause(page, 35, 90)
 
 
 def trigger_save_shortcut(page) -> None:
     is_mac = platform.system().lower() == "darwin"
     shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
-    human_pause(page, 70, 180)
+    human_pause(page, 30, 90)
     page.keyboard.press(shortcut)
 
 
@@ -392,7 +392,7 @@ def main() -> int:
                     saved_paths.append(out_path)
                     print(f"Saved: {out_path}")
 
-                human_pause(page, 80, 220)
+                human_pause(page, 20, 60)
 
             print("\nDone.")
             if saved_paths:
