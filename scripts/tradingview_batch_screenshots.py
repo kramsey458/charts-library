@@ -31,6 +31,7 @@ import random
 import os
 import platform
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -69,7 +70,7 @@ def timestamp_slug() -> str:
     return datetime.now(timezone.utc).isoformat().replace(":", "-").replace(".", "-")
 
 
-def human_pause(page, low_ms: int = 120, high_ms: int = 420) -> None:
+def human_pause(page, low_ms: int = 70, high_ms: int = 180) -> None:
     page.wait_for_timeout(random.randint(low_ms, high_ms))
 
 
@@ -82,7 +83,7 @@ def jitter_mouse(page) -> None:
     end_x = random.randint(int(width * 0.3), int(width * 0.7))
     end_y = random.randint(int(height * 0.3), int(height * 0.7))
 
-    steps = random.randint(6, 10)
+    steps = random.randint(4, 7)
     for i in range(steps):
         t = i / max(steps - 1, 1)
         wiggle_x = math.sin(t * math.pi * 2) * random.uniform(0.7, 2.2)
@@ -109,20 +110,80 @@ def select_first_symbol_result(page, ticker: str) -> None:
     focus_chart(page)
 
     # Type the ticker directly on keyboard; TradingView should auto-open symbol search.
-    page.keyboard.type(ticker, delay=random.randint(45, 95))
+    page.keyboard.type(ticker, delay=random.randint(25, 55))
 
     # Give the search window/results time to populate, then select first result.
-    human_pause(page, 320, 780)
+    human_pause(page, 130, 340)
     page.keyboard.press("Enter")
 
-    # Allow chart to switch symbol.
-    human_pause(page, 800, 1550)
+    wait_for_chart_ready(page, ticker)
+
+
+def wait_for_chart_ready(page, ticker: str, timeout_ms: int = 9000) -> None:
+    # Wait until at least one chart canvas is visible.
+    try:
+        page.wait_for_selector("canvas", state="visible", timeout=min(timeout_ms, 5000))
+    except PlaywrightTimeoutError:
+        print(f"[WARN] Chart canvas did not become visible for {ticker}.", file=sys.stderr)
+
+    # Wait until page title reflects the selected ticker (best-effort).
+    try:
+        page.wait_for_function(
+            "(symbol) => document.title.toUpperCase().includes(symbol)",
+            ticker.upper(),
+            timeout=min(timeout_ms, 7000),
+        )
+    except PlaywrightTimeoutError:
+        print(
+            f"[WARN] Page title did not update to {ticker} before timeout; continuing.",
+            file=sys.stderr,
+        )
+
+    # Wait for known loading indicators to disappear.
+    indicator_script = """
+    () => {
+      const selectors = [
+        '[data-name="loading-spinner"]',
+        '[data-name="series-status"]',
+        '.chart-loading-screen',
+        '.tv-spinner',
+      ];
+      const isVisible = (el) => {
+        const style = window.getComputedStyle(el);
+        return style && style.visibility !== 'hidden' && style.display !== 'none' && el.offsetParent !== null;
+      };
+      return selectors
+        .flatMap((selector) => Array.from(document.querySelectorAll(selector)))
+        .filter(isVisible)
+        .length;
+    }
+    """
+
+    stable_checks = 0
+    deadline = time.monotonic() + (timeout_ms / 1000)
+    while time.monotonic() < deadline:
+        visible_indicators = page.evaluate(indicator_script)
+        if visible_indicators == 0:
+            stable_checks += 1
+            if stable_checks >= 2:
+                break
+        else:
+            stable_checks = 0
+        page.wait_for_timeout(120)
+
+    if stable_checks < 2:
+        print(
+            f"[WARN] Loading indicators remained visible for {ticker}; saving anyway.",
+            file=sys.stderr,
+        )
+
+    human_pause(page, 80, 170)
 
 
 def trigger_save_shortcut(page) -> None:
     is_mac = platform.system().lower() == "darwin"
     shortcut = "Alt+Meta+S" if is_mac else "Control+Alt+S"
-    human_pause(page, 120, 360)
+    human_pause(page, 70, 180)
     page.keyboard.press(shortcut)
 
 
@@ -331,7 +392,7 @@ def main() -> int:
                     saved_paths.append(out_path)
                     print(f"Saved: {out_path}")
 
-                human_pause(page, 220, 680)
+                human_pause(page, 80, 220)
 
             print("\nDone.")
             if saved_paths:

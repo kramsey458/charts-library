@@ -115,7 +115,7 @@ pip install patchright
 patchright install chrome
 ```
 
-The script now uses Patchright persistent browser contexts with a real Chrome channel by default, plus randomized human-like mouse movement, variable typing cadence, and randomized pauses to reduce automation signals that can trigger captcha prompts.
+The script now uses Patchright persistent browser contexts with a real Chrome channel by default, plus randomized human-like mouse movement, variable typing cadence, and shorter adaptive waits. After selecting a symbol, it waits for chart-ready signals (canvas visible, title update, and loading indicators cleared) before triggering the download shortcut.
 
 Behavior flags:
 - `START_ON_LOGIN=true` (default) opens the TradingView sign-in page first; set `START_ON_LOGIN=false` to open charts directly.
