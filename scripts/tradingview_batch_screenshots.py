@@ -66,8 +66,8 @@ def load_tickers(args: argparse.Namespace) -> List[str]:
     ]
 
 
-def timestamp_slug() -> str:
-    return datetime.now(timezone.utc).isoformat().replace(":", "-").replace(".", "-")
+def current_utc_date_slug() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
 
 
 def human_pause(page, low_ms: int = 70, high_ms: int = 180) -> None:
@@ -226,7 +226,7 @@ def save_chart_image(page, output_dir: Path, ticker: str) -> Path | None:
         )
         return None
 
-    filename = f"{ticker}_{timestamp_slug()}.png"
+    filename = f"{ticker},{current_utc_date_slug()}.png"
     out_path = output_dir / filename
     download.save_as(str(out_path))
     return out_path
