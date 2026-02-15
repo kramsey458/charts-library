@@ -205,6 +205,8 @@ class PipelineService:
             if result["success"]:
                 item.capture_path = result["file_path"]
                 item.status = "captured"
+                if result.get("error"):
+                    item.errors.append({"stage": "capture", "error": result["error"]})
                 job.progress["captured"] += 1
             else:
                 item.status = "capture_failed"
@@ -222,7 +224,7 @@ class PipelineService:
             if item.status != "captured" or not item.capture_path:
                 continue
             try:
-                result = classify_candle(Path(item.capture_path).read_bytes())
+                result = classify_candle(Path(item.capture_path))
                 item.label = result["label"]
                 item.scores = result["scores"]
                 item.recommendation = "upload" if result["label"] in {"red", "yellow"} else "skip"

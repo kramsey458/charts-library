@@ -56,6 +56,25 @@ def _save_shortcut(page) -> None:
     page.keyboard.press(shortcut)
 
 
+def _looks_like_image(path: Path) -> bool:
+    try:
+        data = path.read_bytes()[:64]
+    except OSError:
+        return False
+
+    is_png = data.startswith(b"\x89PNG\r\n\x1a\n")
+    is_jpeg = data.startswith(b"\xff\xd8\xff")
+    is_gif = data.startswith(b"GIF87a") or data.startswith(b"GIF89a")
+    is_webp = data.startswith(b"RIFF") and b"WEBP" in data
+    return is_png or is_jpeg or is_gif or is_webp
+
+
+def _screenshot_fallback(page, output_dir: Path, ticker: str) -> Path:
+    out = output_dir / f"{ticker}_{int(time.time() * 1000)}.png"
+    page.screenshot(path=str(out), full_page=True)
+    return out
+
+
 def run_capture(
     tickers: list[str],
     output_dir: Path,
@@ -93,14 +112,27 @@ def run_capture(
                 with page.expect_download(timeout=int(run_options.get("download_timeout_ms", 20_000))) as download_info:
                     _save_shortcut(page)
                 download_info.value.save_as(str(out))
-                results.append({"ticker": ticker, "success": True, "file_path": str(out), "error": ""})
-            except PlaywrightTimeoutError:
+                if _looks_like_image(out):
+                    results.append({"ticker": ticker, "success": True, "file_path": str(out), "error": ""})
+                    continue
+
+                fallback = _screenshot_fallback(page, output_dir, ticker)
                 results.append(
                     {
                         "ticker": ticker,
-                        "success": False,
-                        "file_path": "",
-                        "error": "No chart download detected after save shortcut.",
+                        "success": True,
+                        "file_path": str(fallback),
+                        "error": "Downloaded artifact was not an image; used screenshot fallback.",
+                    }
+                )
+            except PlaywrightTimeoutError:
+                fallback = _screenshot_fallback(page, output_dir, ticker)
+                results.append(
+                    {
+                        "ticker": ticker,
+                        "success": True,
+                        "file_path": str(fallback),
+                        "error": "No chart download detected after save shortcut; used screenshot fallback.",
                     }
                 )
             except Exception as exc:  # pragma: no cover - runtime guard
