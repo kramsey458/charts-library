@@ -198,6 +198,18 @@ def create_api_blueprint(service: ChartService, pipeline_service=None, worker=No
         except PipelineError as exc:
             return error_envelope(exc)
 
+
+    @api.get("/api/pipeline/jobs/<job_id>/images.zip")
+    def download_pipeline_images(job_id: str):
+        try:
+            job = pipeline_service.get_job_owned(job_id, owner_id())
+            zip_path = pipeline_service.get_job_zip_path(job.id)
+            if not zip_path:
+                return jsonify({"error": {"code": "ZIP_NOT_READY", "message": "Zip archive is not ready.", "details": {}}}), 404
+            return send_from_directory(zip_path.parent, zip_path.name, as_attachment=True)
+        except PipelineError as exc:
+            return error_envelope(exc)
+
     @api.post("/api/pipeline/jobs/<job_id>/resume-after-login")
     def resume_pipeline_after_login(job_id: str):
         try:

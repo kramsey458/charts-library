@@ -4,6 +4,7 @@ import hashlib
 import os
 import re
 import secrets
+import zipfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -214,7 +215,10 @@ class PipelineService:
                 item.status = "capture_failed"
                 item.errors.append({"stage": "capture", "error": result["error"]})
                 job.progress["failed"] += 1
-        job.state = "running_classify"
+
+        self._build_job_zip(job)
+        job.state = "completed" if job.progress["captured"] > 0 else "failed"
+        job.completed_at = utcnow_iso()
         job.updated_at = utcnow_iso()
         self.repo.save_job(job)
 
@@ -287,8 +291,23 @@ class PipelineService:
             "error_history": job.error_history,
             "upload_review": self.build_upload_review(job) if job.state == "awaiting_upload_decision" else {},
             "completed_at": job.completed_at,
+            "zip_download_url": f"/api/pipeline/jobs/{job.id}/images.zip" if self.get_job_zip_path(job.id) else "",
         }
         return payload
+
+    def get_job_zip_path(self, job_id: str) -> Path | None:
+        path = self.artifact_dir / job_id / "charts.zip"
+        return path if path.exists() and path.is_file() else None
+
+    def _build_job_zip(self, job: PipelineJob) -> None:
+        zip_path = self.artifact_dir / job.id / "charts.zip"
+        zip_path.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for item in job.items:
+                if item.capture_path:
+                    source = Path(item.capture_path)
+                    if source.exists() and source.is_file():
+                        archive.write(source, arcname=f"{item.ticker}{source.suffix.lower() or '.png'}")
 
     def parse_uploaded_text(self, raw_bytes: bytes) -> str:
         try:

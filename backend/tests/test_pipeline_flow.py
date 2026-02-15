@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import time
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 
@@ -59,14 +60,19 @@ def test_login_ownership_expiry_and_resume_idempotency(client):
     assert expired.get_json()["error"]["code"] == "SESSION_EXPIRED"
 
 
-def test_classify_and_upload_decision_gate(client, monkeypatch):
+def test_pipeline_capture_completes_and_produces_zip(client, monkeypatch):
     from charts_api.pipeline import service as pipeline_service_module
 
-    monkeypatch.setattr(
-        pipeline_service_module,
-        "classify_candle",
-        lambda _bytes: {"label": "red", "scores": {"red_pixels": 5, "yellow_pixels": 0}},
-    )
+    def fake_run_capture(tickers, output_dir, launch_url, on_login_ready=None, run_options=None):
+        results = []
+        for ticker in tickers:
+            path = output_dir / f"{ticker}.png"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+            results.append({"ticker": ticker, "success": True, "file_path": str(path), "error": ""})
+        return {"results": results, "fatal_error": "", "duration_ms": 1}
+
+    monkeypatch.setattr(pipeline_service_module, "run_capture", fake_run_capture)
 
     create = _create_job(client, "AAPL\nMSFT\n")
     job_id = create.get_json()["id"]
@@ -75,33 +81,21 @@ def test_classify_and_upload_decision_gate(client, monkeypatch):
     client.post(f"/api/pipeline/jobs/{job_id}/resume-after-login", headers={"X-Owner-Id": "alice"})
 
     deadline = time.time() + 5
-    state = ""
+    final = None
     while time.time() < deadline:
         job = client.get(f"/api/pipeline/jobs/{job_id}", headers={"X-Owner-Id": "alice"}).get_json()
-        state = job["state"]
-        if state == "awaiting_upload_decision":
+        if job["state"] in {"completed", "failed"}:
+            final = job
             break
         time.sleep(0.1)
-    assert state == "awaiting_upload_decision"
 
-    decision = client.post(
-        f"/api/pipeline/jobs/{job_id}/upload-decision",
-        json={"policy": {"upload_red": True, "upload_yellow": False, "skip_none": True}, "overrides": {"MSFT": "skip"}},
-        headers={"X-Owner-Id": "alice"},
-    )
-    assert decision.status_code == 200
+    assert final is not None
+    assert final["state"] == "completed"
+    assert final["zip_download_url"].endswith("/images.zip")
 
-    deadline = time.time() + 5
-    final_state = ""
-    while time.time() < deadline:
-        job = client.get(f"/api/pipeline/jobs/{job_id}", headers={"X-Owner-Id": "alice"}).get_json()
-        final_state = job["state"]
-        if final_state in {"completed", "failed"}:
-            break
-        time.sleep(0.1)
-    assert final_state == "completed"
-    uploaded = [item for item in job["items"] if item["upload_status"] == "uploaded"]
-    assert len(uploaded) == 1
+    zip_response = client.get(final["zip_download_url"], headers={"X-Owner-Id": "alice"})
+    assert zip_response.status_code == 200
+    assert zip_response.mimetype in {"application/zip", "application/octet-stream"}
 
 
 def test_pipeline_create_job_allows_trailing_slash(client):

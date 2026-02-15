@@ -62,10 +62,10 @@ describe("PipelineTab", () => {
     expect(container.textContent).toContain("State: running_capture");
   });
 
-  it("builds upload decision payload with overrides", async () => {
-    const fetchMock = vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "1", state: "awaiting_upload_decision", tickers: ["AAPL"], invalid_rows: [], progress: {}, items: [{ ticker: "AAPL", label: "red" }] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "1", state: "running_upload", tickers: ["AAPL"], invalid_rows: [], progress: {}, items: [{ ticker: "AAPL", label: "red" }] }), { status: 200 }));
+  it("shows zip download link on completed job", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ id: "1", state: "completed", tickers: ["AAPL"], invalid_rows: [], progress: { captured: 1, total: 1, failed: 0 }, items: [], zip_download_url: "/api/pipeline/jobs/1/images.zip" }), { status: 200 })
+    );
 
     await act(async () => root.render(<PipelineTab />));
     const textarea = container.querySelector("textarea");
@@ -73,16 +73,8 @@ describe("PipelineTab", () => {
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
     await act(async () => container.querySelector("button").click());
 
-    const select = container.querySelector("select");
-    select.value = "skip";
-    select.dispatchEvent(new Event("change", { bubbles: true }));
-    await act(async () => Array.from(container.querySelectorAll("button")).find((b) => b.textContent.includes("Upload approved charts")).click());
-
-    const lastCall = fetchMock.mock.calls.at(-1);
-    expect(lastCall[0]).toContain("upload-decision");
-    expect(JSON.parse(lastCall[1].body)).toEqual({
-      policy: { upload_red: true, upload_yellow: true, skip_none: true },
-      overrides: { AAPL: "skip" },
-    });
+    const link = Array.from(container.querySelectorAll("a")).find((item) => item.textContent.includes("Download chart images"));
+    expect(link).toBeTruthy();
+    expect(link.getAttribute("href")).toBe("/api/pipeline/jobs/1/images.zip");
   });
 });

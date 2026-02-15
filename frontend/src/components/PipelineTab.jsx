@@ -10,8 +10,6 @@ export default function PipelineTab() {
   const [error, setError] = useState("");
   const [launchUrl, setLaunchUrl] = useState("");
   const [resumeLoading, setResumeLoading] = useState(false);
-  const [policy, setPolicy] = useState({ upload_red: true, upload_yellow: true, skip_none: true });
-  const [overrides, setOverrides] = useState({});
   const pollDelayRef = useRef(2000);
 
   useEffect(() => {
@@ -68,15 +66,6 @@ export default function PipelineTab() {
     }
   };
 
-  const submitDecision = async () => {
-    const payload = await fetchJson(`/api/pipeline/jobs/${job.id}/upload-decision`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ policy, overrides }),
-    });
-    setJob(payload);
-  };
-
   const report = useMemo(() => (job ? `data:text/json,${encodeURIComponent(JSON.stringify(job, null, 2))}` : ""), [job]);
 
   return (
@@ -109,33 +98,13 @@ export default function PipelineTab() {
           {job.state.startsWith("running") ? (
             <div>
               <p>Captured: {job.progress.captured}/{job.progress.total}</p>
-              <p>Classified: {job.progress.classified}</p>
-              <p>Uploaded: {job.progress.uploaded}</p>
+              <p>Failed: {job.progress.failed}</p>
             </div>
           ) : null}
-          {job.state === "awaiting_upload_decision" ? (
-            <div>
-              <label><input type="checkbox" checked={policy.upload_red} onChange={(e)=>setPolicy((p)=>({...p, upload_red:e.target.checked}))}/>Upload red</label>
-              <label><input type="checkbox" checked={policy.upload_yellow} onChange={(e)=>setPolicy((p)=>({...p, upload_yellow:e.target.checked}))}/>Upload yellow</label>
-              <button onClick={submitDecision}>Upload approved charts</button>
-              <table>
-                <thead><tr><th>Ticker</th><th>Label</th><th>Override</th></tr></thead>
-                <tbody>
-                  {job.items.map((item) => (
-                    <tr key={item.ticker}>
-                      <td>{item.ticker}</td><td>{item.label || "-"}</td>
-                      <td>
-                        <select value={overrides[item.ticker] || ""} onChange={(e)=>setOverrides((prev)=>({...prev,[item.ticker]:e.target.value}))}>
-                          <option value="">Recommended</option>
-                          <option value="upload">Upload</option>
-                          <option value="skip">Skip</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {job?.zip_download_url ? (
+            <p>
+              <a href={job.zip_download_url} target="_blank" rel="noreferrer">Download chart images (.zip)</a>
+            </p>
           ) : null}
           {TERMINAL.has(job.state) ? <a href={report} download={`pipeline-${job.id}.json`}>Download report JSON</a> : null}
         </div>

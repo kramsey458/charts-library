@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from flask import Blueprint, Flask, jsonify, redirect, request
+from flask import Blueprint, Flask, jsonify, redirect, request, send_from_directory
 from flask_cors import CORS
 
 from .config import load_settings
@@ -81,6 +81,20 @@ def _ensure_pipeline_routes(app: Flask, pipeline_service: PipelineService, worke
                 "TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/"
             )
             return redirect(tradingview_login_url, code=302)
+        except PipelineError as exc:
+            return err(exc)
+
+
+    @pipeline.get("/api/pipeline/jobs/<job_id>/images.zip")
+    def download_pipeline_images(job_id: str):
+        from .pipeline.service import PipelineError
+
+        try:
+            job = pipeline_service.get_job_owned(job_id, owner_id())
+            zip_path = pipeline_service.get_job_zip_path(job.id)
+            if not zip_path:
+                return jsonify({"error": {"code": "ZIP_NOT_READY", "message": "Zip archive is not ready.", "details": {}}}), 404
+            return send_from_directory(zip_path.parent, zip_path.name, as_attachment=True)
         except PipelineError as exc:
             return err(exc)
 
