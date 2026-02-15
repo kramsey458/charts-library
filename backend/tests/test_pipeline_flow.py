@@ -30,7 +30,8 @@ def test_login_ownership_expiry_and_resume_idempotency(client):
     assert forbidden.get_json()["error"]["code"] == "FORBIDDEN"
 
     ok = client.get(launch_url, headers={"X-Owner-Id": "alice"})
-    assert ok.status_code == 200
+    assert ok.status_code == 302
+    assert "tradingview.com" in ok.headers["Location"]
 
     resume = client.post(f"/api/pipeline/jobs/{job_id}/resume-after-login", headers={"X-Owner-Id": "alice"})
     assert resume.status_code == 200
@@ -107,3 +108,13 @@ def test_pipeline_create_job_allows_trailing_slash(client):
     response = client.post("/api/pipeline/jobs/", json={"tickers_text": "AAPL\n"}, headers={"X-Owner-Id": "alice"})
     assert response.status_code == 201
     assert response.get_json()["tickers"] == ["AAPL"]
+
+
+def test_open_login_redirects_to_configured_tradingview_url(client, monkeypatch):
+    monkeypatch.setenv("TRADINGVIEW_LOGIN_URL", "https://example.com/signin")
+    create = _create_job(client, "AAPL\n")
+    job_id = create.get_json()["id"]
+    start = client.post(f"/api/pipeline/jobs/{job_id}/start", headers={"X-Owner-Id": "alice"}).get_json()
+    response = client.get(start["launch_url"], headers={"X-Owner-Id": "alice"})
+    assert response.status_code == 302
+    assert response.headers["Location"] == "https://example.com/signin"
