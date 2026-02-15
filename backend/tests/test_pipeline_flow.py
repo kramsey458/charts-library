@@ -118,3 +118,40 @@ def test_open_login_redirects_to_configured_tradingview_url(client, monkeypatch)
     response = client.get(start["launch_url"], headers={"X-Owner-Id": "alice"})
     assert response.status_code == 302
     assert response.headers["Location"] == "https://example.com/signin"
+
+
+def test_pipeline_capture_honors_env_options(client, monkeypatch):
+    from charts_api.pipeline import service as pipeline_service_module
+
+    captured = {}
+
+    def fake_run_capture(tickers, output_dir, launch_url, on_login_ready=None, run_options=None):
+        captured["tickers"] = tickers
+        captured["launch_url"] = launch_url
+        captured["run_options"] = run_options or {}
+        png_path = output_dir / "AAPL.png"
+        png_path.parent.mkdir(parents=True, exist_ok=True)
+        png_path.write_bytes(b"\x89PNG\r\n\x1a\n" + b"0" * 64)
+        return {"results": [{"ticker": "AAPL", "success": True, "file_path": str(png_path), "error": ""}], "fatal_error": "", "duration_ms": 1}
+
+    monkeypatch.setattr(pipeline_service_module, "run_capture", fake_run_capture)
+    monkeypatch.setenv("PIPELINE_CAPTURE_MOCK", "false")
+    monkeypatch.setenv("PIPELINE_CAPTURE_HEADLESS", "true")
+    monkeypatch.setenv("TRADINGVIEW_CHART_URL", "https://www.tradingview.com/chart/")
+
+    create = _create_job(client, "AAPL\n")
+    job_id = create.get_json()["id"]
+    start = client.post(f"/api/pipeline/jobs/{job_id}/start", headers={"X-Owner-Id": "alice"}).get_json()
+    client.get(start["launch_url"], headers={"X-Owner-Id": "alice"})
+    client.post(f"/api/pipeline/jobs/{job_id}/resume-after-login", headers={"X-Owner-Id": "alice"})
+
+    deadline = time.time() + 3
+    while time.time() < deadline:
+        job = client.get(f"/api/pipeline/jobs/{job_id}", headers={"X-Owner-Id": "alice"}).get_json()
+        if job["state"] in {"awaiting_upload_decision", "completed", "failed"}:
+            break
+        time.sleep(0.05)
+
+    assert captured["launch_url"] == "https://www.tradingview.com/chart/"
+    assert captured["run_options"]["mock_mode"] is False
+    assert captured["run_options"]["headless"] is True

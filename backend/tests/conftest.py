@@ -17,6 +17,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCAL_STORAGE_DIR", str(tmp_path / "storage"))
     monkeypatch.setenv("PIPELINE_DB_PATH", str(tmp_path / "pipeline.sqlite3"))
     monkeypatch.setenv("PIPELINE_ARTIFACT_DIR", str(tmp_path / "pipeline-artifacts"))
+    monkeypatch.setenv("PIPELINE_CAPTURE_MOCK", "true")
     app = create_app()
     app.config.update(TESTING=True)
     with app.test_client() as test_client:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -187,7 +188,18 @@ class PipelineService:
         if not job or job.state != "running_capture":
             return
         out_dir = self.artifact_dir / job.id
-        results = run_capture(job.tickers, out_dir, "https://www.tradingview.com/chart/", run_options={"mock_mode": True})
+        results = run_capture(
+            job.tickers,
+            out_dir,
+            os.environ.get("TRADINGVIEW_CHART_URL", "https://www.tradingview.com/chart/"),
+            run_options={
+                "mock_mode": os.environ.get("PIPELINE_CAPTURE_MOCK", "false").strip().lower() == "true",
+                "headless": os.environ.get("PIPELINE_CAPTURE_HEADLESS", "false").strip().lower() == "true",
+                "download_timeout_ms": int(os.environ.get("PIPELINE_CAPTURE_DOWNLOAD_TIMEOUT_MS", "20000")),
+            },
+        )
+        if results.get("fatal_error"):
+            job.error_history.append({"stage": "capture", "error": results["fatal_error"]})
         for result in results["results"]:
             item = next(i for i in job.items if i.ticker == result["ticker"])
             if result["success"]:
