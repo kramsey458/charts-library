@@ -176,3 +176,39 @@ After deploy:
 ## Netlify config
 
 `netlify.toml` is configured for static SPA hosting (frontend only). API requests are expected to go to Flask backend via `VITE_API_BASE_URL`.
+
+## Pipeline Vertical Slice
+
+The app now supports an end-to-end pipeline from ticker text upload to classified and policy-gated chart uploads.
+
+### Pipeline API contract
+- `POST /api/pipeline/jobs` accepts multipart `ticker_file` (`.txt`/`.csv`) or JSON `tickers_text`.
+- `POST /api/pipeline/jobs/{job_id}/start` creates login handoff (`launch_url`, `expires_at`).
+- `GET /api/pipeline/jobs/{job_id}` returns live progress and per-item outcomes.
+- `POST /api/pipeline/jobs/{job_id}/resume-after-login` resumes capture after auth.
+- `POST /api/pipeline/jobs/{job_id}/upload-decision` applies policy + overrides.
+- `POST /api/pipeline/jobs/{job_id}/cancel` cleanly cancels.
+
+### Ticker file rules
+- UTF-8 only.
+- One ticker per line.
+- Blank lines and `#` comments ignored.
+- Symbols normalized to uppercase and validated strictly.
+- Invalid lines are returned as `invalid_rows` with line numbers and reasons.
+
+### Login handoff lifecycle
+- Start creates a short-lived one-time login session token bound to job owner.
+- Resume is idempotent and fails with:
+  - `LOGIN_NOT_CONFIRMED` before login callback.
+  - `SESSION_EXPIRED` after TTL.
+
+### Worker/deployment notes (Render)
+- Requires backend worker thread enabled in the API process.
+- Playwright capture runner is in `backend/charts_api/pipeline/tradingview_runner.py`.
+- Configure `PIPELINE_DB_PATH` and `PIPELINE_ARTIFACT_DIR` for durable storage.
+
+### Runbook
+- `SESSION_EXPIRED`: restart job to generate fresh login session.
+- `LOGIN_NOT_CONFIRMED`: open launch URL and complete auth first.
+- Stale artifacts can be removed from `PIPELINE_ARTIFACT_DIR` on a retention schedule.
+- Rotate/clear sessions by deleting records in `PIPELINE_DB_PATH` SQLite `login_sessions` table.

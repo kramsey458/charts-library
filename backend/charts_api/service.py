@@ -240,6 +240,17 @@ class ChartService:
             },
         }, 200
 
+
+    def upload_chart_from_path(self, ticker: str, file_path: Path, notes: str = "", date_label: str | None = None) -> tuple[dict, int]:
+        from werkzeug.datastructures import FileStorage, MultiDict
+
+        date_value = date_label or datetime.date.today().isoformat()
+        with file_path.open("rb") as stream:
+            storage = FileStorage(stream=stream, filename=file_path.name, content_type="image/png")
+            form = MultiDict({"ticker": ticker, "date": date_value, "notes": notes})
+            files = MultiDict({"chart": storage})
+            return self.upload_chart(form, files)
+
     def get_chart_file_path(self, ticker: str, date_label: str, filename: str) -> Path | None:
         normalized_ticker = ticker.strip().upper()
         chart_path = self.settings.storage_dir / normalized_ticker / date_label / filename

@@ -11,6 +11,7 @@ import {
   getChartKey,
 } from "./lib/chartHelpers";
 import ClassifierTab from "./components/ClassifierTab";
+import PipelineTab from "./components/PipelineTab";
 
 const emptyState = {
   tickers: [],
@@ -999,6 +1000,13 @@ export default function App() {
         >
           Classifier
         </button>
+        <button
+          type="button"
+          className={`top-tab ${activeTab === "pipeline" ? "is-active" : ""}`.trim()}
+          onClick={() => setActiveTab("pipeline")}
+        >
+          Pipeline
+        </button>
       </nav>
 
       {activeTab === "library" ? (
@@ -1808,8 +1816,10 @@ export default function App() {
         </div>
       ) : null}
         </>
-      ) : (
+      ) : activeTab === "classifier" ? (
         <ClassifierTab onBatchUploadComplete={handleClassifierBatchUploadComplete} />
+      ) : (
+        <PipelineTab />
       )}
     </div>
   );
