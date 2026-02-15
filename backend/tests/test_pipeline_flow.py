@@ -101,3 +101,9 @@ def test_classify_and_upload_decision_gate(client, monkeypatch):
     assert final_state == "completed"
     uploaded = [item for item in job["items"] if item["upload_status"] == "uploaded"]
     assert len(uploaded) == 1
+
+
+def test_pipeline_create_job_allows_trailing_slash(client):
+    response = client.post("/api/pipeline/jobs/", json={"tickers_text": "AAPL\n"}, headers={"X-Owner-Id": "alice"})
+    assert response.status_code == 201
+    assert response.get_json()["tickers"] == ["AAPL"]

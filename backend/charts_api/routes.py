@@ -147,6 +147,7 @@ def create_api_blueprint(service: ChartService, pipeline_service=None, worker=No
             return jsonify({"error": str(exc)}), 502
 
     @api.post("/api/pipeline/jobs")
+    @api.post("/api/pipeline/jobs/")
     def create_pipeline_job():
         try:
             if request.content_type and request.content_type.startswith("multipart/form-data"):

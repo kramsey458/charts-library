@@ -27,7 +27,12 @@ export const fetchJson = async (url, options) => {
   const response = await fetch(withApiBase(url), options);
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || "Request failed");
+    const message =
+      (typeof payload.error === "string" && payload.error) ||
+      payload.error?.message ||
+      payload.message ||
+      `Request failed (${response.status})`;
+    throw new Error(message);
   }
   return response.json();
 };
