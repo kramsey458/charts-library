@@ -137,6 +137,8 @@ def test_pipeline_capture_honors_env_options(client, monkeypatch):
     monkeypatch.setattr(pipeline_service_module, "run_capture", fake_run_capture)
     monkeypatch.setenv("PIPELINE_CAPTURE_MOCK", "false")
     monkeypatch.setenv("PIPELINE_CAPTURE_HEADLESS", "true")
+    monkeypatch.setenv("PIPELINE_CAPTURE_BROWSER_CHANNEL", "chrome")
+    monkeypatch.setenv("PIPELINE_CAPTURE_FRESH_PROFILE", "true")
     monkeypatch.setenv("TRADINGVIEW_CHART_URL", "https://www.tradingview.com/chart/")
 
     create = _create_job(client, "AAPL\n")
@@ -155,3 +157,5 @@ def test_pipeline_capture_honors_env_options(client, monkeypatch):
     assert captured["launch_url"] == "https://www.tradingview.com/chart/"
     assert captured["run_options"]["mock_mode"] is False
     assert captured["run_options"]["headless"] is True
+    assert captured["run_options"]["browser_channel"] == "chrome"
+    assert captured["run_options"]["fresh_profile"] is True

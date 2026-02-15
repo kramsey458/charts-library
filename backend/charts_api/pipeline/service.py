@@ -196,6 +196,8 @@ class PipelineService:
                 "mock_mode": os.environ.get("PIPELINE_CAPTURE_MOCK", "false").strip().lower() == "true",
                 "headless": os.environ.get("PIPELINE_CAPTURE_HEADLESS", "false").strip().lower() == "true",
                 "download_timeout_ms": int(os.environ.get("PIPELINE_CAPTURE_DOWNLOAD_TIMEOUT_MS", "20000")),
+                "browser_channel": os.environ.get("PIPELINE_CAPTURE_BROWSER_CHANNEL", "chrome").strip() or "chrome",
+                "fresh_profile": os.environ.get("PIPELINE_CAPTURE_FRESH_PROFILE", "true").strip().lower() == "true",
             },
         )
         if results.get("fatal_error"):

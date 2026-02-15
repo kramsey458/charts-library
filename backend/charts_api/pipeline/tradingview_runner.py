@@ -4,6 +4,7 @@ import base64
 import math
 import platform
 import random
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -97,10 +98,28 @@ def run_capture(
         return {"results": results, "duration_ms": int((time.time() - started) * 1000), "fatal_error": ""}
 
     fatal_error = ""
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=bool(run_options.get("headless", False)))
-        context = browser.new_context(accept_downloads=True)
-        page = context.new_page()
+    fresh_profile = bool(run_options.get("fresh_profile", True))
+    browser_channel = run_options.get("browser_channel", "chrome")
+
+    with tempfile.TemporaryDirectory(prefix="pipeline-chrome-") as temp_profile_dir, sync_playwright() as playwright:
+        if fresh_profile:
+            context = playwright.chromium.launch_persistent_context(
+                user_data_dir=temp_profile_dir,
+                channel=browser_channel,
+                headless=bool(run_options.get("headless", False)),
+                accept_downloads=True,
+                args=["--disable-blink-features=AutomationControlled", "--start-maximized"],
+            )
+            page = context.pages[0] if context.pages else context.new_page()
+        else:
+            browser = playwright.chromium.launch(
+                channel=browser_channel,
+                headless=bool(run_options.get("headless", False)),
+                args=["--disable-blink-features=AutomationControlled", "--start-maximized"],
+            )
+            context = browser.new_context(accept_downloads=True)
+            page = context.new_page()
+
         page.goto(launch_url, wait_until="domcontentloaded", timeout=90_000)
         if on_login_ready:
             on_login_ready()
@@ -139,7 +158,6 @@ def run_capture(
                 results.append({"ticker": ticker, "success": False, "file_path": "", "error": str(exc)})
 
         context.close()
-        browser.close()
 
     if not any(item["success"] for item in results):
         fatal_error = "Capture run completed with zero successful downloads."
