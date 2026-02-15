@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
-
-from flask import Blueprint, jsonify, redirect, request, send_from_directory
+from flask import Blueprint, jsonify, request, send_from_directory
 
 from .pipeline.service import PipelineError
 from .service import ChartService
@@ -190,11 +188,8 @@ def create_api_blueprint(service: ChartService, pipeline_service=None, worker=No
     def open_pipeline_login(session_id: str):
         token = request.args.get("token", "")
         try:
-            pipeline_service.open_login_session(session_id, token, owner_id())
-            tradingview_login_url = os.environ.get(
-                "TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/"
-            )
-            return redirect(tradingview_login_url, code=302)
+            payload, status = pipeline_service.open_login_session(session_id, token, owner_id())
+            return jsonify(payload), status
         except PipelineError as exc:
             return error_envelope(exc)
 

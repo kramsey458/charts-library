@@ -199,6 +199,9 @@ class PipelineService:
                 "download_timeout_ms": int(os.environ.get("PIPELINE_CAPTURE_DOWNLOAD_TIMEOUT_MS", "20000")),
                 "browser_channel": os.environ.get("PIPELINE_CAPTURE_BROWSER_CHANNEL", "chrome").strip() or "chrome",
                 "fresh_profile": os.environ.get("PIPELINE_CAPTURE_FRESH_PROFILE", "true").strip().lower() == "true",
+                "interactive_login": os.environ.get("PIPELINE_CAPTURE_INTERACTIVE_LOGIN", "true").strip().lower() == "true",
+                "login_url": os.environ.get("TRADINGVIEW_LOGIN_URL", "https://www.tradingview.com/accounts/signin/"),
+                "login_timeout_ms": int(os.environ.get("PIPELINE_CAPTURE_LOGIN_TIMEOUT_MS", "180000")),
             },
         )
         if results.get("fatal_error"):

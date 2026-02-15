@@ -31,8 +31,8 @@ def test_login_ownership_expiry_and_resume_idempotency(client):
     assert forbidden.get_json()["error"]["code"] == "FORBIDDEN"
 
     ok = client.get(launch_url, headers={"X-Owner-Id": "alice"})
-    assert ok.status_code == 302
-    assert "tradingview.com" in ok.headers["Location"]
+    assert ok.status_code == 200
+    assert ok.get_json()["message"] == "Login confirmed."
 
     resume = client.post(f"/api/pipeline/jobs/{job_id}/resume-after-login", headers={"X-Owner-Id": "alice"})
     assert resume.status_code == 200
@@ -104,14 +104,13 @@ def test_pipeline_create_job_allows_trailing_slash(client):
     assert response.get_json()["tickers"] == ["AAPL"]
 
 
-def test_open_login_redirects_to_configured_tradingview_url(client, monkeypatch):
-    monkeypatch.setenv("TRADINGVIEW_LOGIN_URL", "https://example.com/signin")
+def test_open_login_confirms_session(client):
     create = _create_job(client, "AAPL\n")
     job_id = create.get_json()["id"]
     start = client.post(f"/api/pipeline/jobs/{job_id}/start", headers={"X-Owner-Id": "alice"}).get_json()
     response = client.get(start["launch_url"], headers={"X-Owner-Id": "alice"})
-    assert response.status_code == 302
-    assert response.headers["Location"] == "https://example.com/signin"
+    assert response.status_code == 200
+    assert response.get_json()["message"] == "Login confirmed."
 
 
 def test_pipeline_capture_honors_env_options(client, monkeypatch):
@@ -133,6 +132,7 @@ def test_pipeline_capture_honors_env_options(client, monkeypatch):
     monkeypatch.setenv("PIPELINE_CAPTURE_HEADLESS", "true")
     monkeypatch.setenv("PIPELINE_CAPTURE_BROWSER_CHANNEL", "chrome")
     monkeypatch.setenv("PIPELINE_CAPTURE_FRESH_PROFILE", "true")
+    monkeypatch.setenv("PIPELINE_CAPTURE_INTERACTIVE_LOGIN", "true")
     monkeypatch.setenv("TRADINGVIEW_CHART_URL", "https://www.tradingview.com/chart/")
 
     create = _create_job(client, "AAPL\n")
@@ -153,3 +153,4 @@ def test_pipeline_capture_honors_env_options(client, monkeypatch):
     assert captured["run_options"]["headless"] is True
     assert captured["run_options"]["browser_channel"] == "chrome"
     assert captured["run_options"]["fresh_profile"] is True
+    assert captured["run_options"]["interactive_login"] is True

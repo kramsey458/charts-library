@@ -26,6 +26,26 @@ def _human_pause(page, low_ms: int = 120, high_ms: int = 380) -> None:
     page.wait_for_timeout(random.randint(low_ms, high_ms))
 
 
+def _looks_like_login_page(url: str) -> bool:
+    lowered = (url or "").lower()
+    return any(token in lowered for token in ("/accounts/signin", "captcha", "challenge", "login"))
+
+
+def _wait_for_manual_auth(page, chart_url: str, timeout_ms: int) -> bool:
+    deadline = time.time() + (timeout_ms / 1000)
+    while time.time() < deadline:
+        try:
+            if not _looks_like_login_page(page.url):
+                return True
+            page.goto(chart_url, wait_until="domcontentloaded", timeout=30_000)
+            if not _looks_like_login_page(page.url):
+                return True
+        except Exception:
+            pass
+        page.wait_for_timeout(1000)
+    return False
+
+
 def _focus_chart(page) -> None:
     viewport = page.viewport_size or {"width": 1280, "height": 720}
     start_x = random.randint(int(viewport["width"] * 0.3), int(viewport["width"] * 0.7))
@@ -100,6 +120,9 @@ def run_capture(
     fatal_error = ""
     fresh_profile = bool(run_options.get("fresh_profile", True))
     browser_channel = run_options.get("browser_channel", "chrome")
+    interactive_login = bool(run_options.get("interactive_login", True))
+    login_url = str(run_options.get("login_url", "https://www.tradingview.com/accounts/signin/"))
+    login_timeout_ms = int(run_options.get("login_timeout_ms", 180_000))
 
     with tempfile.TemporaryDirectory(prefix="pipeline-chrome-") as temp_profile_dir, sync_playwright() as playwright:
         if fresh_profile:
@@ -120,9 +143,27 @@ def run_capture(
             context = browser.new_context(accept_downloads=True)
             page = context.new_page()
 
+        if interactive_login:
+            page.goto(login_url, wait_until="domcontentloaded", timeout=90_000)
+            if on_login_ready:
+                on_login_ready()
+            if not _wait_for_manual_auth(page, chart_url=launch_url, timeout_ms=login_timeout_ms):
+                context.close()
+                return {
+                    "results": [
+                        {
+                            "ticker": ticker,
+                            "success": False,
+                            "file_path": "",
+                            "error": "Playwright browser login was not completed before timeout.",
+                        }
+                        for ticker in tickers
+                    ],
+                    "duration_ms": int((time.time() - started) * 1000),
+                    "fatal_error": "Authentication was not completed in Playwright browser.",
+                }
+
         page.goto(launch_url, wait_until="domcontentloaded", timeout=90_000)
-        if on_login_ready:
-            on_login_ready()
 
         for ticker in tickers:
             out = output_dir / f"{ticker}_{int(time.time() * 1000)}.png"
