@@ -4,6 +4,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from .config import load_settings
+from .pipeline import PipelineRepository, PipelineService
 from .routes import create_api_blueprint
 from .service import ChartService
 
@@ -18,5 +19,8 @@ def create_app() -> Flask:
     if not settings.is_external:
         service.local.ensure_storage()
 
-    app.register_blueprint(create_api_blueprint(service))
+    pipeline_repository = PipelineRepository()
+    pipeline_service = PipelineService(repository=pipeline_repository)
+
+    app.register_blueprint(create_api_blueprint(service, pipeline_service=pipeline_service))
     return app

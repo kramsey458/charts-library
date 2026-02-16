@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from flask import Blueprint, jsonify, redirect, request, send_from_directory
 
+from .pipeline.service import PipelineService
 from .service import ChartService
 
 
-def create_api_blueprint(service: ChartService) -> Blueprint:
+def create_api_blueprint(service: ChartService, pipeline_service: PipelineService | None = None) -> Blueprint:
     api = Blueprint("api", __name__)
 
     @api.get("/api/health")
@@ -138,5 +139,23 @@ def create_api_blueprint(service: ChartService) -> Blueprint:
             return jsonify(payload), status
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 502
+
+    if pipeline_service:
+
+        @api.post("/api/pipeline/start")
+        def pipeline_start():
+            payload = pipeline_service.start_job(request.host_url.rstrip("/"))
+            return jsonify(payload), 201
+
+        @api.get("/api/pipeline/login/<session_id>")
+        def pipeline_open_login(session_id: str):
+            token = request.args.get("token", "")
+            payload, status = pipeline_service.open_login_session(session_id, token)
+            return jsonify(payload), status
+
+        @api.post("/api/pipeline/resume-after-login/<job_id>")
+        def pipeline_resume_after_login(job_id: str):
+            payload, status = pipeline_service.resume_after_login(job_id)
+            return jsonify(payload), status
 
     return api
