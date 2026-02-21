@@ -100,6 +100,38 @@ def test_classifier_batch_plan_and_upload(client):
     assert len(charts) == 1
 
 
+
+
+def test_classifier_batch_upload_all_uploads_every_classification(client):
+    response = client.post(
+        '/api/classifier/batch/upload-all',
+        data={
+            'charts': [
+                (io.BytesIO(_png_bytes_with_color((0, 255, 255))), 'AAPL_20260214_signal.png'),
+                (io.BytesIO(_png_bytes_with_color((0, 0, 255))), 'TSLA_20260214_signal.png'),
+                (io.BytesIO(_png_bytes_with_color((0, 0, 0))), 'XME_20260214_signal.png'),
+            ]
+        },
+        content_type='multipart/form-data',
+    )
+
+    assert response.status_code == 200
+    results = response.get_json()['results']
+    assert len(results) == 3
+    assert {item['label'] for item in results} == {'yellow', 'red', 'none'}
+    assert all(item['upload_result']['status'] == 201 for item in results)
+
+    aapl_charts = client.get('/api/charts/AAPL').get_json()['charts']
+    tsla_charts = client.get('/api/charts/TSLA').get_json()['charts']
+    xme_charts = client.get('/api/charts/XME').get_json()['charts']
+
+    assert len(aapl_charts) == 1
+    assert len(tsla_charts) == 1
+    assert len(xme_charts) == 1
+    assert aapl_charts[0]['classification_label'] == 'yellow'
+    assert tsla_charts[0]['classification_label'] == 'red'
+    assert xme_charts[0]['classification_label'] == 'none'
+
 def test_classifier_batch_upload_reports_per_file_errors(client):
     response = client.post(
         '/api/classifier/batch/upload',

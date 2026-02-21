@@ -108,6 +108,9 @@ class ChartService:
     def classifier_batch_upload(self, form, files) -> tuple[dict[str, Any], int]:
         return self._classifier_batch_process(form, files, do_upload=True)
 
+    def classifier_batch_upload_all(self, form, files) -> tuple[dict[str, Any], int]:
+        return self._classifier_batch_process(form, files, do_upload=True, upload_all=True)
+
     def build_ticker_stats(self) -> tuple[list[str], dict[str, int], int]:
         if self.is_external:
             charts = self.external.list_all_charts()
@@ -371,7 +374,14 @@ class ChartService:
             parsed_date = f"{date_raw[:4]}-{date_raw[4:6]}-{date_raw[6:8]}"
         return {"ticker": ticker, "date": parsed_date}
 
-    def _classifier_batch_process(self, form, files, *, do_upload: bool) -> tuple[dict[str, Any], int]:
+    def _classifier_batch_process(
+        self,
+        form,
+        files,
+        *,
+        do_upload: bool,
+        upload_all: bool = False,
+    ) -> tuple[dict[str, Any], int]:
         incoming = files.getlist("charts") or files.getlist("files")
         if not incoming:
             return {"error": "At least one chart image is required."}, 400
@@ -416,7 +426,9 @@ class ChartService:
                 "date": meta["date"],
             }
 
-            if do_upload and decision == "accept":
+            should_upload = do_upload and (upload_all or decision == "accept")
+
+            if should_upload:
                 upload_form = {
                     "ticker": meta["ticker"],
                     "date": meta["date"],

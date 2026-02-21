@@ -139,4 +139,15 @@ def create_api_blueprint(service: ChartService) -> Blueprint:
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 502
 
+    @api.post("/api/classifier/batch/upload-all")
+    def classifier_batch_upload_all():
+        validation_error = require_config()
+        if validation_error:
+            return validation_error
+        try:
+            payload, status = service.classifier_batch_upload_all(request.form, request.files)
+            return jsonify(payload), status
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 502
+
     return api
