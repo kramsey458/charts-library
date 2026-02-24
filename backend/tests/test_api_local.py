@@ -186,8 +186,13 @@ def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
 
     def fake_analyze(self, image_bytes, prompt, system_prompt=""):
         assert image_bytes.startswith(b"\x89PNG")
-        assert "TSLA" in prompt
-        return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.2"}
+        if "Analyze this trading chart image" in prompt:
+            assert "TSLA" in prompt
+            return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.2"}
+        return {
+            "analysis_text": "yellow candle\ntrend bearish\nWhale +\nMACD -\nMACD - cross",
+            "analysis_model": "gpt-5.2",
+        }
 
     monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)
 
@@ -196,13 +201,20 @@ def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
 
     chart = analyze.get_json()["chart"]
     assert chart["analysis"]["status"] == "completed"
-    assert chart["analysis"]["text"] == "Trend is consolidating."
+    assert "Trend is consolidating." in chart["analysis"]["text"]
+    assert "Checklist verdicts:" in chart["analysis"]["text"]
     assert chart["analysis"]["model"] == "gpt-5.2"
-    assert chart["analysis"]["prompt_version"] == "chart-analysis-v1"
+    assert chart["analysis"]["prompt_version"] == "chart-analysis-v2"
+    assert chart["checklist"]["yellow_candle"] is True
+    assert chart["checklist"]["trend_bearish"] is True
+    assert chart["checklist"]["whale_accumulation_plus"] is True
+    assert chart["checklist"]["macd_negative"] is True
+    assert chart["checklist"]["macd_minus_cross"] is True
 
     listed = client.get("/api/charts/TSLA").get_json()["charts"][0]
     assert listed["analysis"]["status"] == "completed"
-    assert listed["analysis"]["text"] == "Trend is consolidating."
+    assert "Trend is consolidating." in listed["analysis"]["text"]
+    assert "Checklist verdicts:" in listed["analysis"]["text"]
 
 
 def test_analyze_chart_captures_failures(client, png_file, monkeypatch):
@@ -221,3 +233,26 @@ def test_analyze_chart_captures_failures(client, png_file, monkeypatch):
     chart = analyze.get_json()["chart"]
     assert chart["analysis"]["status"] == "failed"
     assert chart["analysis"]["error"] == "model timeout"
+
+
+def test_analyze_chart_still_completes_when_checklist_pass_fails(client, png_file, monkeypatch):
+    fileobj, filename = png_file
+    response = upload_chart(client, fileobj, filename, ticker="MSFT", notes="Second pass fallback")
+    assert response.status_code == 201
+
+    def fake_analyze(self, image_bytes, prompt, system_prompt=""):
+        assert image_bytes.startswith(b"\x89PNG")
+        if "Analyze this trading chart image" in prompt:
+            return {"analysis_text": "Primary analysis only.", "analysis_model": "gpt-5.2"}
+        raise RuntimeError("checklist timeout")
+
+    monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)
+
+    analyze = client.post(f"/api/charts/MSFT/2026-02-11/{filename}/analyze")
+    assert analyze.status_code == 200
+
+    chart = analyze.get_json()["chart"]
+    assert chart["analysis"]["status"] == "completed"
+    assert chart["analysis"]["text"] == "Primary analysis only."
+    assert chart["checklist"]["red_candle"] is True
+    assert chart["checklist"]["yellow_candle"] is True

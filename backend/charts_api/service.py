@@ -14,10 +14,10 @@ from werkzeug.utils import secure_filename
 
 from .ai_analysis import OpenAIChartAnalyzer
 from .candle_classifier import CandleClassifierConfig, classify_candle, load_classifier_config
-from .checklist import CHECKLIST_KEYS, sanitize_checklist
+from .checklist import CHECKLIST_KEYS, apply_checklist_verdicts, sanitize_checklist
 from .cloudinary_storage import CloudinaryStorage
 from .config import Settings
-from .prompts import PROMPT_VERSION, SYSTEM_PROMPT, build_chart_analysis_prompt
+from .prompts import CHECKLIST_VERDICT_PROMPT, PROMPT_VERSION, SYSTEM_PROMPT, build_chart_analysis_prompt
 from .local_storage import LocalStorage
 
 
@@ -342,12 +342,30 @@ class ChartService:
                     prompt=build_chart_analysis_prompt(normalized_ticker, date_label, filename),
                     system_prompt=SYSTEM_PROMPT,
                 )
+                verdict_text = ""
+                try:
+                    checklist_result = self.analyzer.analyze_chart(
+                        image_bytes,
+                        prompt=CHECKLIST_VERDICT_PROMPT,
+                        system_prompt="",
+                    )
+                    verdict_text = checklist_result.get("analysis_text", "")
+                except RuntimeError:
+                    verdict_text = ""
+                checklist = apply_checklist_verdicts(checklist, verdict_text)
+                analysis_text = str(result.get("analysis_text", "")).strip()
+                if verdict_text.strip():
+                    analysis_text = (
+                        f"{analysis_text}\n\nChecklist verdicts:\n{verdict_text.strip()}"
+                        if analysis_text
+                        else verdict_text.strip()
+                    )
                 completed = self.local.sanitize_analysis(
                     {
                         "status": "completed",
                         "model": result.get("analysis_model", self.settings.openai_model),
                         "prompt_version": PROMPT_VERSION,
-                        "text": result.get("analysis_text", ""),
+                        "text": analysis_text,
                         "started_at": now_iso,
                         "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     }
@@ -398,12 +416,32 @@ class ChartService:
                 prompt=build_chart_analysis_prompt(normalized_ticker, date_label, filename),
                 system_prompt=SYSTEM_PROMPT,
             )
+            verdict_text = ""
+            try:
+                checklist_result = self.analyzer.analyze_chart(
+                    image_bytes,
+                    prompt=CHECKLIST_VERDICT_PROMPT,
+                    system_prompt="",
+                )
+                verdict_text = checklist_result.get("analysis_text", "")
+            except RuntimeError:
+                verdict_text = ""
+            checklist = self.local.read_checklist(chart_path)
+            checklist = apply_checklist_verdicts(checklist, verdict_text)
+            self.local.write_checklist(chart_path, checklist)
+            analysis_text = str(result.get("analysis_text", "")).strip()
+            if verdict_text.strip():
+                analysis_text = (
+                        f"{analysis_text}\n\nChecklist verdicts:\n{verdict_text.strip()}"
+                        if analysis_text
+                        else verdict_text.strip()
+                    )
             final_analysis = self.local.sanitize_analysis(
                 {
                     "status": "completed",
                     "model": result.get("analysis_model", self.settings.openai_model),
                     "prompt_version": PROMPT_VERSION,
-                    "text": result.get("analysis_text", ""),
+                    "text": analysis_text,
                     "started_at": now_iso,
                     "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 }
