@@ -279,6 +279,19 @@ export default function App() {
     }
   };
 
+  const handleAnalyzeChartClick = (chart) => {
+    const hasExistingAnalysis = Boolean(chart?.analysis?.text?.trim());
+    if (hasExistingAnalysis) {
+      const confirmed = window.confirm(
+        "AI Analysis has already been run for this chart. Do you want to run the analysis again?"
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+    runChartAnalysis(chart);
+  };
+
   const copyAnalysisText = async () => {
     const analysisText = previewChart?.analysis?.text || "";
     if (!analysisText) {
@@ -1718,8 +1731,13 @@ export default function App() {
                 </span>
               </div>
               <div className="chart-modal-analysis-actions">
-                <button type="button" onClick={() => runChartAnalysis(previewChart)} disabled={isAnalyzingChart}>
-                  {isAnalyzingChart ? "Analyzing..." : "Analyze chart"}
+                <button
+                  type="button"
+                  className={previewChart.analysis?.text ? "analysis-rerun-button" : ""}
+                  onClick={() => handleAnalyzeChartClick(previewChart)}
+                  disabled={isAnalyzingChart}
+                >
+                  {isAnalyzingChart ? "Analyzing..." : "AI Analysis"}
                 </button>
                 <button
                   type="button"

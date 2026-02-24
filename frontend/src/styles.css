@@ -1803,6 +1803,16 @@ button:disabled {
   gap: 8px;
 }
 
+
+.analysis-rerun-button {
+  background: #5f667f;
+  box-shadow: none;
+}
+
+.analysis-rerun-button:hover:not(:disabled) {
+  background: #6c7490;
+}
+
 .analysis-text {
   white-space: pre-wrap;
   background: rgba(10, 12, 26, 0.7);
