@@ -187,7 +187,7 @@ def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
     def fake_analyze(self, image_bytes, prompt, system_prompt=""):
         assert image_bytes.startswith(b"\x89PNG")
         assert "TSLA" in prompt
-        return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.3"}
+        return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.2"}
 
     monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)
 
@@ -197,7 +197,7 @@ def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
     chart = analyze.get_json()["chart"]
     assert chart["analysis"]["status"] == "completed"
     assert chart["analysis"]["text"] == "Trend is consolidating."
-    assert chart["analysis"]["model"] == "gpt-5.3"
+    assert chart["analysis"]["model"] == "gpt-5.2"
     assert chart["analysis"]["prompt_version"] == "chart-analysis-v1"
 
     listed = client.get("/api/charts/TSLA").get_json()["charts"][0]
