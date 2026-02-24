@@ -809,7 +809,7 @@ button:disabled {
   background: rgba(0, 0, 0, 0.82);
   display: grid;
   place-items: center;
-  padding: 10px;
+  padding: 12px;
   z-index: 1000;
 }
 
@@ -821,21 +821,21 @@ button:disabled {
 }
 
 .chart-modal {
-  width: min(98vw, 1600px);
-  height: min(97vh, 1100px);
+  width: min(99vw, 1700px);
+  height: min(98vh, 1200px);
   min-width: 460px;
   min-height: 520px;
-  max-width: 98vw;
-  max-height: 97vh;
+  max-width: 99vw;
+  max-height: 98vh;
   background: #090e1f;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(340px, 1fr) auto auto auto;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   gap: 10px;
-  overflow: auto;
-  resize: both;
+  overflow: hidden;
+  resize: none;
 }
 
 .batch-upload-modal {
@@ -1002,7 +1002,7 @@ button:disabled {
 .chart-modal-image-viewport {
   width: 100%;
   height: 100%;
-  min-height: min(58vh, 620px);
+  min-height: min(64vh, 760px);
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.5);
   overflow: hidden;
@@ -1054,7 +1054,7 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   padding: 10px 12px;
-  max-height: 180px;
+  max-height: clamp(140px, 20vh, 240px);
   overflow-y: auto;
 }
 
@@ -1121,11 +1121,10 @@ button:disabled {
   box-shadow: none;
 }
 
-.resize-hint {
-  color: #94a1d7;
-  font-size: 0.85rem;
+.chart-modal-checklist {
+  max-height: clamp(120px, 20vh, 210px);
+  overflow-y: auto;
 }
-
 
 @media (min-width: 1240px) {
   .controls {
@@ -1196,10 +1195,10 @@ button:disabled {
 
   .chart-modal {
     min-width: unset;
-    width: 98vw;
-    height: 94vh;
+    width: 99vw;
+    height: 96vh;
     min-height: 0;
-    grid-template-rows: auto minmax(220px, 1fr) auto auto auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
   }
 
   .chart-modal-meta {

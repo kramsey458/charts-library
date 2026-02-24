@@ -1573,7 +1573,7 @@ export default function App() {
             className="chart-modal"
             role="dialog"
             aria-modal="true"
-            aria-label="Chart image preview. You can resize this modal from its bottom-right corner."
+            aria-label="Chart image preview"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="chart-modal-toolbar">
@@ -1627,7 +1627,6 @@ export default function App() {
               <span className="chart-modal-context">
                 {previewChart.ticker} • {previewChart.date}
               </span>
-              <span className="resize-hint">↘ Drag corner to resize</span>
             </div>
             <div className="chart-modal-checklist">
               <h3>Checklist</h3>
