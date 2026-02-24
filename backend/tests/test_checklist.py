@@ -5,6 +5,7 @@ from charts_api.checklist import (
     parse_bool,
     parse_checklist_context,
     sanitize_checklist,
+    apply_checklist_verdicts,
 )
 
 
@@ -44,3 +45,26 @@ def test_checklist_context_roundtrip():
     decoded = parse_checklist_context(encoded)
 
     assert decoded == checklist
+
+
+def test_apply_checklist_verdicts_sets_expected_flags():
+    verdicts = "\n".join([
+        "yellow candle",
+        "trend bearish",
+        "Whale +",
+        "MACD -",
+        "MACD - cross",
+    ])
+
+    checklist = apply_checklist_verdicts(empty_checklist(), verdicts)
+
+    assert checklist["yellow_candle"] is True
+    assert checklist["red_candle"] is False
+    assert checklist["trend_bearish"] is True
+    assert checklist["trend_bullish"] is False
+    assert checklist["whale_accumulation_plus"] is True
+    assert checklist["whale_accumulation_minus"] is False
+    assert checklist["macd_negative"] is True
+    assert checklist["macd_positive"] is False
+    assert checklist["macd_minus_cross"] is True
+    assert checklist["macd_plus_cross"] is False
