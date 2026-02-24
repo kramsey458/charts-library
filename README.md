@@ -122,7 +122,7 @@ Each chart now supports a persisted AI analysis object:
 Environment variables for backend AI analysis:
 
 - `OPENAI_API_KEY` (required to analyze charts)
-- `OPENAI_MODEL` (optional, default `gpt-5.3`)
+- `OPENAI_MODEL` (optional, default `gpt-5.2`)
 - `OPENAI_TIMEOUT_SECONDS` (optional, default `90`)
 - `OPENAI_ORGANIZATION` (optional)
 - `OPENAI_PROJECT` (optional)
