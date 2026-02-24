@@ -15,6 +15,11 @@ class Settings:
     cloudinary_api_key: str
     cloudinary_api_secret: str
     cloudinary_folder: str
+    openai_api_key: str
+    openai_model: str
+    openai_timeout_seconds: int
+    openai_organization: str
+    openai_project: str
 
     @property
     def is_external(self) -> bool:
@@ -33,4 +38,9 @@ def load_settings() -> Settings:
         cloudinary_api_key=os.environ.get("CLOUDINARY_API_KEY", "").strip(),
         cloudinary_api_secret=os.environ.get("CLOUDINARY_API_SECRET", "").strip(),
         cloudinary_folder=os.environ.get("CLOUDINARY_FOLDER", "charts-library").strip().strip("/"),
+        openai_api_key=os.environ.get("OPENAI_API_KEY", "").strip(),
+        openai_model=os.environ.get("OPENAI_MODEL", "gpt-5.3").strip() or "gpt-5.3",
+        openai_timeout_seconds=int(os.environ.get("OPENAI_TIMEOUT_SECONDS", "90") or "90"),
+        openai_organization=os.environ.get("OPENAI_ORGANIZATION", "").strip(),
+        openai_project=os.environ.get("OPENAI_PROJECT", "").strip(),
     )

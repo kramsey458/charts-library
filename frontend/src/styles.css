@@ -1762,3 +1762,56 @@ button:disabled {
     max-width: 420px;
   }
 }
+
+.chart-modal-analysis {
+  margin-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.chart-modal-analysis-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.analysis-status {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: #dbe1ff;
+}
+
+.analysis-status.analysis-completed {
+  color: #8ff0b0;
+}
+
+.analysis-status.analysis-failed {
+  color: #ff9d9d;
+}
+
+.chart-modal-analysis-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analysis-text {
+  white-space: pre-wrap;
+  background: rgba(10, 12, 26, 0.7);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.analysis-error {
+  color: #ff9d9d;
+}
+
+.analysis-copy-status {
+  font-size: 0.8rem;
+  color: #9aa3c4;
+}

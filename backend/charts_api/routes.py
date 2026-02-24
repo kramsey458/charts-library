@@ -88,6 +88,18 @@ def create_api_blueprint(service: ChartService) -> Blueprint:
         except RuntimeError as exc:
             return jsonify({"error": str(exc)}), 502
 
+
+    @api.post("/api/charts/<ticker>/<date_label>/<filename>/analyze")
+    def analyze_chart(ticker: str, date_label: str, filename: str):
+        validation_error = require_config()
+        if validation_error:
+            return validation_error
+        try:
+            payload, status = service.analyze_chart(ticker, date_label, filename)
+            return jsonify(payload), status
+        except RuntimeError as exc:
+            return jsonify({"error": str(exc)}), 502
+
     @api.get("/api/chart-file/<ticker>/<date_label>/<filename>")
     def get_chart_file(ticker: str, date_label: str, filename: str):
         validation_error = require_config()

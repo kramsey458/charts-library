@@ -32,8 +32,10 @@ class CloudinaryStorage:
         notes: str,
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
+        analysis: dict[str, Any] | None,
     ) -> str:
         safe_classification = LocalStorage.sanitize_classification(classification)
+        safe_analysis = LocalStorage.sanitize_analysis(analysis)
         return (
             f"ticker={ticker}|date={date_label}|filename={filename}|"
             f"notes={quote(notes)}|checklist={encode_checklist_context(checklist)}|"
@@ -41,7 +43,14 @@ class CloudinaryStorage:
             f"classification_red_pixels={safe_classification.get('classification_red_pixels') or ''}|"
             f"classification_yellow_pixels={safe_classification.get('classification_yellow_pixels') or ''}|"
             f"classifier_config_version={quote(str(safe_classification.get('classifier_config_version') or ''))}|"
-            f"classification_timestamp={quote(str(safe_classification.get('classification_timestamp') or ''))}"
+            f"classification_timestamp={quote(str(safe_classification.get('classification_timestamp') or ''))}|"
+            f"analysis_status={quote(str(safe_analysis.get('status') or 'idle'))}|"
+            f"analysis_model={quote(str(safe_analysis.get('model') or ''))}|"
+            f"analysis_prompt_version={quote(str(safe_analysis.get('prompt_version') or ''))}|"
+            f"analysis_text={quote(str(safe_analysis.get('text') or ''))}|"
+            f"analysis_error={quote(str(safe_analysis.get('error') or ''))}|"
+            f"analysis_started_at={quote(str(safe_analysis.get('started_at') or ''))}|"
+            f"analysis_completed_at={quote(str(safe_analysis.get('completed_at') or ''))}"
         )
 
     def signature(self, params: dict[str, Any]) -> str:
@@ -117,6 +126,17 @@ class CloudinaryStorage:
                             "classification_timestamp": unquote(str(context.get("classification_timestamp", ""))),
                         }
                     ),
+                    "analysis": LocalStorage.sanitize_analysis(
+                        {
+                            "status": unquote(str(context.get("analysis_status", "idle"))),
+                            "model": unquote(str(context.get("analysis_model", ""))),
+                            "prompt_version": unquote(str(context.get("analysis_prompt_version", ""))),
+                            "text": unquote(str(context.get("analysis_text", ""))),
+                            "error": unquote(str(context.get("analysis_error", ""))),
+                            "started_at": unquote(str(context.get("analysis_started_at", ""))),
+                            "completed_at": unquote(str(context.get("analysis_completed_at", ""))),
+                        }
+                    ),
                     "public_id": resource.get("public_id", ""),
                     "secure_url": resource.get("secure_url", ""),
                     "created_at": resource.get("created_at", ""),
@@ -134,6 +154,7 @@ class CloudinaryStorage:
         notes: str,
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
+        analysis: dict[str, Any] | None,
         chart_file,
     ) -> None:
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
@@ -147,6 +168,7 @@ class CloudinaryStorage:
             notes=notes,
             checklist=checklist,
             classification=classification,
+            analysis=analysis,
         )
         signature = self.signature({"context": context, "overwrite": "true", "public_id": public_id, "timestamp": timestamp})
         chart_file.stream.seek(0)
@@ -179,6 +201,7 @@ class CloudinaryStorage:
         notes: str,
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
+        analysis: dict[str, Any] | None,
     ) -> None:
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         context = self.build_context(
@@ -188,6 +211,7 @@ class CloudinaryStorage:
             notes=notes,
             checklist=checklist,
             classification=classification,
+            analysis=analysis,
         )
         signature = self.signature(
             {"context": context, "public_id": public_id, "timestamp": timestamp, "type": "upload"}
@@ -245,4 +269,5 @@ class CloudinaryStorage:
             "classification_yellow_pixels": chart.get("classification_yellow_pixels"),
             "classifier_config_version": chart.get("classifier_config_version"),
             "classification_timestamp": chart.get("classification_timestamp"),
+            "analysis": LocalStorage.sanitize_analysis(chart.get("analysis")),
         }
