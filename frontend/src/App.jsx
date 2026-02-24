@@ -271,6 +271,9 @@ export default function App() {
       const updatedChart = await analyzeChart(chart);
       if (updatedChart) {
         updateChartAnalysisInState(chart, updatedChart.analysis);
+        if (updatedChart.checklist) {
+          updateChartChecklistInState(chart, updatedChart.checklist);
+        }
       }
     } catch (err) {
       setError(err.message);
