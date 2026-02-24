@@ -1686,32 +1686,31 @@ export default function App() {
                 {previewChart.ticker} • {previewChart.date}
               </span>
             </div>
-            <div className="chart-modal-details">
-              <div className="chart-modal-checklist">
-                <h3>Checklist</h3>
-                <div className="chart-modal-checklist-rows">
-                  {checklistRows.map((row, rowIndex) => (
-                    <ul key={`modal-checklist-row-${rowIndex + 1}`}>
-                      {row.map((field) => (
-                        <li key={field.key}>
-                          <button
-                            type="button"
-                            className="checklist-chip"
-                            onClick={() => toggleChartChecklistFlag(previewChart, field.key)}
-                            disabled={isSavingChecklist}
-                            aria-pressed={chartHasFlag(previewChart, field.key)}
-                            aria-label={`Toggle ${field.label}`}
-                          >
-                            <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
-                            <span className="checklist-label">{field.label}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ))}
-                </div>
+            <div className="chart-modal-checklist">
+              <h3>Checklist</h3>
+              <div className="chart-modal-checklist-rows">
+                {checklistRows.map((row, rowIndex) => (
+                  <ul key={`modal-checklist-row-${rowIndex + 1}`}>
+                    {row.map((field) => (
+                      <li key={field.key}>
+                        <button
+                          type="button"
+                          className="checklist-chip"
+                          onClick={() => toggleChartChecklistFlag(previewChart, field.key)}
+                          disabled={isSavingChecklist}
+                          aria-pressed={chartHasFlag(previewChart, field.key)}
+                          aria-label={`Toggle ${field.label}`}
+                        >
+                          <span className="checklist-icon">{chartHasFlag(previewChart, field.key) ? "☑" : "☐"}</span>
+                          <span className="checklist-label">{field.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ))}
               </div>
-              <div className="chart-modal-analysis">
+            </div>
+            <div className="chart-modal-analysis">
               <div className="chart-modal-analysis-header">
                 <h4>AI analysis</h4>
                 <span className={`analysis-status analysis-${previewChart.analysis?.status || "idle"}`}>
@@ -1738,10 +1737,10 @@ export default function App() {
               ) : (
                 <p className="chart-notes-empty">No analysis yet.</p>
               )}
-              </div>
+            </div>
 
-              <div
-                className="chart-modal-notes"
+            <div
+              className="chart-modal-notes"
               onDoubleClick={() => {
                 if (editingNotesKey !== getChartKey(previewChart)) {
                   startEditingNotes(previewChart);
@@ -1761,8 +1760,8 @@ export default function App() {
                   </button>
                 ) : null}
               </div>
-                {editingNotesKey === getChartKey(previewChart) ? (
-                  <div className="chart-notes-editor">
+              {editingNotesKey === getChartKey(previewChart) ? (
+                <div className="chart-notes-editor">
                   <textarea
                     aria-label="Edit chart notes"
                     value={notesDraft}
@@ -1789,10 +1788,9 @@ export default function App() {
                 </div>
               ) : previewChart.notes ? (
                 <p>{previewChart.notes}</p>
-                ) : (
-                  <p className="chart-notes-empty">Double-click to add notes.</p>
-                )}
-              </div>
+              ) : (
+                <p className="chart-notes-empty">Double-click to add notes.</p>
+              )}
             </div>
           </div>
         </div>

@@ -637,8 +637,9 @@ button:disabled {
 
 .chart-meta a,
 .chart-modal-meta a {
-  color: #a8b6ff;
-  text-decoration: none;
+  color: #dfe6ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .chart-meta a:hover,
@@ -834,7 +835,7 @@ button:disabled {
   border-radius: 16px;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 0.95fr);
+  grid-template-rows: auto minmax(0, 1.35fr) auto auto minmax(0, 0.9fr) minmax(0, 0.8fr);
   gap: 10px;
   overflow: hidden;
   resize: none;
@@ -1004,7 +1005,7 @@ button:disabled {
 .chart-modal-image-viewport {
   width: 100%;
   height: 100%;
-  min-height: min(64vh, 760px);
+  min-height: 0;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.5);
   overflow: hidden;
@@ -1051,20 +1052,12 @@ button:disabled {
   white-space: nowrap;
 }
 
-.chart-modal-details {
-  min-height: 0;
-  display: grid;
-  gap: 10px;
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
 .chart-modal-notes {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   padding: 10px 12px;
-  max-height: clamp(140px, 20vh, 240px);
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -1124,6 +1117,10 @@ button:disabled {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.chart-modal-notes .chart-notes-editor textarea {
+  min-height: 160px;
 }
 
 .notes-cancel {
@@ -1208,7 +1205,7 @@ button:disabled {
     width: 99vw;
     height: 96vh;
     min-height: 0;
-    grid-template-rows: auto minmax(0, 1fr) auto minmax(0, 0.95fr);
+    grid-template-rows: auto minmax(0, 1.35fr) auto auto minmax(0, 0.9fr) minmax(0, 0.8fr);
   }
 
   .chart-modal-meta {
@@ -1777,12 +1774,13 @@ button:disabled {
 }
 
 .chart-modal-analysis {
-  margin-top: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
   padding: 12px;
   display: grid;
   gap: 10px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .chart-modal-analysis-header {
@@ -1818,7 +1816,7 @@ button:disabled {
   padding: 10px;
   font-family: inherit;
   font-size: 0.9rem;
-  max-height: clamp(160px, 26vh, 340px);
+  min-height: 0;
   overflow-y: auto;
 }
 
