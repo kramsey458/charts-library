@@ -1048,11 +1048,12 @@ export default function App() {
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, [isSlideshowOpen]);
 
-  const previewAnalysisStatus = isAnalyzingChart
-    ? "analyzing"
-    : previewChart?.analysis?.status || "idle";
-  const previewAnalysisStatusLabel =
-    previewAnalysisStatus.charAt(0).toUpperCase() + previewAnalysisStatus.slice(1);
+  const previewAnalysisStatus = previewChart?.analysis?.status || "idle";
+  const isAnalysisRunning = isAnalyzingChart || previewAnalysisStatus === "running";
+  const previewAnalysisStatusTone = isAnalysisRunning ? "analyzing" : previewAnalysisStatus;
+  const previewAnalysisStatusLabel = isAnalysisRunning
+    ? "Analyzing"
+    : previewAnalysisStatus.charAt(0).toUpperCase() + previewAnalysisStatus.slice(1);
 
   return (
     <div className="app">
@@ -1735,7 +1736,7 @@ export default function App() {
             <div className="chart-modal-analysis">
               <div className="chart-modal-analysis-header">
                 <h4>AI Analysis</h4>
-                <span className={`analysis-status analysis-${previewAnalysisStatus}`}>
+                <span className={`analysis-status analysis-${previewAnalysisStatusTone}`}>
                   {previewAnalysisStatusLabel}
                 </span>
               </div>
