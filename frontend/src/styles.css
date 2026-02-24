@@ -824,18 +824,18 @@ button:disabled {
 }
 
 .chart-modal {
-  width: min(99vw, 1700px);
-  height: min(98vh, 1200px);
-  min-width: 460px;
-  min-height: 520px;
-  max-width: 99vw;
-  max-height: 98vh;
+  width: 92vw;
+  height: 90vh;
+  min-width: 520px;
+  min-height: 620px;
+  max-width: 92vw;
+  max-height: 90vh;
   background: #090e1f;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto minmax(0, 1.35fr) auto auto minmax(0, 0.9fr) minmax(0, 0.8fr);
+  grid-template-rows: auto minmax(0, 2fr) auto auto minmax(0, 0.75fr) minmax(0, 0.35fr);
   gap: 10px;
   overflow: hidden;
   resize: none;
@@ -1056,7 +1056,7 @@ button:disabled {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   min-height: 0;
   overflow-y: auto;
 }
@@ -1202,10 +1202,10 @@ button:disabled {
 
   .chart-modal {
     min-width: unset;
-    width: 99vw;
-    height: 96vh;
+    width: 94vw;
+    height: 92vh;
     min-height: 0;
-    grid-template-rows: auto minmax(0, 1.35fr) auto auto minmax(0, 0.9fr) minmax(0, 0.8fr);
+    grid-template-rows: auto minmax(0, 2fr) auto auto minmax(0, 0.75fr) minmax(0, 0.35fr);
   }
 
   .chart-modal-meta {
