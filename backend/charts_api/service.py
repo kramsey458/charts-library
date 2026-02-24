@@ -342,12 +342,16 @@ class ChartService:
                     prompt=build_chart_analysis_prompt(normalized_ticker, date_label, filename),
                     system_prompt=SYSTEM_PROMPT,
                 )
-                checklist_result = self.analyzer.analyze_chart(
-                    image_bytes,
-                    prompt=CHECKLIST_VERDICT_PROMPT,
-                    system_prompt="",
-                )
-                verdict_text = checklist_result.get("analysis_text", "")
+                verdict_text = ""
+                try:
+                    checklist_result = self.analyzer.analyze_chart(
+                        image_bytes,
+                        prompt=CHECKLIST_VERDICT_PROMPT,
+                        system_prompt="",
+                    )
+                    verdict_text = checklist_result.get("analysis_text", "")
+                except RuntimeError:
+                    verdict_text = ""
                 checklist = apply_checklist_verdicts(checklist, verdict_text)
                 analysis_text = str(result.get("analysis_text", "")).strip()
                 if verdict_text.strip():
@@ -412,12 +416,16 @@ class ChartService:
                 prompt=build_chart_analysis_prompt(normalized_ticker, date_label, filename),
                 system_prompt=SYSTEM_PROMPT,
             )
-            checklist_result = self.analyzer.analyze_chart(
-                image_bytes,
-                prompt=CHECKLIST_VERDICT_PROMPT,
-                system_prompt="",
-            )
-            verdict_text = checklist_result.get("analysis_text", "")
+            verdict_text = ""
+            try:
+                checklist_result = self.analyzer.analyze_chart(
+                    image_bytes,
+                    prompt=CHECKLIST_VERDICT_PROMPT,
+                    system_prompt="",
+                )
+                verdict_text = checklist_result.get("analysis_text", "")
+            except RuntimeError:
+                verdict_text = ""
             checklist = self.local.read_checklist(chart_path)
             checklist = apply_checklist_verdicts(checklist, verdict_text)
             self.local.write_checklist(chart_path, checklist)

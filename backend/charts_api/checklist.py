@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 from urllib.parse import quote, unquote
 
@@ -66,6 +67,21 @@ CHECKLIST_VERDICT_MAP = {
     "macd - cross": "macd_minus_cross",
 }
 
+CHECKLIST_EXCLUSIVE_GROUPS = (
+    {"red_candle", "yellow_candle"},
+    {"trend_bullish", "trend_bearish"},
+    {"whale_accumulation_plus", "whale_accumulation_minus"},
+    {"macd_positive", "macd_negative"},
+    {"macd_plus_cross", "macd_minus_cross"},
+)
+
+
+def normalize_verdict_line(raw_line: str) -> str:
+    line = str(raw_line or "").strip().lower()
+    line = re.sub(r'^[\-•\*\d\)\.\s]+', "", line)
+    line = line.strip(' "\'')
+    return line
+
 
 def apply_checklist_verdicts(base_checklist: dict[str, bool], verdict_text: str) -> dict[str, bool]:
     checklist = sanitize_checklist(base_checklist)
@@ -73,16 +89,17 @@ def apply_checklist_verdicts(base_checklist: dict[str, bool], verdict_text: str)
         return checklist
 
     matched_keys: set[str] = set()
-    normalized_lines = [line.strip().lower() for line in str(verdict_text).splitlines() if line.strip()]
-    for line in normalized_lines:
-        key = CHECKLIST_VERDICT_MAP.get(line)
+    for line in str(verdict_text).splitlines():
+        key = CHECKLIST_VERDICT_MAP.get(normalize_verdict_line(line))
         if key:
             matched_keys.add(key)
 
-    for key in CHECKLIST_KEYS:
-        if key in matched_keys:
-            checklist[key] = True
-        elif key in CHECKLIST_VERDICT_MAP.values():
-            checklist[key] = False
+    for group in CHECKLIST_EXCLUSIVE_GROUPS:
+        selected = group.intersection(matched_keys)
+        if not selected:
+            continue
+        selected_key = next(iter(selected))
+        for key in group:
+            checklist[key] = key == selected_key
 
     return checklist
