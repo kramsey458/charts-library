@@ -1778,21 +1778,27 @@ button:disabled {
   border-radius: 12px;
   padding: 12px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
+  align-content: start;
   min-height: 0;
   overflow: hidden;
 }
 
 .chart-modal-analysis-header {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .analysis-status {
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   color: #dbe1ff;
+}
+
+.analysis-status.analysis-analyzing {
+  color: #8fb3ff;
 }
 
 .analysis-status.analysis-completed {

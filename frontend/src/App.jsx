@@ -1032,6 +1032,10 @@ export default function App() {
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, [isSlideshowOpen]);
 
+  const previewAnalysisStatus = isAnalyzingChart
+    ? "analyzing"
+    : previewChart?.analysis?.status || "idle";
+
   return (
     <div className="app">
       <header className="header">
@@ -1712,9 +1716,9 @@ export default function App() {
             </div>
             <div className="chart-modal-analysis">
               <div className="chart-modal-analysis-header">
-                <h4>AI analysis</h4>
-                <span className={`analysis-status analysis-${previewChart.analysis?.status || "idle"}`}>
-                  {(previewChart.analysis?.status || "idle").toUpperCase()}
+                <h4>AI Analysis</h4>
+                <span className={`analysis-status analysis-${previewAnalysisStatus}`}>
+                  {previewAnalysisStatus.toUpperCase()}
                 </span>
               </div>
               <div className="chart-modal-analysis-actions">
