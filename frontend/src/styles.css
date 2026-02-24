@@ -809,7 +809,7 @@ button:disabled {
   background: rgba(0, 0, 0, 0.82);
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: 10px;
   z-index: 1000;
 }
 
@@ -821,18 +821,18 @@ button:disabled {
 }
 
 .chart-modal {
-  width: min(96vw, 1200px);
-  height: min(94vh, 760px);
+  width: min(98vw, 1600px);
+  height: min(97vh, 1100px);
   min-width: 460px;
-  min-height: 380px;
-  max-width: 96vw;
-  max-height: 94vh;
+  min-height: 520px;
+  max-width: 98vw;
+  max-height: 97vh;
   background: #090e1f;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 16px;
   padding: 14px;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(340px, 1fr) auto auto auto;
   gap: 10px;
   overflow: auto;
   resize: both;
@@ -1002,7 +1002,7 @@ button:disabled {
 .chart-modal-image-viewport {
   width: 100%;
   height: 100%;
-  min-height: 220px;
+  min-height: min(58vh, 620px);
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.5);
   overflow: hidden;
@@ -1054,6 +1054,8 @@ button:disabled {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   padding: 10px 12px;
+  max-height: 180px;
+  overflow-y: auto;
 }
 
 .chart-modal-notes h3 {
@@ -1194,8 +1196,10 @@ button:disabled {
 
   .chart-modal {
     min-width: unset;
-    width: 96vw;
-    height: 86vh;
+    width: 98vw;
+    height: 94vh;
+    min-height: 0;
+    grid-template-rows: auto minmax(220px, 1fr) auto auto auto;
   }
 
   .chart-modal-meta {
