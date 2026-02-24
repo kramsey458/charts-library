@@ -1035,6 +1035,8 @@ export default function App() {
   const previewAnalysisStatus = isAnalyzingChart
     ? "analyzing"
     : previewChart?.analysis?.status || "idle";
+  const previewAnalysisStatusLabel =
+    previewAnalysisStatus.charAt(0).toUpperCase() + previewAnalysisStatus.slice(1);
 
   return (
     <div className="app">
@@ -1718,7 +1720,7 @@ export default function App() {
               <div className="chart-modal-analysis-header">
                 <h4>AI Analysis</h4>
                 <span className={`analysis-status analysis-${previewAnalysisStatus}`}>
-                  {previewAnalysisStatus.toUpperCase()}
+                  {previewAnalysisStatusLabel}
                 </span>
               </div>
               <div className="chart-modal-analysis-actions">

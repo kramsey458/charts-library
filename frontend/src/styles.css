@@ -1778,8 +1778,8 @@ button:disabled {
   border-radius: 12px;
   padding: 12px;
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 8px;
-  align-content: start;
   min-height: 0;
   overflow: hidden;
 }
@@ -1789,6 +1789,10 @@ button:disabled {
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
+}
+
+.chart-modal-analysis-header h4 {
+  margin: 0;
 }
 
 .analysis-status {
