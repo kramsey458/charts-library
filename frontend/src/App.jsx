@@ -1670,6 +1670,7 @@ export default function App() {
                 </button>
                 <span>{Math.round(previewZoom * 100)}%</span>
               </div>
+              <h2 className="chart-modal-title">{previewChart.ticker}</h2>
               <div className="modal-actions">
                 <button
                   type="button"

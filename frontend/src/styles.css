@@ -980,6 +980,17 @@ button:disabled {
   gap: 12px;
 }
 
+.chart-modal-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #eef2ff;
+  text-align: center;
+  flex: 1;
+}
+
 .zoom-controls {
   display: flex;
   align-items: center;
@@ -1147,6 +1158,10 @@ button:disabled {
   .chart-modal-toolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .chart-modal-title {
+    text-align: left;
   }
 
   .gallery-header {
