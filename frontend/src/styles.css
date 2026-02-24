@@ -1769,18 +1769,23 @@ button:disabled {
 }
 
 .chart-modal-analysis {
-  margin-top: 14px;
+  margin-top: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
-  padding: 12px;
+  padding: 10px 12px;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .chart-modal-analysis-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin: 0;
+}
+
+.chart-modal-analysis-header h4 {
+  margin: 0;
 }
 
 .analysis-status {
@@ -1801,6 +1806,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .analysis-text {
