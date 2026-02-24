@@ -1714,7 +1714,7 @@ export default function App() {
             </div>
             <div className="chart-modal-analysis">
               <div className="chart-modal-analysis-header">
-                <h4>AI analysis</h4>
+                <h4>AI Analysis</h4>
                 <span className={`analysis-status analysis-${analysisStatusLabel}`}>
                   {analysisStatusLabel.toUpperCase()}
                 </span>

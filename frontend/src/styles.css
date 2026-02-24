@@ -1798,6 +1798,10 @@ button:disabled {
   color: #8ff0b0;
 }
 
+.analysis-status.analysis-analyzing {
+  color: #9ea8ff;
+}
+
 .analysis-status.analysis-failed {
   color: #ff9d9d;
 }
@@ -1807,6 +1811,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: -2px;
 }
 
 .analysis-text {
