@@ -188,10 +188,10 @@ def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
         assert image_bytes.startswith(b"\x89PNG")
         if "Analyze this trading chart image" in prompt:
             assert "TSLA" in prompt
-            return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.2"}
+            return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.2-instant"}
         return {
             "analysis_text": "yellow candle\ntrend bearish\nWhale +\nMACD -\nMACD - cross",
-            "analysis_model": "gpt-5.2",
+            "analysis_model": "gpt-5.2-instant",
         }
 
     monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)
@@ -203,7 +203,7 @@ def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
     assert chart["analysis"]["status"] == "completed"
     assert "Trend is consolidating." in chart["analysis"]["text"]
     assert "Checklist verdicts:" in chart["analysis"]["text"]
-    assert chart["analysis"]["model"] == "gpt-5.2"
+    assert chart["analysis"]["model"] == "gpt-5.2-instant"
     assert chart["analysis"]["prompt_version"] == "chart-analysis-v2"
     assert chart["checklist"]["yellow_candle"] is True
     assert chart["checklist"]["trend_bearish"] is True
@@ -243,7 +243,7 @@ def test_analyze_chart_still_completes_when_checklist_pass_fails(client, png_fil
     def fake_analyze(self, image_bytes, prompt, system_prompt=""):
         assert image_bytes.startswith(b"\x89PNG")
         if "Analyze this trading chart image" in prompt:
-            return {"analysis_text": "Primary analysis only.", "analysis_model": "gpt-5.2"}
+            return {"analysis_text": "Primary analysis only.", "analysis_model": "gpt-5.2-instant"}
         raise RuntimeError("checklist timeout")
 
     monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)

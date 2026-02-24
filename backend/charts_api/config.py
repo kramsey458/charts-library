@@ -39,7 +39,7 @@ def load_settings() -> Settings:
         cloudinary_api_secret=os.environ.get("CLOUDINARY_API_SECRET", "").strip(),
         cloudinary_folder=os.environ.get("CLOUDINARY_FOLDER", "charts-library").strip().strip("/"),
         openai_api_key=os.environ.get("OPENAI_API_KEY", "").strip(),
-        openai_model=os.environ.get("OPENAI_MODEL", "gpt-5.2").strip() or "gpt-5.2",
+        openai_model=os.environ.get("OPENAI_MODEL", "gpt-5.2-instant").strip() or "gpt-5.2-instant",
         openai_timeout_seconds=int(os.environ.get("OPENAI_TIMEOUT_SECONDS", "90") or "90"),
         openai_organization=os.environ.get("OPENAI_ORGANIZATION", "").strip(),
         openai_project=os.environ.get("OPENAI_PROJECT", "").strip(),
