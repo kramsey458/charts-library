@@ -623,8 +623,8 @@ button:disabled {
   border-radius: 14px;
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: contain;
-  background: rgba(0, 0, 0, 0.45);
+  object-fit: cover;
+  object-position: right center;
 }
 
 .chart-meta {
