@@ -5,6 +5,7 @@ import {
   buildEmptyChecklist,
   buildNotesPreview,
   chartHasFlag,
+  normalizeAnalysis,
 } from "../src/lib/chartHelpers.js";
 
 describe("chartHelpers", () => {
@@ -29,5 +30,19 @@ describe("chartHelpers", () => {
   it("chartHasFlag handles missing checklist safely", () => {
     expect(chartHasFlag({ checklist: { trend_bullish: true } }, "trend_bullish")).toBe(true);
     expect(chartHasFlag({}, "trend_bullish")).toBe(false);
+  });
+
+  it("normalizes analysis payload defaults", () => {
+    expect(normalizeAnalysis({})).toEqual({
+      status: "idle",
+      model: "",
+      prompt_version: "",
+      text: "",
+      error: "",
+      started_at: "",
+      completed_at: "",
+    });
+
+    expect(normalizeAnalysis({ status: "completed", text: "ok" }).status).toBe("completed");
   });
 });

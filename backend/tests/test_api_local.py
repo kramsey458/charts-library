@@ -177,3 +177,47 @@ def test_upload_persists_and_lists_classification_metadata(client, png_file):
     assert patched["classifier_config_version"] == "v2026.02.13"
     assert patched["classification_timestamp"] == "2026-02-13T12:34:56Z"
 
+
+
+def test_analyze_chart_persists_analysis(client, png_file, monkeypatch):
+    fileobj, filename = png_file
+    response = upload_chart(client, fileobj, filename, ticker="TSLA", notes="Ready for analysis")
+    assert response.status_code == 201
+
+    def fake_analyze(self, image_bytes, prompt, system_prompt=""):
+        assert image_bytes.startswith(b"\x89PNG")
+        assert "TSLA" in prompt
+        return {"analysis_text": "Trend is consolidating.", "analysis_model": "gpt-5.3"}
+
+    monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)
+
+    analyze = client.post(f"/api/charts/TSLA/2026-02-11/{filename}/analyze")
+    assert analyze.status_code == 200
+
+    chart = analyze.get_json()["chart"]
+    assert chart["analysis"]["status"] == "completed"
+    assert chart["analysis"]["text"] == "Trend is consolidating."
+    assert chart["analysis"]["model"] == "gpt-5.3"
+    assert chart["analysis"]["prompt_version"] == "chart-analysis-v1"
+
+    listed = client.get("/api/charts/TSLA").get_json()["charts"][0]
+    assert listed["analysis"]["status"] == "completed"
+    assert listed["analysis"]["text"] == "Trend is consolidating."
+
+
+def test_analyze_chart_captures_failures(client, png_file, monkeypatch):
+    fileobj, filename = png_file
+    response = upload_chart(client, fileobj, filename, ticker="AMD")
+    assert response.status_code == 201
+
+    def fake_analyze(self, image_bytes, prompt, system_prompt=""):
+        raise RuntimeError("model timeout")
+
+    monkeypatch.setattr("charts_api.ai_analysis.OpenAIChartAnalyzer.analyze_chart", fake_analyze)
+
+    analyze = client.post(f"/api/charts/AMD/2026-02-11/{filename}/analyze")
+    assert analyze.status_code == 200
+
+    chart = analyze.get_json()["chart"]
+    assert chart["analysis"]["status"] == "failed"
+    assert chart["analysis"]["error"] == "model timeout"

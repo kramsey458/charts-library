@@ -106,6 +106,35 @@ curl -X POST http://localhost:5000/api/uploads/charts \
   -F image=@./chart.png
 ```
 
+
+## AI chart analysis (synchronous v1)
+
+Each chart now supports a persisted AI analysis object:
+
+- `status`: `idle|running|completed|failed`
+- `model`
+- `prompt_version`
+- `text`
+- `error`
+- `started_at`
+- `completed_at`
+
+Environment variables for backend AI analysis:
+
+- `OPENAI_API_KEY` (required to analyze charts)
+- `OPENAI_MODEL` (optional, default `gpt-5.3`)
+- `OPENAI_TIMEOUT_SECONDS` (optional, default `90`)
+- `OPENAI_ORGANIZATION` (optional)
+- `OPENAI_PROJECT` (optional)
+
+Trigger analysis for a stored chart:
+
+```bash
+curl -X POST http://localhost:5000/api/charts/VG/2026-02-11/vg-chart.png/analyze
+```
+
+The response includes an updated `chart.analysis` object and analysis is saved per chart.
+
 ## TradingView batch screenshot script
 
 For `scripts/tradingview_batch_screenshots.py`, install browser automation dependencies in your Python environment:

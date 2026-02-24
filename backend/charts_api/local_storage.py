@@ -23,6 +23,10 @@ class LocalStorage:
         return chart_file.parent / f"{chart_file.stem}.classification.json"
 
     @staticmethod
+    def analysis_file_path(chart_file: Path) -> Path:
+        return chart_file.parent / f"{chart_file.stem}.analysis.json"
+
+    @staticmethod
     def sanitize_classification(classification: dict[str, Any] | None) -> dict[str, Any]:
         payload = classification if isinstance(classification, dict) else {}
 
@@ -53,6 +57,26 @@ class LocalStorage:
             "classification_yellow_pixels": to_int("classification_yellow_pixels"),
             "classifier_config_version": config_version,
             "classification_timestamp": timestamp,
+        }
+
+    @staticmethod
+    def sanitize_analysis(analysis: dict[str, Any] | None) -> dict[str, Any]:
+        payload = analysis if isinstance(analysis, dict) else {}
+        status = str(payload.get("status") or "idle").strip().lower()
+        if status not in {"idle", "running", "completed", "failed"}:
+            status = "idle"
+
+        def clean_str(name: str) -> str:
+            return str(payload.get(name) or "").strip()
+
+        return {
+            "status": status,
+            "model": clean_str("model"),
+            "prompt_version": clean_str("prompt_version"),
+            "text": clean_str("text"),
+            "error": clean_str("error"),
+            "started_at": clean_str("started_at"),
+            "completed_at": clean_str("completed_at"),
         }
 
     def read_checklist(self, chart_file: Path) -> dict[str, bool]:
@@ -87,6 +111,22 @@ class LocalStorage:
         metadata_path = self.classification_file_path(chart_file)
         metadata_path.write_text(json.dumps(self.sanitize_classification(classification)), encoding="utf-8")
 
+    def read_analysis(self, chart_file: Path) -> dict[str, Any]:
+        metadata_path = self.analysis_file_path(chart_file)
+        if not metadata_path.exists() or not metadata_path.is_file():
+            return self.sanitize_analysis({})
+
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except Exception:
+            return self.sanitize_analysis({})
+
+        return self.sanitize_analysis(payload if isinstance(payload, dict) else {})
+
+    def write_analysis(self, chart_file: Path, analysis: dict[str, Any] | None) -> None:
+        metadata_path = self.analysis_file_path(chart_file)
+        metadata_path.write_text(json.dumps(self.sanitize_analysis(analysis)), encoding="utf-8")
+
     def list_tickers(self) -> list[str]:
         self.ensure_storage()
         return sorted(path.name for path in self.storage_dir.iterdir() if path.is_dir())
@@ -113,6 +153,7 @@ class LocalStorage:
                         "notes": notes,
                         "checklist": self.read_checklist(chart_file),
                         **self.read_classification(chart_file),
+                        "analysis": self.read_analysis(chart_file),
                     }
                 )
 
@@ -141,6 +182,7 @@ class LocalStorage:
 
         self.write_checklist(target_path, checklist)
         self.write_classification(target_path, classification)
+        self.write_analysis(target_path, {})
 
     def delete_chart(self, ticker: str, date_label: str, filename: str) -> bool:
         chart_path = self.storage_dir / ticker / date_label / filename
@@ -159,6 +201,10 @@ class LocalStorage:
         classification_path = self.classification_file_path(chart_path)
         if classification_path.exists() and classification_path.is_file():
             classification_path.unlink()
+
+        analysis_path = self.analysis_file_path(chart_path)
+        if analysis_path.exists() and analysis_path.is_file():
+            analysis_path.unlink()
 
         date_dir = chart_path.parent
         ticker_dir = date_dir.parent

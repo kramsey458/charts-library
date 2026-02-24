@@ -5,10 +5,12 @@ import {
   buildChartPath,
   buildChecklistSummary,
   buildEmptyChecklist,
+  analyzeChart,
   buildNotesPreview,
   chartHasFlag,
   fetchJson,
   getChartKey,
+  normalizeAnalysis,
 } from "./lib/chartHelpers";
 import ClassifierTab from "./components/ClassifierTab";
 
@@ -48,6 +50,8 @@ export default function App() {
   const [notesDraft, setNotesDraft] = useState("");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingChecklist, setIsSavingChecklist] = useState(false);
+  const [isAnalyzingChart, setIsAnalyzingChart] = useState(false);
+  const [analysisCopyStatus, setAnalysisCopyStatus] = useState("");
   const [hoveredChart, setHoveredChart] = useState(null);
   const [batchFiles, setBatchFiles] = useState([]);
   const [batchIndex, setBatchIndex] = useState(0);
@@ -122,7 +126,7 @@ export default function App() {
   };
 
   const openChartPreview = (chart) => {
-    setPreviewChart(chart);
+    setPreviewChart({ ...chart, analysis: normalizeAnalysis(chart.analysis) });
     setEditingNotesKey("");
     setNotesDraft("");
     resetPreviewTransform();
@@ -138,6 +142,7 @@ export default function App() {
     setIsPanning(false);
     setEditingNotesKey("");
     setNotesDraft("");
+    setAnalysisCopyStatus("");
   };
 
   const openSlideshow = () => {
@@ -232,6 +237,59 @@ export default function App() {
       }
       return prevPreviewChart;
     });
+  };
+
+  const updateChartAnalysisInState = (targetChart, nextAnalysis) => {
+    const normalizedAnalysis = normalizeAnalysis(nextAnalysis);
+    setCharts((prevCharts) =>
+      prevCharts.map((chart) => {
+        if (getChartKey(chart) !== getChartKey(targetChart)) {
+          return chart;
+        }
+        return { ...chart, analysis: normalizedAnalysis };
+      })
+    );
+
+    setPreviewChart((prevPreviewChart) => {
+      if (
+        prevPreviewChart &&
+        prevPreviewChart.ticker === targetChart.ticker &&
+        prevPreviewChart.date === targetChart.date &&
+        prevPreviewChart.filename === targetChart.filename
+      ) {
+        return { ...prevPreviewChart, analysis: normalizedAnalysis };
+      }
+      return prevPreviewChart;
+    });
+  };
+
+  const runChartAnalysis = async (chart) => {
+    setError("");
+    setAnalysisCopyStatus("");
+    try {
+      setIsAnalyzingChart(true);
+      const updatedChart = await analyzeChart(chart);
+      if (updatedChart) {
+        updateChartAnalysisInState(chart, updatedChart.analysis);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsAnalyzingChart(false);
+    }
+  };
+
+  const copyAnalysisText = async () => {
+    const analysisText = previewChart?.analysis?.text || "";
+    if (!analysisText) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(analysisText);
+      setAnalysisCopyStatus("Copied");
+    } catch {
+      setAnalysisCopyStatus("Copy failed");
+    }
   };
 
   const saveChartNotes = async (chart) => {
@@ -546,7 +604,7 @@ export default function App() {
     setError("");
     try {
       const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
-      setCharts(data.charts);
+      setCharts((data.charts || []).map((chart) => ({ ...chart, analysis: normalizeAnalysis(chart.analysis) })));
       setChartsTicker(ticker);
     } catch (err) {
       setError(err.message);
@@ -1653,6 +1711,35 @@ export default function App() {
                 ))}
               </div>
             </div>
+            <div className="chart-modal-analysis">
+              <div className="chart-modal-analysis-header">
+                <h4>AI analysis</h4>
+                <span className={`analysis-status analysis-${previewChart.analysis?.status || "idle"}`}>
+                  {(previewChart.analysis?.status || "idle").toUpperCase()}
+                </span>
+              </div>
+              <div className="chart-modal-analysis-actions">
+                <button type="button" onClick={() => runChartAnalysis(previewChart)} disabled={isAnalyzingChart}>
+                  {isAnalyzingChart ? "Analyzing..." : "Analyze chart"}
+                </button>
+                <button
+                  type="button"
+                  className="notes-cancel"
+                  onClick={copyAnalysisText}
+                  disabled={!previewChart.analysis?.text}
+                >
+                  Copy analysis
+                </button>
+                {analysisCopyStatus ? <span className="analysis-copy-status">{analysisCopyStatus}</span> : null}
+              </div>
+              {previewChart.analysis?.error ? <p className="analysis-error">{previewChart.analysis.error}</p> : null}
+              {previewChart.analysis?.text ? (
+                <pre className="analysis-text">{previewChart.analysis.text}</pre>
+              ) : (
+                <p className="chart-notes-empty">No analysis yet.</p>
+              )}
+            </div>
+
             <div
               className="chart-modal-notes"
               onDoubleClick={() => {

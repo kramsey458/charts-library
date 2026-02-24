@@ -62,3 +62,24 @@ export const buildChecklistSummary = (checklist = {}) => {
 };
 
 export const chartHasFlag = (chart, key) => Boolean(chart?.checklist?.[key]);
+
+
+export const normalizeAnalysis = (analysis = {}) => ({
+  status: typeof analysis?.status === "string" && analysis.status ? analysis.status : "idle",
+  model: typeof analysis?.model === "string" ? analysis.model : "",
+  prompt_version: typeof analysis?.prompt_version === "string" ? analysis.prompt_version : "",
+  text: typeof analysis?.text === "string" ? analysis.text : "",
+  error: typeof analysis?.error === "string" ? analysis.error : "",
+  started_at: typeof analysis?.started_at === "string" ? analysis.started_at : "",
+  completed_at: typeof analysis?.completed_at === "string" ? analysis.completed_at : "",
+});
+
+export const analyzeChart = async (chart) => {
+  const payload = await fetchJson(
+    `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(chart.date)}/${encodeURIComponent(
+      chart.filename
+    )}/analyze`,
+    { method: "POST" }
+  );
+  return payload.chart;
+};
