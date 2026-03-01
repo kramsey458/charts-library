@@ -24,6 +24,40 @@ export const getNextTimeframe = (timeframe) => {
   return TIMEFRAME_OPTIONS[(currentIndex + 1) % TIMEFRAME_OPTIONS.length];
 };
 
+const TIMEFRAME_MARKER_PATTERN = /(?:\n|^)\[\[TF:([DWM])\]\]\s*$/i;
+
+const stripTimeframeMarker = (notes = "") => String(notes || "").replace(TIMEFRAME_MARKER_PATTERN, "").trim();
+
+const readTimeframeMarker = (notes = "") => {
+  const match = String(notes || "").match(TIMEFRAME_MARKER_PATTERN);
+  if (!match) {
+    return null;
+  }
+  return normalizeTimeframe(match[1]);
+};
+
+export const encodeNotesWithTimeframe = (notes = "", timeframe = "D") => {
+  const cleanedNotes = stripTimeframeMarker(notes);
+  const normalizedTimeframe = normalizeTimeframe(timeframe);
+  if (!cleanedNotes) {
+    return `[[TF:${normalizedTimeframe}]]`;
+  }
+  return `${cleanedNotes}
+[[TF:${normalizedTimeframe}]]`;
+};
+
+export const decodeChartTimeframe = (chart = {}) => {
+  const chartTimeframe = normalizeTimeframe(chart.timeframe);
+  const notesTimeframe = readTimeframeMarker(chart.notes || "");
+  const timeframe = chart.timeframe ? chartTimeframe : notesTimeframe || chartTimeframe;
+  return {
+    ...chart,
+    notes: stripTimeframeMarker(chart.notes || ""),
+    timeframe,
+  };
+};
+
+
 const apiBaseUrl = (import.meta.env?.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 
 export const withApiBase = (path) => {
@@ -117,7 +151,7 @@ export const cycleChartTimeframe = async (chart) => {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        notes: chart.notes || "",
+        notes: encodeNotesWithTimeframe(chart.notes || "", getNextTimeframe(chart.timeframe)),
         timeframe: getNextTimeframe(chart.timeframe),
       }),
     });

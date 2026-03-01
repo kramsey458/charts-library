@@ -6,6 +6,8 @@ import {
   buildNotesPreview,
   chartHasFlag,
   cycleChartTimeframe,
+  decodeChartTimeframe,
+  encodeNotesWithTimeframe,
   getNextTimeframe,
   normalizeAnalysis,
 } from "../src/lib/chartHelpers.js";
@@ -52,6 +54,16 @@ describe("chartHelpers", () => {
     expect(normalizeAnalysis({ status: "completed", text: "ok" }).status).toBe("completed");
   });
 
+
+  it("encodes and decodes timeframe marker in notes", () => {
+    const encoded = encodeNotesWithTimeframe("My note", "W");
+    expect(encoded).toContain("[[TF:W]]");
+
+    const decoded = decodeChartTimeframe({ notes: encoded, timeframe: "" });
+    expect(decoded.notes).toBe("My note");
+    expect(decoded.timeframe).toBe("W");
+  });
+
   it("returns next timeframe in D -> W -> M -> D sequence", () => {
     expect(getNextTimeframe("D")).toBe("W");
     expect(getNextTimeframe("W")).toBe("M");
@@ -96,5 +108,8 @@ describe("chartHelpers", () => {
     expect(fetchMock.mock.calls[0][0]).toContain("/timeframe");
     expect(fetchMock.mock.calls[1][0]).toContain("/notes");
     expect(fetchMock.mock.calls[1][1].method).toBe("PATCH");
+    const fallbackBody = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(fallbackBody.timeframe).toBe("W");
+    expect(fallbackBody.notes).toContain("[[TF:W]]");
   });
 });

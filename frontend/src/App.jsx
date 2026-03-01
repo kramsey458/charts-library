@@ -14,6 +14,8 @@ import {
   normalizeTimeframe,
   TIMEFRAME_OPTIONS,
   cycleChartTimeframe,
+  encodeNotesWithTimeframe,
+  decodeChartTimeframe,
 } from "./lib/chartHelpers";
 import ClassifierTab from "./components/ClassifierTab";
 
@@ -131,7 +133,7 @@ export default function App() {
   };
 
   const openChartPreview = (chart) => {
-    setPreviewChart({ ...chart, analysis: normalizeAnalysis(chart.analysis) });
+    setPreviewChart({ ...decodeChartTimeframe(chart), analysis: normalizeAnalysis(chart.analysis) });
     setEditingNotesKey("");
     setNotesDraft("");
     resetPreviewTransform();
@@ -324,10 +326,10 @@ export default function App() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notes: notesDraft }),
+          body: JSON.stringify({ notes: encodeNotesWithTimeframe(notesDraft, chart.timeframe), timeframe: normalizeTimeframe(chart.timeframe) }),
         }
       );
-      updateChartNotesInState(chart, response.chart?.notes || "");
+      updateChartNotesInState(chart, decodeChartTimeframe(response.chart || { ...chart, notes: notesDraft }).notes);
       cancelEditingNotes();
     } catch (err) {
       setError(err.message);
@@ -354,8 +356,9 @@ export default function App() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            notes: chart.notes || "",
+            notes: encodeNotesWithTimeframe(chart.notes || "", chart.timeframe),
             checklist: nextChecklist,
+            timeframe: normalizeTimeframe(chart.timeframe),
           }),
         }
       );
@@ -625,7 +628,7 @@ export default function App() {
     setError("");
     try {
       const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
-      setCharts((data.charts || []).map((chart) => ({ ...chart, analysis: normalizeAnalysis(chart.analysis) })));
+      setCharts((data.charts || []).map((chart) => ({ ...decodeChartTimeframe(chart), analysis: normalizeAnalysis(chart.analysis) })));
       setChartsTicker(ticker);
     } catch (err) {
       setError(err.message);
@@ -721,7 +724,7 @@ export default function App() {
     formData.append("ticker", normalizedTicker);
     formData.append("date", date);
     formData.append("chart", file);
-    formData.append("notes", notes.trim());
+    formData.append("notes", encodeNotesWithTimeframe(notes.trim(), timeframe));
     formData.append("timeframe", normalizeTimeframe(timeframe));
     CHECKLIST_FIELDS.forEach((field) => {
       formData.append(field.key, checklist[field.key] ? "true" : "false");
@@ -887,7 +890,11 @@ export default function App() {
     try {
       const updatedChart = await cycleChartTimeframe(chart);
       if (updatedChart) {
-        updateChartTimeframeInState(chart, updatedChart.timeframe);
+        const normalizedChart = decodeChartTimeframe(updatedChart);
+        updateChartTimeframeInState(chart, normalizedChart.timeframe);
+        if (typeof normalizedChart.notes === "string") {
+          updateChartNotesInState(chart, normalizedChart.notes);
+        }
       }
     } catch (err) {
       setError(err.message);
