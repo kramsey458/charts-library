@@ -27,6 +27,17 @@ class LocalStorage:
         return chart_file.parent / f"{chart_file.stem}.analysis.json"
 
     @staticmethod
+    def timeframe_file_path(chart_file: Path) -> Path:
+        return chart_file.parent / f"{chart_file.stem}.timeframe.txt"
+
+    @staticmethod
+    def sanitize_timeframe(timeframe: str | None) -> str:
+        normalized = str(timeframe or "").strip().upper()
+        if normalized not in {"D", "W", "M"}:
+            return "D"
+        return normalized
+
+    @staticmethod
     def sanitize_classification(classification: dict[str, Any] | None) -> dict[str, Any]:
         payload = classification if isinstance(classification, dict) else {}
 
@@ -154,6 +165,7 @@ class LocalStorage:
                         "checklist": self.read_checklist(chart_file),
                         **self.read_classification(chart_file),
                         "analysis": self.read_analysis(chart_file),
+                        "timeframe": self.read_timeframe(chart_file),
                     }
                 )
 
@@ -167,6 +179,7 @@ class LocalStorage:
         notes: str,
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
+        timeframe: str,
         chart_file,
     ) -> None:
         target_dir = self.storage_dir / ticker / date_label
@@ -183,6 +196,18 @@ class LocalStorage:
         self.write_checklist(target_path, checklist)
         self.write_classification(target_path, classification)
         self.write_analysis(target_path, {})
+        self.write_timeframe(target_path, timeframe)
+
+    def read_timeframe(self, chart_file: Path) -> str:
+        metadata_path = self.timeframe_file_path(chart_file)
+        if not metadata_path.exists() or not metadata_path.is_file():
+            return "D"
+
+        return self.sanitize_timeframe(metadata_path.read_text(encoding="utf-8"))
+
+    def write_timeframe(self, chart_file: Path, timeframe: str | None) -> None:
+        metadata_path = self.timeframe_file_path(chart_file)
+        metadata_path.write_text(self.sanitize_timeframe(timeframe), encoding="utf-8")
 
     def delete_chart(self, ticker: str, date_label: str, filename: str) -> bool:
         chart_path = self.storage_dir / ticker / date_label / filename
@@ -206,6 +231,10 @@ class LocalStorage:
         if analysis_path.exists() and analysis_path.is_file():
             analysis_path.unlink()
 
+        timeframe_path = self.timeframe_file_path(chart_path)
+        if timeframe_path.exists() and timeframe_path.is_file():
+            timeframe_path.unlink()
+
         date_dir = chart_path.parent
         ticker_dir = date_dir.parent
         if date_dir.exists() and not any(date_dir.iterdir()):
@@ -215,7 +244,15 @@ class LocalStorage:
 
         return True
 
-    def update_notes(self, ticker: str, date_label: str, filename: str, notes: str, checklist: dict[str, bool]) -> bool:
+    def update_notes(
+        self,
+        ticker: str,
+        date_label: str,
+        filename: str,
+        notes: str,
+        checklist: dict[str, bool],
+        timeframe: str | None = None,
+    ) -> bool:
         chart_path = self.storage_dir / ticker / date_label / filename
         if not chart_path.exists() or not chart_path.is_file():
             return False
@@ -227,4 +264,6 @@ class LocalStorage:
             notes_path.unlink()
 
         self.write_checklist(chart_path, checklist)
+        if timeframe is not None:
+            self.write_timeframe(chart_path, timeframe)
         return True

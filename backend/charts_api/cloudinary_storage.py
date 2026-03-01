@@ -33,6 +33,7 @@ class CloudinaryStorage:
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
         analysis: dict[str, Any] | None,
+        timeframe: str,
     ) -> str:
         safe_classification = LocalStorage.sanitize_classification(classification)
         safe_analysis = LocalStorage.sanitize_analysis(analysis)
@@ -50,7 +51,8 @@ class CloudinaryStorage:
             f"analysis_text={quote(str(safe_analysis.get('text') or ''))}|"
             f"analysis_error={quote(str(safe_analysis.get('error') or ''))}|"
             f"analysis_started_at={quote(str(safe_analysis.get('started_at') or ''))}|"
-            f"analysis_completed_at={quote(str(safe_analysis.get('completed_at') or ''))}"
+            f"analysis_completed_at={quote(str(safe_analysis.get('completed_at') or ''))}|"
+            f"timeframe={quote(LocalStorage.sanitize_timeframe(timeframe))}"
         )
 
     def signature(self, params: dict[str, Any]) -> str:
@@ -137,6 +139,7 @@ class CloudinaryStorage:
                             "completed_at": unquote(str(context.get("analysis_completed_at", ""))),
                         }
                     ),
+                    "timeframe": LocalStorage.sanitize_timeframe(unquote(str(context.get("timeframe", "D")))),
                     "public_id": resource.get("public_id", ""),
                     "secure_url": resource.get("secure_url", ""),
                     "created_at": resource.get("created_at", ""),
@@ -155,6 +158,7 @@ class CloudinaryStorage:
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
         analysis: dict[str, Any] | None,
+        timeframe: str,
         chart_file,
     ) -> None:
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
@@ -169,6 +173,7 @@ class CloudinaryStorage:
             checklist=checklist,
             classification=classification,
             analysis=analysis,
+            timeframe=timeframe,
         )
         signature = self.signature({"context": context, "overwrite": "true", "public_id": public_id, "timestamp": timestamp})
         chart_file.stream.seek(0)
@@ -202,6 +207,7 @@ class CloudinaryStorage:
         checklist: dict[str, bool],
         classification: dict[str, Any] | None,
         analysis: dict[str, Any] | None,
+        timeframe: str,
     ) -> None:
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         context = self.build_context(
@@ -212,6 +218,7 @@ class CloudinaryStorage:
             checklist=checklist,
             classification=classification,
             analysis=analysis,
+            timeframe=timeframe,
         )
         signature = self.signature(
             {"context": context, "public_id": public_id, "timestamp": timestamp, "type": "upload"}
@@ -270,4 +277,5 @@ class CloudinaryStorage:
             "classifier_config_version": chart.get("classifier_config_version"),
             "classification_timestamp": chart.get("classification_timestamp"),
             "analysis": LocalStorage.sanitize_analysis(chart.get("analysis")),
+            "timeframe": LocalStorage.sanitize_timeframe(chart.get("timeframe")),
         }

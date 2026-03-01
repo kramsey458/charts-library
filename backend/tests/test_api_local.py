@@ -3,7 +3,9 @@ from __future__ import annotations
 import io
 
 
-def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", notes="Base case", classification=None):
+def upload_chart(
+    client, fileobj, filename, ticker="VG", date="2026-02-11", notes="Base case", classification=None, timeframe="D"
+):
     data = {
         "ticker": ticker,
         "date": date,
@@ -13,6 +15,7 @@ def upload_chart(client, fileobj, filename, ticker="VG", date="2026-02-11", note
         "trend_bullish": "false",
         "trend_bearish": "true",
         "macd_minus_cross": "true",
+        "timeframe": timeframe,
         "chart": (fileobj, filename),
     }
     if classification:
@@ -48,6 +51,7 @@ def test_upload_list_patch_and_delete_flow(client, png_file):
     assert uploaded["checklist"]["trend_bearish"] is True
     assert uploaded["checklist"]["macd_minus_cross"] is True
     assert uploaded["classification_label"] is None
+    assert uploaded["timeframe"] == "D"
 
     tickers = client.get("/api/tickers").get_json()
     assert tickers["tickers"] == ["VG"]
@@ -57,16 +61,18 @@ def test_upload_list_patch_and_delete_flow(client, png_file):
     assert charts.status_code == 200
     chart = charts.get_json()["charts"][0]
     assert chart["notes"] == "Initial VG note"
+    assert chart["timeframe"] == "D"
 
     patch = client.patch(
         f"/api/charts/VG/{chart['date']}/{chart['filename']}/notes",
-        json={"notes": "Updated VG note", "checklist": {"trend_bullish": True, "macd_positive": True}},
+        json={"notes": "Updated VG note", "checklist": {"trend_bullish": True, "macd_positive": True}, "timeframe": "W"},
     )
     assert patch.status_code == 200
     patched_chart = patch.get_json()["chart"]
     assert patched_chart["notes"] == "Updated VG note"
     assert patched_chart["checklist"]["trend_bullish"] is True
     assert patched_chart["checklist"]["macd_positive"] is True
+    assert patched_chart["timeframe"] == "W"
 
     file_response = client.get(f"/api/chart-file/VG/{chart['date']}/{chart['filename']}")
     assert file_response.status_code == 200
@@ -119,6 +125,7 @@ def test_rest_upload_endpoint_accepts_image_field(client, png_file):
     chart = response.get_json()["chart"]
     assert chart["ticker"] == "AAPL"
     assert chart["filename"] == filename
+    assert chart["timeframe"] == "D"
 
     charts_response = client.get("/api/charts/AAPL")
     assert charts_response.status_code == 200
@@ -146,7 +153,7 @@ def test_upload_persists_and_lists_classification_metadata(client, png_file):
         "classification_timestamp": "2026-02-13T12:34:56Z",
     }
 
-    response = upload_chart(client, fileobj, filename, ticker="NVDA", classification=classification)
+    response = upload_chart(client, fileobj, filename, ticker="NVDA", classification=classification, timeframe="M")
     assert response.status_code == 201
 
     uploaded = response.get_json()["chart"]
@@ -155,6 +162,7 @@ def test_upload_persists_and_lists_classification_metadata(client, png_file):
     assert uploaded["classification_yellow_pixels"] == 37
     assert uploaded["classifier_config_version"] == "v2026.02.13"
     assert uploaded["classification_timestamp"] == "2026-02-13T12:34:56Z"
+    assert uploaded["timeframe"] == "M"
 
     charts = client.get("/api/charts/NVDA")
     assert charts.status_code == 200
@@ -164,6 +172,7 @@ def test_upload_persists_and_lists_classification_metadata(client, png_file):
     assert listed["classification_yellow_pixels"] == 37
     assert listed["classifier_config_version"] == "v2026.02.13"
     assert listed["classification_timestamp"] == "2026-02-13T12:34:56Z"
+    assert listed["timeframe"] == "M"
 
     patch = client.patch(
         f"/api/charts/NVDA/{listed['date']}/{listed['filename']}/notes",
@@ -256,3 +265,24 @@ def test_analyze_chart_still_completes_when_checklist_pass_fails(client, png_fil
     assert chart["analysis"]["text"] == "Primary analysis only."
     assert chart["checklist"]["red_candle"] is True
     assert chart["checklist"]["yellow_candle"] is True
+
+
+def test_cycle_timeframe_endpoint(client, png_file):
+    fileobj, filename = png_file
+    response = upload_chart(client, fileobj, filename, ticker="QQQ", timeframe="D")
+    assert response.status_code == 201
+
+    first = client.post(f"/api/charts/QQQ/2026-02-11/{filename}/timeframe")
+    assert first.status_code == 200
+    assert first.get_json()["chart"]["timeframe"] == "W"
+
+    second = client.post(f"/api/charts/QQQ/2026-02-11/{filename}/timeframe")
+    assert second.status_code == 200
+    assert second.get_json()["chart"]["timeframe"] == "M"
+
+    third = client.post(f"/api/charts/QQQ/2026-02-11/{filename}/timeframe")
+    assert third.status_code == 200
+    assert third.get_json()["chart"]["timeframe"] == "D"
+
+    listed = client.get("/api/charts/QQQ").get_json()["charts"][0]
+    assert listed["timeframe"] == "D"

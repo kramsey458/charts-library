@@ -11,6 +11,11 @@ import {
   fetchJson,
   getChartKey,
   normalizeAnalysis,
+  normalizeTimeframe,
+  TIMEFRAME_OPTIONS,
+  cycleChartTimeframe,
+  encodeNotesWithTimeframe,
+  decodeChartTimeframe,
 } from "./lib/chartHelpers";
 import ClassifierTab from "./components/ClassifierTab";
 import { SHOW_CLASSIFIER_TAB } from "./lib/appConfig";
@@ -62,12 +67,14 @@ export default function App() {
     ticker: "",
     date: "",
     notes: "",
+    timeframe: "D",
     checklist: buildEmptyChecklist(),
   });
   const [formState, setFormState] = useState({
     ticker: "",
     date: "",
     notes: "",
+    timeframe: "D",
     file: null,
     checklist: buildEmptyChecklist(),
   });
@@ -127,7 +134,7 @@ export default function App() {
   };
 
   const openChartPreview = (chart) => {
-    setPreviewChart({ ...chart, analysis: normalizeAnalysis(chart.analysis) });
+    setPreviewChart({ ...decodeChartTimeframe(chart), analysis: normalizeAnalysis(chart.analysis) });
     setEditingNotesKey("");
     setNotesDraft("");
     resetPreviewTransform();
@@ -320,10 +327,10 @@ export default function App() {
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ notes: notesDraft }),
+          body: JSON.stringify({ notes: encodeNotesWithTimeframe(notesDraft, chart.timeframe), timeframe: normalizeTimeframe(chart.timeframe) }),
         }
       );
-      updateChartNotesInState(chart, response.chart?.notes || "");
+      updateChartNotesInState(chart, decodeChartTimeframe(response.chart || { ...chart, notes: notesDraft }).notes);
       cancelEditingNotes();
     } catch (err) {
       setError(err.message);
@@ -350,8 +357,9 @@ export default function App() {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            notes: chart.notes || "",
+            notes: encodeNotesWithTimeframe(chart.notes || "", chart.timeframe),
             checklist: nextChecklist,
+            timeframe: normalizeTimeframe(chart.timeframe),
           }),
         }
       );
@@ -621,7 +629,7 @@ export default function App() {
     setError("");
     try {
       const data = await fetchJson(`/api/charts/${encodeURIComponent(ticker)}`);
-      setCharts((data.charts || []).map((chart) => ({ ...chart, analysis: normalizeAnalysis(chart.analysis) })));
+      setCharts((data.charts || []).map((chart) => ({ ...decodeChartTimeframe(chart), analysis: normalizeAnalysis(chart.analysis) })));
       setChartsTicker(ticker);
     } catch (err) {
       setError(err.message);
@@ -711,13 +719,14 @@ export default function App() {
     }
   }, [selectedTicker, visibleTickers]);
 
-  const uploadChart = async ({ ticker, date, notes, file, checklist }) => {
+  const uploadChart = async ({ ticker, date, notes, timeframe, file, checklist }) => {
     const normalizedTicker = ticker.trim().toUpperCase();
     const formData = new FormData();
     formData.append("ticker", normalizedTicker);
     formData.append("date", date);
     formData.append("chart", file);
-    formData.append("notes", notes.trim());
+    formData.append("notes", encodeNotesWithTimeframe(notes.trim(), timeframe));
+    formData.append("timeframe", normalizeTimeframe(timeframe));
     CHECKLIST_FIELDS.forEach((field) => {
       formData.append(field.key, checklist[field.key] ? "true" : "false");
     });
@@ -749,6 +758,7 @@ export default function App() {
         ticker: normalizedTicker,
         date: formState.date,
         notes: formState.notes,
+        timeframe: formState.timeframe,
         file: selectedFile,
         checklist: formState.checklist,
       });
@@ -759,6 +769,7 @@ export default function App() {
         ticker: "",
         date: "",
         notes: "",
+        timeframe: "D",
         file: null,
         checklist: buildEmptyChecklist(),
       });
@@ -780,6 +791,7 @@ export default function App() {
       ticker: "",
       date: "",
       notes: "",
+      timeframe: "D",
       checklist: buildEmptyChecklist(),
     });
     if (batchFileInputRef.current) {
@@ -802,6 +814,7 @@ export default function App() {
       ticker: formState.ticker || selectedTicker || "",
       date: formState.date || "",
       notes: "",
+      timeframe: "D",
       checklist: buildEmptyChecklist(),
     });
     setIsBatchModalOpen(true);
@@ -825,6 +838,7 @@ export default function App() {
         ticker: normalizedTicker,
         date: batchFormState.date,
         notes: batchFormState.notes,
+        timeframe: batchFormState.timeframe,
         file: currentFile,
         checklist: batchFormState.checklist,
       });
@@ -843,12 +857,48 @@ export default function App() {
         ...prev,
         date: "",
         notes: "",
+        timeframe: "D",
         checklist: buildEmptyChecklist(),
       }));
     } catch (err) {
       setError(err.message);
     } finally {
       setIsBatchUploading(false);
+    }
+  };
+
+  const updateChartTimeframeInState = (targetChart, nextTimeframe) => {
+    const normalizedTimeframe = normalizeTimeframe(nextTimeframe);
+    setCharts((prevCharts) =>
+      prevCharts.map((chart) => {
+        if (getChartKey(chart) !== getChartKey(targetChart)) {
+          return chart;
+        }
+        return { ...chart, timeframe: normalizedTimeframe };
+      })
+    );
+
+    setPreviewChart((prevPreviewChart) => {
+      if (!prevPreviewChart || getChartKey(prevPreviewChart) !== getChartKey(targetChart)) {
+        return prevPreviewChart;
+      }
+      return { ...prevPreviewChart, timeframe: normalizedTimeframe };
+    });
+  };
+
+  const handleCycleChartTimeframe = async (chart) => {
+    setError("");
+    try {
+      const updatedChart = await cycleChartTimeframe(chart);
+      if (updatedChart) {
+        const normalizedChart = decodeChartTimeframe(updatedChart);
+        updateChartTimeframeInState(chart, normalizedChart.timeframe);
+        if (typeof normalizedChart.notes === "string") {
+          updateChartNotesInState(chart, normalizedChart.notes);
+        }
+      }
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -1308,6 +1358,25 @@ export default function App() {
               }
             />
           </div>
+          <fieldset className="upload-timeframe">
+            <legend>Timeframe</legend>
+            <div className="timeframe-options">
+              {TIMEFRAME_OPTIONS.map((timeframe) => (
+                <label key={`upload-timeframe-${timeframe}`} className="timeframe-option">
+                  <input
+                    type="radio"
+                    name="upload-timeframe"
+                    value={timeframe}
+                    checked={formState.timeframe === timeframe}
+                    onChange={(event) =>
+                      setFormState((prev) => ({ ...prev, timeframe: normalizeTimeframe(event.target.value) }))
+                    }
+                  />
+                  <span>{timeframe}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <fieldset className="upload-checklist">
             <legend>Checklist</legend>
             {checklistRows.map((row, rowIndex) => (
@@ -1423,6 +1492,25 @@ export default function App() {
                     rows={3}
                   />
                 </div>
+                <fieldset className="upload-timeframe">
+                  <legend>Timeframe</legend>
+                  <div className="timeframe-options">
+                    {TIMEFRAME_OPTIONS.map((timeframe) => (
+                      <label key={`batch-timeframe-${timeframe}`} className="timeframe-option">
+                        <input
+                          type="radio"
+                          name="batch-upload-timeframe"
+                          value={timeframe}
+                          checked={batchFormState.timeframe === timeframe}
+                          onChange={(event) =>
+                            setBatchFormState((prev) => ({ ...prev, timeframe: normalizeTimeframe(event.target.value) }))
+                          }
+                        />
+                        <span>{timeframe}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
                 <fieldset className="upload-checklist">
                   <legend>Checklist</legend>
                   {checklistRows.map((row, rowIndex) => (
@@ -1583,6 +1671,15 @@ export default function App() {
                         </div>
                         <button
                           type="button"
+                          className="timeframe-badge"
+                          onClick={() => handleCycleChartTimeframe(chart)}
+                          aria-label={`Cycle timeframe for ${chart.filename}`}
+                          title="Click to cycle timeframe"
+                        >
+                          {normalizeTimeframe(chart.timeframe)}
+                        </button>
+                        <button
+                          type="button"
                           className="delete-button"
                           onClick={() => handleDeleteChart(chart)}
                           disabled={status === "deleting"}
@@ -1710,7 +1807,7 @@ export default function App() {
                 {previewChart.filename}
               </a>
               <span className="chart-modal-context">
-                {previewChart.ticker} • {previewChart.date}
+                {previewChart.ticker} • {previewChart.date} • {normalizeTimeframe(previewChart.timeframe)}
               </span>
             </div>
             <div className="chart-modal-checklist">
