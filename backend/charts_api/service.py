@@ -148,6 +148,16 @@ class ChartService:
 
         return self.local.list_charts_for_ticker(normalized_ticker)
 
+    @staticmethod
+    def sanitize_timeframe(timeframe: str | None) -> str:
+        return LocalStorage.sanitize_timeframe(timeframe)
+
+    @staticmethod
+    def next_timeframe(timeframe: str | None) -> str:
+        current = LocalStorage.sanitize_timeframe(timeframe)
+        order = ["D", "W", "M"]
+        return order[(order.index(current) + 1) % len(order)]
+
     def upload_chart(self, form, files, image_field_names: tuple[str, ...] = ("chart",)) -> tuple[dict, int]:
         if not self.is_external:
             self.local.ensure_storage()
@@ -158,6 +168,7 @@ class ChartService:
         checklist = sanitize_checklist({key: form.get(key, "") for key in CHECKLIST_KEYS})
         classification = self.local.sanitize_classification(self._extract_classification_payload(form))
         analysis = self.local.sanitize_analysis({})
+        timeframe = self.sanitize_timeframe(form.get("timeframe", "D"))
         chart_file = next((files.get(field_name) for field_name in image_field_names if files.get(field_name)), None)
 
         if not ticker:
@@ -172,9 +183,9 @@ class ChartService:
         filename = secure_filename(chart_file.filename)
 
         if self.is_external:
-            self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, classification, analysis, chart_file)
+            self.external.upload_chart(safe_ticker, safe_date, filename, notes, checklist, classification, analysis, timeframe, chart_file)
         else:
-            self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, classification, chart_file)
+            self.local.save_chart(safe_ticker, safe_date, filename, notes, checklist, classification, timeframe, chart_file)
 
         return {
             "message": "Chart uploaded.",
@@ -187,6 +198,7 @@ class ChartService:
                 "checklist": checklist,
                 **classification,
                 "analysis": analysis,
+                "timeframe": timeframe,
             },
         }, 201
 
@@ -217,6 +229,7 @@ class ChartService:
         notes = str(payload.get("notes", "")).strip()
         checklist_payload = payload.get("checklist") if isinstance(payload, dict) else None
         has_checklist_payload = isinstance(checklist_payload, dict)
+        has_timeframe_payload = isinstance(payload, dict) and "timeframe" in payload
 
         if self.is_external:
             chart = next(
@@ -230,15 +243,17 @@ class ChartService:
             if not chart:
                 return {"error": "Chart not found."}, 404
             checklist = sanitize_checklist(checklist_payload) if has_checklist_payload else sanitize_checklist(chart.get("checklist"))
+            timeframe = self.sanitize_timeframe(payload.get("timeframe")) if has_timeframe_payload else self.sanitize_timeframe(chart.get("timeframe"))
             classification = self.local.sanitize_classification(chart)
             analysis = self.local.sanitize_analysis(chart.get("analysis"))
-            self.external.update_chart_notes(chart["public_id"], normalized_ticker, date_label, filename, notes, checklist, classification, analysis)
+            self.external.update_chart_notes(chart["public_id"], normalized_ticker, date_label, filename, notes, checklist, classification, analysis, timeframe)
         else:
             chart_path = self.settings.storage_dir / normalized_ticker / date_label / filename
             checklist = sanitize_checklist(checklist_payload) if has_checklist_payload else self.local.read_checklist(chart_path)
+            timeframe = self.sanitize_timeframe(payload.get("timeframe")) if has_timeframe_payload else self.local.read_timeframe(chart_path)
             classification = self.local.read_classification(chart_path)
             analysis = self.local.read_analysis(chart_path)
-            updated = self.local.update_notes(normalized_ticker, date_label, filename, notes, checklist)
+            updated = self.local.update_notes(normalized_ticker, date_label, filename, notes, checklist, timeframe)
             if not updated:
                 return {"error": "Chart not found."}, 404
 
@@ -252,6 +267,58 @@ class ChartService:
                 "checklist": checklist,
                 **classification,
                 "analysis": analysis,
+                "timeframe": timeframe,
+            },
+        }, 200
+
+    def cycle_timeframe(self, ticker: str, date_label: str, filename: str) -> tuple[dict[str, Any], int]:
+        normalized_ticker = ticker.strip().upper()
+
+        if self.is_external:
+            chart = self.find_external_chart(normalized_ticker, date_label, filename)
+            if not chart:
+                return {"error": "Chart not found."}, 404
+
+            notes = str(chart.get("notes", ""))
+            checklist = sanitize_checklist(chart.get("checklist"))
+            classification = self.local.sanitize_classification(chart)
+            analysis = self.local.sanitize_analysis(chart.get("analysis"))
+            timeframe = self.next_timeframe(chart.get("timeframe"))
+            self.external.update_chart_notes(
+                chart["public_id"],
+                normalized_ticker,
+                date_label,
+                filename,
+                notes,
+                checklist,
+                classification,
+                analysis,
+                timeframe,
+            )
+        else:
+            chart_path = self.settings.storage_dir / normalized_ticker / date_label / filename
+            if not chart_path.exists() or not chart_path.is_file():
+                return {"error": "Chart not found."}, 404
+
+            notes_path = chart_path.parent / f"{chart_path.stem}.notes.txt"
+            notes = notes_path.read_text(encoding="utf-8").strip() if notes_path.exists() else ""
+            checklist = self.local.read_checklist(chart_path)
+            classification = self.local.read_classification(chart_path)
+            analysis = self.local.read_analysis(chart_path)
+            timeframe = self.next_timeframe(self.local.read_timeframe(chart_path))
+            self.local.write_timeframe(chart_path, timeframe)
+
+        return {
+            "message": "Timeframe updated.",
+            "chart": {
+                "ticker": normalized_ticker,
+                "date": date_label,
+                "filename": filename,
+                "notes": notes,
+                "checklist": checklist,
+                **classification,
+                "analysis": analysis,
+                "timeframe": timeframe,
             },
         }, 200
 
@@ -295,6 +362,7 @@ class ChartService:
             "checklist": self.local.read_checklist(chart_path),
             **self.local.read_classification(chart_path),
             "analysis": self.local.read_analysis(chart_path),
+            "timeframe": self.local.read_timeframe(chart_path),
         }
 
     def analyze_chart(self, ticker: str, date_label: str, filename: str) -> tuple[dict[str, Any], int]:
@@ -317,6 +385,7 @@ class ChartService:
             notes = str(chart.get("notes", ""))
             checklist = sanitize_checklist(chart.get("checklist"))
             classification = self.local.sanitize_classification(chart)
+            timeframe = self.sanitize_timeframe(chart.get("timeframe"))
             running_analysis = self.local.sanitize_analysis(
                 {
                     "status": "running",
@@ -334,6 +403,7 @@ class ChartService:
                 checklist,
                 classification,
                 running_analysis,
+                timeframe,
             )
 
             try:
@@ -391,6 +461,7 @@ class ChartService:
                 checklist,
                 classification,
                 completed,
+                timeframe,
             )
             refreshed = self.find_external_chart(normalized_ticker, date_label, filename)
             return {"chart": self.external.chart_payload(refreshed) if refreshed else None}, 200
@@ -632,6 +703,7 @@ class ChartService:
                     "classification_yellow_pixels": classify_result["scores"]["yellow_pixels"],
                     "classifier_config_version": "batch-default",
                     "classification_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "timeframe": self.sanitize_timeframe(form.get("timeframe", "D")),
                 }
                 chart_file.stream.seek(0)
                 payload, status = self.upload_chart(upload_form, {"chart": chart_file})

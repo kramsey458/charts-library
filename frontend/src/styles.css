@@ -664,6 +664,59 @@ button:disabled {
 }
 
 
+
+.upload-timeframe {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.upload-timeframe legend {
+  padding: 0 6px;
+  color: #9aa3c4;
+  font-size: 0.8rem;
+}
+
+.timeframe-options {
+  display: flex;
+  gap: 8px;
+}
+
+.timeframe-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: #d7ddfb;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.timeframe-option input {
+  width: auto;
+  margin: 0;
+}
+
+.timeframe-badge {
+  min-width: 34px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e3e9ff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 0 10px;
+}
+
+.timeframe-badge:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 .upload-checklist {
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;

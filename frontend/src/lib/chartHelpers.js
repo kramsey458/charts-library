@@ -11,6 +11,13 @@ export const CHECKLIST_FIELDS = [
   { key: "macd_minus_cross", label: "MACD - Cross", row: 2 },
 ];
 
+export const TIMEFRAME_OPTIONS = ["D", "W", "M"];
+
+export const normalizeTimeframe = (timeframe) => {
+  const normalized = String(timeframe || "").trim().toUpperCase();
+  return TIMEFRAME_OPTIONS.includes(normalized) ? normalized : "D";
+};
+
 const apiBaseUrl = (import.meta.env?.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 
 export const withApiBase = (path) => {
@@ -79,6 +86,17 @@ export const analyzeChart = async (chart) => {
     `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(chart.date)}/${encodeURIComponent(
       chart.filename
     )}/analyze`,
+    { method: "POST" }
+  );
+  return payload.chart;
+};
+
+
+export const cycleChartTimeframe = async (chart) => {
+  const payload = await fetchJson(
+    `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(chart.date)}/${encodeURIComponent(
+      chart.filename
+    )}/timeframe`,
     { method: "POST" }
   );
   return payload.chart;
