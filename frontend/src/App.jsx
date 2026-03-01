@@ -13,6 +13,7 @@ import {
   normalizeAnalysis,
 } from "./lib/chartHelpers";
 import ClassifierTab from "./components/ClassifierTab";
+import { SHOW_CLASSIFIER_TAB } from "./lib/appConfig";
 
 const emptyState = {
   tickers: [],
@@ -1073,16 +1074,18 @@ export default function App() {
         >
           Library
         </button>
-        <button
-          type="button"
-          className={`top-tab ${activeTab === "classifier" ? "is-active" : ""}`.trim()}
-          onClick={() => setActiveTab("classifier")}
-        >
-          Classifier
-        </button>
+        {SHOW_CLASSIFIER_TAB ? (
+          <button
+            type="button"
+            className={`top-tab ${activeTab === "classifier" ? "is-active" : ""}`.trim()}
+            onClick={() => setActiveTab("classifier")}
+          >
+            Classifier
+          </button>
+        ) : null}
       </nav>
 
-      {activeTab === "library" ? (
+      {activeTab === "library" || !SHOW_CLASSIFIER_TAB ? (
         <>
       <section className="controls">
         <div className="selector">
