@@ -18,6 +18,12 @@ export const normalizeTimeframe = (timeframe) => {
   return TIMEFRAME_OPTIONS.includes(normalized) ? normalized : "D";
 };
 
+export const getNextTimeframe = (timeframe) => {
+  const normalized = normalizeTimeframe(timeframe);
+  const currentIndex = TIMEFRAME_OPTIONS.indexOf(normalized);
+  return TIMEFRAME_OPTIONS[(currentIndex + 1) % TIMEFRAME_OPTIONS.length];
+};
+
 const apiBaseUrl = (import.meta.env?.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
 
 export const withApiBase = (path) => {
@@ -34,7 +40,9 @@ export const fetchJson = async (url, options) => {
   const response = await fetch(withApiBase(url), options);
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || "Request failed");
+    const error = new Error(payload.error || "Request failed");
+    error.status = response.status;
+    throw error;
   }
   return response.json();
 };
@@ -93,11 +101,26 @@ export const analyzeChart = async (chart) => {
 
 
 export const cycleChartTimeframe = async (chart) => {
-  const payload = await fetchJson(
-    `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(chart.date)}/${encodeURIComponent(
-      chart.filename
-    )}/timeframe`,
-    { method: "POST" }
-  );
-  return payload.chart;
+  const chartRoute = `/api/charts/${encodeURIComponent(chart.ticker)}/${encodeURIComponent(
+    chart.date
+  )}/${encodeURIComponent(chart.filename)}`;
+
+  try {
+    const payload = await fetchJson(`${chartRoute}/timeframe`, { method: "POST" });
+    return payload.chart;
+  } catch (error) {
+    if (!error || error.status !== 404) {
+      throw error;
+    }
+
+    const payload = await fetchJson(`${chartRoute}/notes`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        notes: chart.notes || "",
+        timeframe: getNextTimeframe(chart.timeframe),
+      }),
+    });
+    return payload.chart;
+  }
 };
